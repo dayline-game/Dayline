@@ -549,8 +549,9 @@
     // filtered car height so bumps and crests don't jolt the view
     if (snap || r.cy == null) r.cy = c.y;
     r.cy += (c.y - r.cy) * (1 - Math.exp(-(c.grounded ? 8 : 3.5) * dt));
-    const dist = m.d + sp * 0.02;
-    const rise = m.h + sp * 0.006 + (c.grounded === false ? 0.6 : 0);
+    // fixed rig: the camera keeps the same distance and height at every speed, so it never stretches back or up
+    const dist = m.d;
+    const rise = m.h;
     tmpV.set(c.x - Math.sin(yawC) * dist, r.cy + rise, c.z - Math.cos(yawC) * dist);
     // keep the lens above the terrain, including the stretch between car and camera
     let gmax = r.track.groundAt(tmpV.x, tmpV.z, gTmp, true).y;
@@ -559,7 +560,7 @@
     if (tmpV.y < minY) tmpV.y = minY;
     if (snap) camera.position.copy(tmpV);
     else {
-      const kh = 1 - Math.exp(-m.lag * dt), kv = 1 - Math.exp(-m.lag * 0.75 * dt);
+      const kh = 1 - Math.exp(-m.lag * 4 * dt), kv = 1 - Math.exp(-m.lag * 0.75 * dt);
       camera.position.x += (tmpV.x - camera.position.x) * kh;
       camera.position.z += (tmpV.z - camera.position.z) * kh;
       camera.position.y += (tmpV.y - camera.position.y) * kv;
@@ -583,7 +584,7 @@
     camera.rotateZ(r.camRoll);
     // field of view widens with speed and kicks on landings
     r.fovKick = (r.fovKick || 0) * Math.exp(-4 * dt);
-    setFov(m.fov + DL.clamp(sp, 0, 58) * 0.2 + r.fovKick, dt);
+    setFov(m.fov + DL.clamp(sp, 0, 58) * 0.05 + r.fovKick, dt);
   }
 
   // ---------------- particles (low-poly puffs) ----------------
