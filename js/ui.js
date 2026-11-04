@@ -144,6 +144,14 @@
     const sp = r.car.speed * (Game.settings.units === 'mph' ? 2.237 : 3.6);
     $('hSpeed').textContent = Math.round(sp);
   };
+  // speed lines + vignette (every frame cheap: one style write, only when the value changes)
+  let fxLast = -1;
+  UI.speedFx = function (speed, on) {
+    const el = $('speedfx'); if (!el) return;
+    const k = on ? DL.clamp((speed - 30) / 28, 0, 1) : 0, q = Math.round(k * 20) / 20;
+    if (q === fxLast) return; fxLast = q;
+    el.style.opacity = on ? String(0.35 + q * 0.65) : '0'; el.style.setProperty('--lines', (q * 0.55).toFixed(2));
+  };
   UI.ghostGap = function (name, d, done) {
     const el = $('hGap');
     if (name == null) { el.hidden = true; return; }
@@ -246,6 +254,7 @@
     m.querySelector('#rMenu').onclick = () => { Game.loadDay(today()); show('menu'); };
     m.querySelector('#rBoard').onclick = () => { board.day = day; board.tab = 'daily'; Game.loadDay(today()); show('board'); };
     if (res && res.total) { DL.Audio.coin(); renderCoins(); }
+    if (valid && res && res.isPB) { UI.confetti(); DL.Audio.chime(); }
     if (Net.db && Net.mode === 'online' && valid) {
       setTimeout(async () => {
         try {
@@ -836,6 +845,52 @@
   }
 
   // ---------------- settings ----------------
+  // ---------------- patch notes ----------------
+  function patchPip() { const seen = DL.store.get('patchSeen', ''); const p = $('patchPip'); if (p) p.hidden = seen === DL.PATCH_VER; }
+  const CAR = (x, y, s, fill, op) => `<g transform="translate(${x} ${y}) scale(${s})" opacity="${op || 1}"><path d="M-46 14 L-40 -2 Q-36 -14 -22 -16 L10 -16 Q22 -16 30 -6 L44 0 Q50 4 50 14 Z" fill="${fill}"/><path d="M-30 -2 L-24 -12 L-6 -12 L-6 -2 Z M0 -2 L0 -12 L14 -12 L24 -2 Z" fill="#cdd6de" opacity=".85"/><circle cx="-26" cy="15" r="9" fill="#1c2536"/><circle cx="28" cy="15" r="9" fill="#1c2536"/><circle cx="-26" cy="15" r="3.5" fill="#9aa6b3"/><circle cx="28" cy="15" r="3.5" fill="#9aa6b3"/></g>`;
+  const ART = {
+    offroad: () => CAR(190, 128, 1.15, '#f05a35') + '<path d="M0 150 L60 135 L130 142 L190 138 L260 148 L400 140 L400 170 L0 170Z" fill="#8f9c80"/><g fill="#d6bc8e" opacity=".9"><circle cx="118" cy="140" r="9"/><circle cx="104" cy="132" r="6"/><circle cx="92" cy="140" r="11" opacity=".7"/><circle cx="76" cy="134" r="7" opacity=".5"/></g><path d="M130 146 L292 146" stroke="#11151d" stroke-opacity=".35" stroke-width="3" stroke-linecap="round" stroke-dasharray="40 6"/>',
+    account: () => '<rect x="118" y="38" width="164" height="104" rx="12" fill="#f3ead7"/><rect x="118" y="38" width="164" height="22" rx="12" fill="#1c2536"/><circle cx="160" cy="92" r="16" fill="#f05a35"/><path d="M134 128 Q160 100 186 128Z" fill="#f05a35"/><rect x="200" y="82" width="64" height="8" rx="4" fill="#1c2536"/><rect x="200" y="100" width="48" height="8" rx="4" fill="#cbbb9c"/><rect x="200" y="116" width="56" height="8" rx="4" fill="#cbbb9c"/><circle cx="270" cy="49" r="4" fill="#f2c14e"/>',
+    ghost: () => CAR(150, 126, 1.05, '#f05a35') + CAR(238, 118, 1.05, '#f3ead7', .5) + '<path d="M222 96 q0 -22 22 -22 q22 0 22 22 v18 l-7 -6 l-7 6 l-8 -6 l-7 6 l-7 -6 l-7 6Z" fill="#f3ead7" opacity=".9" transform="translate(-20 -24) scale(.8)"/>',
+    garage: () => CAR(200, 120, 1.5, '#2f7d8a') + '<g><rect x="60" y="30" width="22" height="22" rx="5" fill="#f05a35"/><rect x="88" y="30" width="22" height="22" rx="5" fill="#f2c14e"/><rect x="116" y="30" width="22" height="22" rx="5" fill="#8aa36b"/><rect x="60" y="58" width="22" height="22" rx="5" fill="#7d8fd0"/><rect x="88" y="58" width="22" height="22" rx="5" fill="#e78fb3"/><rect x="116" y="58" width="22" height="22" rx="5" fill="#f3ead7"/></g>',
+    launch: () => '<g><rect x="168" y="34" width="5" height="120" fill="#1c2536"/><path d="M173 38 H260 V86 H173Z" fill="#f3ead7"/><g fill="#1c2536">' + Array.from({ length: 24 }, (_, i) => { const x = i % 6, y = (i / 6) | 0; return (x + y) % 2 ? `<rect x="${173 + x * 14.5}" y="${38 + y * 12}" width="14.5" height="12"/>` : ''; }).join('') + '</g></g>'
+  };
+  function hero(kind) {
+    const dot = Array.from({ length: 6 }, (_, i) => `<circle cx="${40 + i * 62}" cy="${22 + (i % 3) * 9}" r="1.6" fill="#fff" opacity=".6"/>`).join('');
+    return `<svg viewBox="0 0 400 170" preserveAspectRatio="xMidYMid slice" aria-hidden="true"><defs><linearGradient id="pnSky" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#9fb4c6"/><stop offset="1" stop-color="#e9dec6"/></linearGradient></defs>
+      <rect width="400" height="170" fill="url(#pnSky)"/><circle cx="318" cy="52" r="26" fill="#f7d79a" opacity=".9"/>${dot}
+      <path d="M0 120 L70 62 L118 104 L176 50 L250 118 L318 70 L400 116 V170 H0Z" fill="#7f8ea0"/><path d="M0 138 L84 96 L152 130 L232 90 L330 134 L400 108 V170 H0Z" fill="#5f6f82"/>
+      <path d="M0 150 Q200 128 400 150 V170 H0Z" fill="#3b4558"/><path d="M0 160 Q200 142 400 160" stroke="#f3ead7" stroke-width="2.2" fill="none" stroke-dasharray="14 12" opacity=".8"/>${(ART[kind] || ART.launch)()}</svg>`;
+  }
+  function openPatchNotes() {
+    DL.store.set('patchSeen', DL.PATCH_VER); patchPip();
+    const feat = DL.PATCHES[0], rest = DL.PATCHES.slice(1);
+    const body = `<article class="pn-hero"><div class="pn-art">${hero(feat.art)}<span class="pn-badge">Latest · v${esc(feat.v)}</span></div>
+        <div class="pn-copy"><div class="lbl">${esc(feat.date)}</div><h3>${esc(feat.title)}</h3><p>${esc(feat.lead)}</p>
+        <ul>${feat.items.map(i => `<li>${esc(i)}</li>`).join('')}</ul></div></article>
+      <div class="lbl" style="margin:4px 0 -2px">Earlier releases</div>
+      <div class="pn-grid">${rest.map(p => `<article class="pn-card"><div class="pn-art sm">${hero(p.art)}<span class="pn-badge">v${esc(p.v)}</span></div><div class="pn-copy"><h4>${esc(p.title)}</h4><p>${esc(p.lead)}</p></div></article>`).join('')}</div>`;
+    const m = modal(`<div class="pn-head"><div><div class="lbl">Dayline</div><h2>Patch notes</h2></div><button class="icon-btn" id="pnX" aria-label="Close"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div><div class="pn-wrap">${body}</div>`);
+    m.classList.add('pn-modal');
+    m.querySelector('#pnX').onclick = closeModal;
+  }
+  $('bPatch').onclick = openPatchNotes; patchPip();
+
+  // ---------------- confetti ----------------
+  UI.confetti = function () {
+    const cv = $('confetti'); if (!cv) return;
+    const dpr = Math.min(2, window.devicePixelRatio || 1), W = cv.width = innerWidth * dpr, H = cv.height = innerHeight * dpr, x = cv.getContext('2d');
+    const cols = ['#f05a35', '#f7a072', '#f2c14e', '#f3ead7', '#2f7d8a', '#1f2a3d'];
+    const ps = Array.from({ length: 140 }, () => ({ x: W / 2 + (Math.random() - .5) * W * 0.25, y: H * 0.35, vx: (Math.random() - .5) * 16 * dpr, vy: (-Math.random() * 14 - 4) * dpr, r: Math.random() * 6, vr: (Math.random() - .5) * 0.4, w: (5 + Math.random() * 6) * dpr, h: (3 + Math.random() * 4) * dpr, c: cols[Math.random() * cols.length | 0] }));
+    const t0 = performance.now();
+    (function tick(now) {
+      const t = (now - t0) / 1000; x.clearRect(0, 0, W, H);
+      if (t > 3.2 || !cv.isConnected) { x.clearRect(0, 0, W, H); return; }
+      for (const p of ps) { p.vy += 0.5 * dpr; p.vx *= 0.99; p.x += p.vx; p.y += p.vy; p.r += p.vr; x.save(); x.globalAlpha = Math.min(1, 3.2 - t); x.translate(p.x, p.y); x.rotate(p.r); x.fillStyle = p.c; x.fillRect(-p.w / 2, -p.h / 2, p.w, p.h); x.restore(); }
+      requestAnimationFrame(tick);
+    })(t0);
+  };
+
   function openSettings(fromPause) {
     const s = Game.settings;
     const m = modal(`<div class="lbl">Settings</div><h2>Settings</h2>

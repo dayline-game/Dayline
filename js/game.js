@@ -201,7 +201,7 @@
       ghosts: [], ghostsOn: true, ghostSpecs: ghostSpecs || [], pbCp: null, farT: 0, waterT: 0,
       camYaw: track.start.yaw, shake: 0, camMode: settings.cam, trailT: 0
     };
-    trail.points.length = 0;
+    trail.points.length = 0; clearSkids();
     resetCarToStart();
     DL.UI.raceStarted(race);
     DL.Audio.startEngine();
@@ -292,7 +292,7 @@
     r.steps = 0; r.acc = 0; r.frames = []; r.recoveries = 0; r.airMax = 0; r.finished = false; r.running = false;
     r.countdown = 3.2; r.lastBeep = 4; r.camYaw = s.yaw; r.farT = 0; r.waterT = 0;
     r.track.checkpoints.forEach((c, k) => { const gt = world.gates[k]; if (gt) gt.userData.stripe.material.color.set(0xf05a35); });
-    trail.points.length = 0;
+    trail.points.length = 0; clearSkids();
     record();
     placeCamera(true);
   }
@@ -313,7 +313,7 @@
     const yaw = cp ? Math.atan2(cp.tx, cp.tz) : r.track.start.yaw;
     r.car.reset(x, r.track.groundAt(x, z, {}).y, z, yaw);
     r.recoveries++; r.farT = 0; r.waterT = 0; r.camYaw = yaw;
-    trail.points.length = 0;
+    trail.points.length = 0; clearSkids();
     placeCamera(true);
     DL.UI.banner('Recovered', 900);
   };
@@ -338,7 +338,7 @@
       rt: 0, dur: (gh.n - 1) / gh.hz, rate: 1, paused: false, hold: 0, spin: 0, snap: true,
       camYaw: 0, shake: 0, camMode: settings.cam, trailT: 0, prev: null
     };
-    trail.points.length = 0; trail.mesh.visible = false;
+    trail.points.length = 0; clearSkids(); trail.mesh.visible = false;
     return true;
   };
   const rs0 = new Float32Array(8), rs1 = new Float32Array(8), rgT = {};
@@ -375,7 +375,7 @@
     race.ghosts.forEach(g => { scene.remove(g.model); g.model.userData.dispose(); });
     race = null;
     DL.Audio.stopEngine();
-    trail.points.length = 0; trail.mesh.visible = false;
+    trail.points.length = 0; clearSkids(); trail.mesh.visible = false;
     camera.fov = 60; camera.updateProjectionMatrix();
   }
 
@@ -622,9 +622,34 @@
     partMesh.count = n;
     partMesh.instanceMatrix.needsUpdate = true; if (partMesh.instanceColor) partMesh.instanceColor.needsUpdate = true;
   }
+  // ---------------- skid marks ----------------
+  let skid = null;
+  const SKMAX = 520;
+  function initSkids() {
+    const g = new THREE.PlaneGeometry(0.26, 0.9); g.rotateX(-Math.PI / 2);
+    const m = new THREE.MeshBasicMaterial({ color: 0x11151d, transparent: true, opacity: 0.32, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 });
+    const mesh = new THREE.InstancedMesh(g, m, SKMAX); mesh.count = 0; mesh.frustumCulled = false; mesh.renderOrder = 1;
+    scene.add(mesh); skid = { mesh, n: 0, head: 0, t: 0, q: new THREE.Quaternion(), e: new THREE.Euler(0, 0, 0, 'YXZ'), m4: new THREE.Matrix4(), p: new THREE.Vector3(), s: new THREE.Vector3(1, 1, 1) };
+  }
+  function clearSkids() { if (skid) { skid.n = 0; skid.head = 0; skid.mesh.count = 0; } }
+  function skidMarks(c, dt) {
+    if (!skid) initSkids();
+    if (!(c.grounded && c.surf === DL.SURF.ROAD && c.slip > 0.62 && c.speed > 7 && !c.inWater)) return;
+    skid.t += dt; if (skid.t < 0.035) return; skid.t = 0;
+    const fx = Math.sin(c.yaw), fz = Math.cos(c.yaw), rx = -fz, rz = fx;
+    skid.e.set(c.pitch, c.yaw, c.roll, 'YXZ'); skid.q.setFromEuler(skid.e);
+    for (let side = -1; side <= 1; side += 2) {
+      skid.p.set(c.x - fx * 1.15 + rx * 0.82 * side, c.y + 0.09, c.z - fz * 1.15 + rz * 0.82 * side);
+      skid.m4.compose(skid.p, skid.q, skid.s);
+      skid.mesh.setMatrixAt(skid.head, skid.m4); skid.head = (skid.head + 1) % SKMAX; skid.n = Math.min(SKMAX, skid.n + 1);
+    }
+    skid.mesh.count = skid.n; skid.mesh.instanceMatrix.needsUpdate = true;
+  }
+
   function carEffects(r, dt) {
     const c = r.view || r.car, eq = DL.Net.save.equip, m = r.model;
     const fx = Math.sin(c.yaw), fz = Math.cos(c.yaw);
+    skidMarks(r.view || r.car, dt);
     // dust & tyre smoke
     if (c.grounded && (c.slip > 0.45 || (c.surf >= DL.SURF.GRAVEL && c.speed > 8))) {
       if (Math.random() < 0.7) {
@@ -686,6 +711,7 @@
     menuT += dt;
     readInput(dt);
     if (world && world.group.userData.clouds) world.group.userData.clouds.children.forEach((c, i) => { c.position.x += dt * (1.5 + (i % 3)); });
+    { const live = mode === 'race' && race && race.running && !race.finished && !race.paused; DL.UI.speedFx(live ? race.car.speed : 0, !!live); }
     if (mode === 'race' && race) {
       updateRace(dt);
       setOffset(camera, 'none');

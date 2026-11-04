@@ -78,6 +78,26 @@ window.DL = window.DL || {};
     return s + Math.abs(d).toFixed(3);
   };
 
+  // ---------- patch notes (major releases only, newest first) ----------
+  DL.PATCHES = [
+    { v: '1.4', date: 'November 2026', title: 'Off the Beaten Track', art: 'offroad',
+      lead: 'The road now matters. Cut a corner across the grass and you will feel it.',
+      items: ['Grass, gravel and sand slow the car and reduce grip', 'Tyre skid marks, speed lines and a personal-best celebration', 'Daily track now rolls over at 12am Gulf time', 'Much faster leaderboards'] },
+    { v: '1.3', date: 'November 2026', title: 'Your Account, Anywhere', art: 'account',
+      lead: 'Sign in with a username and password and your garage, coins and times follow you to any device.',
+      items: ['Simple username and password accounts', 'Progress syncs across devices', 'Cheat protection: implausible runs are deleted'] },
+    { v: '1.2', date: 'November 2026', title: 'Ghosts and Replays', art: 'ghost',
+      lead: 'Race anyone on the board. Watch how the fastest drivers took the track.',
+      items: ['Race any driver’s ghost straight from the leaderboard', 'Full replays of other drivers’ best runs', 'Live gap to your ghost while you drive'] },
+    { v: '1.1', date: 'November 2026', title: 'The Garage Update', art: 'garage',
+      lead: 'Every car you can buy now looks and feels like its own machine.',
+      items: ['Distinct bodies and details for every car', 'Rebuilt camera angles that keep the road in view'] },
+    { v: '1.0', date: 'November 2026', title: 'Launch Day', art: 'launch',
+      lead: 'One seeded track for everyone, every day.',
+      items: ['Six biomes, daily and all-time leaderboards', 'Garage, paint editor, shop and streaks'] }
+  ];
+  DL.PATCH_VER = DL.PATCHES[0].v;
+
   // ---------- biomes ----------
   DL.BIOMES = {
     desert: {

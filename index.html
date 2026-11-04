@@ -256,6 +256,48 @@ input[type=range]{width:100%;accent-color:var(--coral);}
 .gfake{display:flex;align-items:center;justify-content:center;gap:10px;width:100%;padding:11px 16px;border:2px solid var(--navy);border-radius:999px;background:#fff;color:var(--navy);font:600 15px 'Barlow',sans-serif;cursor:pointer}
 .gfake svg{width:18px;height:18px}
 .gwrap{display:flex;flex-direction:column;gap:8px;margin:6px 0}
+/* ===== visual refresh layer ===== */
+:root{--r:14px;--shadow-lg:0 30px 70px -30px rgba(17,21,29,.55),0 2px 0 rgba(255,255,255,.5) inset;}
+.panel{background:linear-gradient(180deg,rgba(247,240,224,.97),rgba(240,230,208,.95));backdrop-filter:blur(14px) saturate(1.1);-webkit-backdrop-filter:blur(14px) saturate(1.1);border:1px solid rgba(255,255,255,.55);border-radius:var(--r);box-shadow:var(--shadow-lg);}
+@keyframes rise{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
+@keyframes pop{from{opacity:0;transform:scale(.97) translateY(8px)}to{opacity:1;transform:none}}
+.screen:not([hidden]) .panel{animation:rise .38s cubic-bezier(.2,.8,.2,1) backwards;}
+.modal{animation:pop .26s cubic-bezier(.2,.8,.2,1) backwards!important;}
+.modal-bg{background:radial-gradient(ellipse at center,rgba(17,21,29,.28),rgba(17,21,29,.55));backdrop-filter:blur(3px);-webkit-backdrop-filter:blur(3px);}
+.btn{border-radius:10px;}
+.btn-go{background:linear-gradient(180deg,#f66c49,#ec4f2a);border-radius:12px;box-shadow:inset 0 -4px 0 var(--coral-dk),0 14px 26px -14px rgba(240,90,53,.9);transition:transform .12s,box-shadow .15s,filter .15s;}
+.btn-go:hover{filter:brightness(1.06);transform:translateY(-1px);}
+.btn-line{border-width:2px;background:rgba(255,255,255,.35);}
+.btn-line:hover{transform:translateY(-1px);box-shadow:0 10px 20px -14px rgba(17,21,29,.7);}
+.btn-line svg{width:20px;height:20px;flex:none;}
+.icon-btn,.coins{border-radius:12px;box-shadow:0 8px 20px -12px rgba(17,21,29,.6);}
+.icon-btn{background:rgba(247,240,224,.92);border-color:rgba(255,255,255,.6);transition:transform .12s,background .15s;}
+.icon-btn:hover{transform:translateY(-1px);}
+.medal-cell,.dayrow,.tab,.chk{border-radius:10px;}
+.logo h1{background:linear-gradient(180deg,var(--navy) 60%,#34425e);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;}
+.tagline{display:inline-flex;align-items:center;gap:10px;}
+.tagline::before{content:"";width:22px;height:3px;border-radius:2px;background:var(--coral);}
+#menu .panel{border-top:4px solid var(--coral);}
+.newpip{display:inline-block;margin-left:8px;padding:2px 7px;border-radius:99px;background:var(--coral);color:#fff;font-size:11px;letter-spacing:.08em;font-weight:800;vertical-align:2px;animation:pulse 2s ease-in-out infinite;}
+@keyframes pulse{50%{box-shadow:0 0 0 5px rgba(240,90,53,.18)}}
+/* patch notes */
+.modal.pn-modal{width:min(620px,100%);padding:20px 20px 18px;gap:12px;max-height:min(760px,100%);}
+.pn-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;}
+.pn-wrap{display:flex;flex-direction:column;gap:14px;overflow:auto;min-height:0;padding-right:2px;}
+.pn-art{position:relative;border-radius:12px;overflow:hidden;aspect-ratio:400/170;background:#cdd6de;box-shadow:inset 0 0 0 1px rgba(17,21,29,.08);}
+.pn-art svg{display:block;width:100%;height:100%;}
+.pn-badge{position:absolute;left:10px;top:10px;background:var(--navy);color:var(--cream);font-family:var(--f-display);font-weight:800;font-size:12px;letter-spacing:.12em;text-transform:uppercase;padding:4px 9px;border-radius:99px;}
+.pn-hero{display:flex;flex-direction:column;gap:12px;background:rgba(255,255,255,.4);border:1px solid var(--line);border-radius:14px;padding:10px;}
+.pn-copy{padding:2px 6px 6px;display:flex;flex-direction:column;gap:6px;}
+.pn-copy h3{font-size:36px;line-height:.95;font-weight:900;} .pn-copy h4{font-size:22px;line-height:1;font-weight:800;color:var(--navy);text-transform:uppercase;font-family:var(--f-display);margin:0;}
+.pn-copy p{margin:0;font-size:14.5px;line-height:1.4;color:#2b3445;}
+.pn-copy ul{margin:4px 0 0;padding:0;list-style:none;display:grid;gap:6px;} .pn-copy li{position:relative;padding-left:22px;font-size:14px;line-height:1.35;}
+.pn-copy li::before{content:"";position:absolute;left:2px;top:5px;width:10px;height:10px;border-radius:3px;background:var(--coral);transform:rotate(45deg) scale(.8);}
+.pn-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;} .pn-card{display:flex;flex-direction:column;gap:6px;background:rgba(255,255,255,.35);border:1px solid var(--line);border-radius:12px;padding:8px;} .pn-card .pn-copy{padding:2px 4px 4px;gap:3px;} .pn-card p{font-size:13px;}
+@media(max-width:520px){.pn-grid{grid-template-columns:1fr}.pn-copy h3{font-size:30px}}
+#speedfx{position:fixed;inset:0;pointer-events:none;z-index:3;opacity:0;transition:opacity .15s;background:radial-gradient(ellipse at center,transparent 52%,rgba(20,26,40,.34) 100%);}
+#speedfx::before{content:"";position:absolute;inset:0;opacity:var(--lines,0);background:repeating-conic-gradient(from 0deg at 50% 52%,rgba(255,255,255,.55) 0 .35deg,transparent .35deg 7deg);-webkit-mask:radial-gradient(ellipse at center,transparent 38%,#000 85%);mask:radial-gradient(ellipse at center,transparent 38%,#000 85%);}
+#confetti{position:fixed;inset:0;pointer-events:none;z-index:60;}
 </style>
 
 <canvas id="gl"></canvas>
@@ -287,10 +329,11 @@ input[type=range]{width:100%;accent-color:var(--coral);}
     <div class="medals" id="mMedals"></div>
     <button class="btn btn-go" id="bRace">Race now <svg width="26" height="26" viewBox="0 0 24 24" fill="currentColor"><path d="M7 4l12 8-12 8z"/></svg></button>
     <div class="menu-grid">
-      <button class="btn btn-line" id="bGarage">Garage</button>
-      <button class="btn btn-line" id="bBoard">Leaderboard</button>
-      <button class="btn btn-line" id="bArchive">Past races</button>
-      <button class="btn btn-line" id="bShop">Shop</button>
+      <button class="btn btn-line" id="bGarage"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17V9l9-5 9 5v8M7 17v-5h10v5M3 17h18"/></svg>Garage</button>
+      <button class="btn btn-line" id="bBoard"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 21h8M12 17v4M7 4h10v5a5 5 0 0 1-10 0zM7 6H4v2a3 3 0 0 0 3 3M17 6h3v2a3 3 0 0 1-3 3"/></svg>Leaderboard</button>
+      <button class="btn btn-line" id="bArchive"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="5" width="16" height="15" rx="2"/><path d="M4 10h16M9 3v4M15 3v4"/></svg>Past races</button>
+      <button class="btn btn-line" id="bShop"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 8h14l-1 12H6zM9 8a3 3 0 0 1 6 0"/></svg>Shop</button>
+      <button class="btn btn-line" id="bPatch" style="grid-column:1/-1"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h9l4 4v14H6zM14 3v5h5M9 13h7M9 17h5"/></svg>Patch notes <span class="newpip" id="patchPip" hidden>NEW</span></button>
     </div>
     <div class="streak"><div><div class="lbl">Daily streak</div><b id="mStreak">0 days</b></div><div class="bars" id="mStreakBars"></div></div>
     <div class="keys">
@@ -388,6 +431,8 @@ input[type=range]{width:100%;accent-color:var(--coral);}
   <div class="speedo"><span id="hSpeed" class="num">0</span><small id="hUnit">km/h</small></div>
 </section>
 
+<div id="speedfx"></div>
+<canvas id="confetti"></canvas>
 <div id="modalRoot"></div>
 <div id="toasts"></div>
 
