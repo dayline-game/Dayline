@@ -182,7 +182,7 @@
   // ---------------- modes ----------------
   Game.setMode = function (m) {
     mode = m;
-    if (m !== 'race' && race) endRace();
+    if (race && m !== 'race' && m !== 'replay') endRace();
     if (m === 'garage' || m === 'shop') { orbit.auto = true; }
     if (m === 'menu' || m === 'board' || m === 'archive') { parkPlayer(); }
   };
@@ -230,7 +230,7 @@
         // checkpoint split times for live deltas
         const pg = new DL.Progress(r.track);
         for (let i = 1; i < gh.n; i++) pg.update(gh.f[(i - 1) * 8], gh.f[(i - 1) * 8 + 2], gh.f[i * 8], gh.f[i * 8 + 2], i / gh.hz);
-        const g = { spec: s, gh, model, time: t, cp: pg.cpTimes, buf: [] };
+        const g = { spec: s, gh, model, time: t, cp: pg.cpTimes, buf: [], label };
         r.ghosts.push(g);
         if (s.mine || s.uid === myUid) r.pbCp = pg.cpTimes;
         model.visible = r.ghostsOn;
@@ -249,7 +249,7 @@
     ctx.fillText(text.toUpperCase().slice(0, 18), 128, 33);
     const tex = new THREE.CanvasTexture(c);
     const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true, depthWrite: false, opacity: 0.85 }));
-    sp.scale.set(4, 1, 1); sp.position.set(0, 3.1, 0);
+    sp.scale.set(4.8, 1.2, 1); sp.position.set(0, 3.3, 0);
     return sp;
   }
 
@@ -288,8 +288,55 @@
   Game.pause = function (on) { if (!race || race.finished) return; race.paused = on; DL.UI.paused(on); if (on) DL.Audio.updateEngine(0, 0, 0, false); };
   Game.togglePause = () => Game.pause(!(race && race.paused));
   Game.toggleGhosts = function () { if (!race) return; race.ghostsOn = !race.ghostsOn; race.ghosts.forEach(g => g.model.visible = race.ghostsOn); DL.UI.ghostsChanged(race); };
-  Game.cycleCamera = function () { if (!race) return; race.camMode = (race.camMode + 1) % CAM_COUNT; settings.cam = race.camMode; DL.store.set('settings', settings); placeCamera(true); };
+  Game.cycleCamera = function () { if (!race) return; if (race.replay) race.snap = true; race.camMode = (race.camMode + 1) % CAM_COUNT; settings.cam = race.camMode; DL.store.set('settings', settings); placeCamera(true); };
   Game.race = () => race;
+
+  // ---------------- replay of a recorded run ----------------
+  Game.startReplay = function (day, enc, spec) {
+    const gh = DL.decodeGhost(enc); if (!gh) return false;
+    DL.Audio.init(); Game.loadDay(day);
+    if (race) endRace();
+    mode = 'replay';
+    const model = DL.buildCar({ car: spec.car, livery: spec.l ? DL.decodeLivery(spec.l) : DL.defaultLivery(), base: spec.b, equip: spec.equip });
+    scene.add(model);
+    if (playerModel) playerModel.visible = false;
+    const c = { x: 0, y: 0, z: 0, yaw: 0, pitch: 0, roll: 0, steerVis: 0, wheelSpin: 0, speed: 0, vx: 0, vz: 0, vF: 0, slip: 0, yawRate: 0, grounded: true };
+    race = {
+      replay: true, track, car: c, model, gh, ghosts: [{ model, gh, spec }], ghostsOn: true, steps: 0,
+      rt: 0, dur: (gh.n - 1) / gh.hz, rate: 1, paused: false, hold: 0, spin: 0, snap: true,
+      camYaw: 0, shake: 0, camMode: settings.cam, trailT: 0, prev: null
+    };
+    trail.points.length = 0; trail.mesh.visible = false;
+    return true;
+  };
+  const rs0 = new Float32Array(8), rs1 = new Float32Array(8), rgT = {};
+  function updateReplay(dt) {
+    const r = race, c = r.car;
+    if (!r.paused) {
+      if (r.rt >= r.dur) { r.hold += dt; if (r.hold > 1.6) { r.rt = 0; r.hold = 0; r.snap = true; } }
+      else { r.rt = Math.min(r.dur, r.rt + dt * r.rate); r.hold = 0; }
+    }
+    const t = DL.clamp(r.rt, 0, r.dur);
+    DL.sampleGhost(r.gh, t, rs1);
+    const t0 = Math.max(0, t - 0.08), t1 = Math.max(t, t0 + 0.08);
+    DL.sampleGhost(r.gh, t0, rs0); DL.sampleGhost(r.gh, Math.min(r.dur, t1), rs1);
+    const span = Math.max(0.02, Math.min(r.dur, t1) - t0);
+    DL.sampleGhost(r.gh, t, rs1);
+    const x = rs1[0], y = rs1[1], z = rs1[2];
+    const vx = (x - rs0[0]) / span, vz = (z - rs0[2]) / span;
+    c.x = x; c.y = y; c.z = z; c.yaw = rs1[3]; c.pitch = rs1[4]; c.roll = rs1[5]; c.steerVis = rs1[6];
+    c.vx = vx; c.vz = vz; c.speed = Math.hypot(vx, vz); c.vF = vx * Math.sin(c.yaw) + vz * Math.cos(c.yaw);
+    c.yawRate = wrapA(c.yaw - rs0[3]) / span;
+    c.slip = DL.clamp(Math.abs(wrapA(Math.atan2(vx, vz) - c.yaw)) * 2, 0, 1);
+    c.grounded = y - r.track.groundAt(x, z, rgT, true).y < 0.5;
+    if (!r.paused) r.spin += c.vF * dt * r.rate / 0.34;
+    c.wheelSpin = r.spin;
+    DL.poseCar(r.model, x, y, z, c.yaw, c.pitch, c.roll, c.steerVis, r.spin, rs1[7] > 0.5);
+    r.model.updateMatrixWorld();
+    const snap = r.snap; r.snap = false;
+    placeCamera(snap, r.paused ? 0 : dt);
+    DL.UI.replayHud(r, t);
+  }
 
   function endRace() {
     if (!race) return;
@@ -613,6 +660,11 @@
       sun.position.set(race.car.x + 60, race.car.y + 110, race.car.z + 40); sun.target.position.set(race.car.x, race.car.y, race.car.z);
       updateParticles(dt);
       renderer.render(scene, camera);
+    } else if (mode === 'replay' && race) {
+      updateReplay(dt);
+      setOffset(camera, 'none');
+      sun.position.set(race.car.x + 60, race.car.y + 110, race.car.z + 40); sun.target.position.set(race.car.x, race.car.y, race.car.z);
+      renderer.render(scene, camera);
     } else if (mode === 'garage' || mode === 'shop') {
       if (orbit.auto) orbit.theta += dt * 0.18;
       const cy = 0.9;
@@ -636,6 +688,20 @@
       updateParticles(dt);
       renderer.render(scene, camera);
     }
+  }
+
+  // live gap to the first ghost you are racing: how far ahead or behind it is along the road
+  const gnr = {}, mnr = {};
+  function ghostGap(r, tg) {
+    const g = r.ghosts.find(x => !x.spec.mine) || r.ghosts[0];
+    if (!g || !r.ghostsOn || !r.running) { DL.UI.ghostGap(null); return; }
+    DL.sampleGhost(g.gh, tg, gs);
+    const tr = r.track;
+    tr.nearestRoad(gs[0], gs[2], gnr); const gi = gnr.i;
+    tr.nearestRoad(r.car.x, r.car.z, mnr); const mi = mnr.i;
+    if (gi == null || mi == null) return;
+    const d = tr.s[gi] - tr.s[mi];
+    DL.UI.ghostGap(g.spec.label || 'Ghost', d, g.gh && tg >= g.time);
   }
 
   function updateRace(dt) {
@@ -674,7 +740,11 @@
       DL.sampleGhost(g.gh, tg, gs);
       DL.poseCar(g.model, gs[0], gs[1], gs[2], gs[3], gs[4], gs[5], gs[6], tg * 20, gs[7] > 0.5);
       if (g.model.visible !== r.ghostsOn) g.model.visible = r.ghostsOn;
+      // name tag fades out when the ghost is right next to the lens so it never blocks the view
+      if (g.label) { const dd = Math.hypot(gs[0] - camera.position.x, gs[1] + 1.5 - camera.position.y, gs[2] - camera.position.z); g.label.material.opacity = DL.clamp((dd - 6) / 8, 0, 0.9); }
     }
+    r.gapT = (r.gapT || 0) - dt;
+    if (r.gapT <= 0) { r.gapT = 0.12; ghostGap(r, tg); }
     placeCamera(false, dt);
     carEffects(r, dt);
     DL.UI.hud(r, t);

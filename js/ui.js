@@ -7,7 +7,7 @@
   const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const h = (html) => { const t = document.createElement('template'); t.innerHTML = html.trim(); return t.content.firstElementChild; };
   let screen = 'loading';
-  const SCREENS = ['menu', 'garage', 'shop', 'board', 'archive', 'hud'];
+  const SCREENS = ['menu', 'garage', 'shop', 'board', 'archive', 'hud', 'replay'];
   const today = () => DL.dayKey();
 
   DL.biomeOf = day => DL.BIOMES[DL.BIOME_KEYS[Math.floor(DL.mulberry32(DL.hashStr('dayline:' + day))() * DL.BIOME_KEYS.length)]];
@@ -17,10 +17,11 @@
   function show(name) {
     screen = name;
     SCREENS.forEach(s => { $(s).hidden = s !== name; });
-    $('topnav').hidden = name === 'hud';
+    $('topnav').hidden = name === 'hud' || name === 'replay';
     closeModal();
     if (name !== 'shop' && Game._preview) Game.showcase(null);
     Game.setMode(name === 'hud' ? 'race' : name);
+    if (name !== 'replay') $('hGap').hidden = true;
     DL.Audio.click();
     if (name === 'menu') renderMenu();
     if (name === 'garage') renderGarage();
@@ -29,7 +30,7 @@
     if (name === 'archive') renderArchive();
   }
   UI.show = show;
-  UI.back = function () { if ($('modalRoot').firstChild) { closeModal(); return; } if (['garage', 'shop', 'board', 'archive'].includes(screen)) show('menu'); };
+  UI.back = function () { if ($('modalRoot').firstChild) { closeModal(); return; } if (screen === 'replay') { show('board'); return; } if (['garage', 'shop', 'board', 'archive'].includes(screen)) show('menu'); };
   document.querySelectorAll('[data-back]').forEach(b => b.addEventListener('click', () => show('menu')));
 
   // ---------------- toasts & modals ----------------
@@ -141,6 +142,16 @@
     $('hTimer').textContent = DL.fmtTime(t);
     const sp = r.car.speed * (Game.settings.units === 'mph' ? 2.237 : 3.6);
     $('hSpeed').textContent = Math.round(sp);
+  };
+  UI.ghostGap = function (name, d, done) {
+    const el = $('hGap');
+    if (name == null) { el.hidden = true; return; }
+    const a = Math.abs(d), txt = a < 1.5 ? 'level' : (a < 1000 ? Math.round(a) + ' m' : (a / 1000).toFixed(1) + ' km');
+    el.hidden = false; el.className = 'ghostgap ' + (d > 1.5 ? 'ahead' : d < -1.5 ? 'behind' : '');
+    el.innerHTML = '';
+    const n = document.createElement('span'); n.textContent = name + ' · ';
+    const b = document.createElement('b'); b.textContent = a < 1.5 ? 'level' : txt + (d > 0 ? ' ahead' : ' behind');
+    el.append(n, b);
   };
   $('hPause').onclick = () => Game.togglePause();
   $('hRestart').onclick = () => Game.restart();
@@ -518,6 +529,40 @@
   }
   $('sTabs').addEventListener('click', e => { const b = e.target.closest('.tab'); if (!b) return; shop.tab = b.dataset.tab; renderShop(); });
 
+  // ---------------- replay ----------------
+  const fmtS = t => { const m = Math.floor(t / 60), s = t - m * 60; return m + ':' + (s < 10 ? '0' : '') + s.toFixed(1); };
+  const RATES = [0.5, 1, 2, 4];
+  const PLAY_SVG = '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M7 4l13 8-13 8z"/></svg>', PAUSE_SVG = '<svg viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4" width="4" height="16" rx="1"/><rect x="14" y="4" width="4" height="16" rx="1"/></svg>';
+  let seeking = false;
+  UI.openReplay = function (day, spec, enc, time) {
+    show('replay');
+    if (!Game.startReplay(day, enc, spec)) { toast('That replay could not be played'); show('board'); return; }
+    const r = Game.race();
+    $('rpName').textContent = spec.label || 'Driver';
+    $('rpTime').textContent = DL.fmtTime(time);
+    $('rpEnd').textContent = fmtS(r.dur); $('rpRate').textContent = '1×'; $('rpPlay').innerHTML = PAUSE_SVG;
+  };
+  UI.replayHud = function (r, t) {
+    $('rpNow').textContent = fmtS(t);
+    if (!seeking) $('rpSeek').value = Math.round(t / r.dur * 1000);
+    $('rpPlay').innerHTML = r.paused ? PLAY_SVG : PAUSE_SVG;
+  };
+  const rp = () => { const r = Game.race(); return r && r.replay ? r : null; };
+  $('rpPlay').onclick = () => { const r = rp(); if (r) { if (r.rt >= r.dur) { r.rt = 0; r.snap = true; } r.paused = !r.paused; } };
+  $('rpRate').onclick = () => { const r = rp(); if (!r) return; r.rate = RATES[(RATES.indexOf(r.rate) + 1) % RATES.length]; $('rpRate').textContent = r.rate + '×'; };
+  $('rpCam').onclick = () => Game.cycleCamera();
+  $('rpClose').onclick = () => show('board');
+  $('rpSeek').addEventListener('input', e => { const r = rp(); if (r) { seeking = true; r.rt = e.target.value / 1000 * r.dur; r.snap = true; } });
+  $('rpSeek').addEventListener('change', () => { seeking = false; });
+  window.addEventListener('keydown', e => {
+    if (screen !== 'replay' || e.repeat) return;
+    const r = rp(); if (!r) return;
+    if (e.code === 'Space') { e.preventDefault(); $('rpPlay').click(); }
+    else if (e.code === 'KeyC') Game.cycleCamera();
+    else if (e.code === 'ArrowRight') { r.rt = Math.min(r.dur, r.rt + 5); r.snap = true; }
+    else if (e.code === 'ArrowLeft') { r.rt = Math.max(0, r.rt - 5); r.snap = true; }
+  });
+
   // ---------------- leaderboard ----------------
   const board = { tab: 'daily', day: null, sel: {}, rows: [] };
   $('bTabs').addEventListener('click', e => { const b = e.target.closest('.tab'); if (!b) return; board.tab = b.dataset.tab; renderBoard(); });
@@ -581,10 +626,20 @@
         const row = h(`<tr class="${me ? 'me' : ''}"><td class="rk">${i + 1}</td><td></td>
           <td class="tm">${DL.fmtTime(r.time)}<div class="gap">${i ? DL.fmtDelta(r.time - lead) : 'Leader'}</div></td>
           <td class="hide-sm">${esc((DL.CARS[r.car] || DL.CARS.pebble).name)}</td>
-          <td><button class="chk ${sel[r.uid] ? 'on' : ''}">${sel[r.uid] ? 'On' : 'Race'}</button></td>
-          <td>${me ? '' : `<button class="chk ${Net.isFriend(r.uid) ? 'on' : ''}" title="${Net.isFriend(r.uid) ? 'Remove friend' : 'Add friend'}">${Net.isFriend(r.uid) ? '★' : '+'}</button>`}</td></tr>`);
+          <td class="gcell"><button class="chk ${sel[r.uid] ? 'on' : ''}" data-k="g">${sel[r.uid] ? 'On' : 'Race'}</button> <button class="chk" data-k="w" title="Watch a replay of this run">▶ Watch</button></td>
+          <td>${me ? '' : `<button class="chk ${Net.isFriend(r.uid) ? 'on' : ''}" data-k="f" title="${Net.isFriend(r.uid) ? 'Remove friend' : 'Add friend'}">${Net.isFriend(r.uid) ? '★' : '+'}</button>`}</td></tr>`);
         row.children[1].appendChild(whoCell(r, names));
-        const [gb, fb] = row.querySelectorAll('.chk');
+        const gb = row.querySelector('[data-k=g]'), fb = row.querySelector('[data-k=f]'), wb = row.querySelector('[data-k=w]');
+        wb.onclick = async () => {
+          wb.disabled = true; wb.textContent = 'Loading…';
+          try {
+            const enc = await Net.ghost(me ? 'me' : r.uid, board.day);
+            if (!enc) { toast('No replay saved for that run'); return; }
+            const nm = displayName(r, names);
+            UI.openReplay(board.day, { uid: r.uid, label: me ? 'You' : nm, car: r.car, l: r.l, b: r.b, equip: r.equip }, enc, r.time);
+          } catch (e) { toast('Could not load that replay'); }
+          finally { wb.disabled = false; wb.textContent = '▶ Watch'; }
+        };
         gb.onclick = () => {
           if (sel[r.uid]) delete sel[r.uid];
           else {

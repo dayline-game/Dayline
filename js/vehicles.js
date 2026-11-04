@@ -210,7 +210,7 @@
     if ('colorSpace' in tex) tex.colorSpace = THREE.SRGBColorSpace;
     const fin = FINISH[equip.finish] || FINISH.matte;
     const bodyMat = new THREE.MeshStandardMaterial({ map: tex, flatShading: true, roughness: fin.roughness, metalness: fin.metalness });
-    if (opts.ghost) { bodyMat.transparent = true; bodyMat.opacity = 0.42; bodyMat.depthWrite = false; }
+    if (opts.ghost) { bodyMat.transparent = true; bodyMat.opacity = 0.72; bodyMat.depthWrite = false; }
     const bodyMesh = new THREE.Mesh(bodyGeo, bodyMat);
     bodyMesh.castShadow = !opts.ghost; bodyMesh.receiveShadow = !opts.ghost;
     body.add(bodyMesh);
