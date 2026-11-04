@@ -391,7 +391,7 @@
     r.steps++;
     const t = r.steps * DT;
     if (r.steps % REC_EVERY === 0) record();
-    if (ev.land) { r.fovKick = Math.min(6, ev.land * 0.35); DL.Audio.thump(ev.land / 25); r.shake = Math.min(1, ev.land / 20); burst(c.x, c.y, c.z, 6, dustColor(), 3); }
+    if (ev.land) { DL.Audio.thump(ev.land / 25); r.shake = Math.min(1, ev.land / 20); burst(c.x, c.y, c.z, 6, dustColor(), 3); }
     if (ev.hit) { DL.Audio.thump(ev.hit / 15); r.shake = Math.min(1, ev.hit / 15); }
     if (ev.air) r.airMax = Math.max(r.airMax, ev.air);
     const res = r.prog.update(px, pz, c.x, c.z, t);
@@ -573,12 +573,12 @@
     if (r.shake > 0.01) { camera.position.x += (Math.random() - 0.5) * r.shake * 0.5; camera.position.y += (Math.random() - 0.5) * r.shake * 0.5; r.shake *= Math.exp(-6 * dt); }
     camera.lookAt(r.camLook);
     // lean into corners
-    const roll = 0;
+    const roll = DL.clamp(-c.yawRate * 0.018, -0.07, 0.07) * (r.camMode === 4 ? 0.3 : 1);
     r.camRoll = (r.camRoll || 0) + (roll - (r.camRoll || 0)) * Math.min(1, dt * 5);
     camera.rotateZ(r.camRoll);
     // field of view widens with speed and kicks on landings
     r.fovKick = (r.fovKick || 0) * Math.exp(-4 * dt);
-    setFov(m.fov + r.fovKick, dt);
+    setFov(m.fov, 1);   // constant lens: the car never shrinks or pulls away
   }
 
   // ---------------- particles (low-poly puffs) ----------------
