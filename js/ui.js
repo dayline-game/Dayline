@@ -91,7 +91,8 @@
     if (UI._day && UI._day !== today()) { UI._day = today(); if (screen === 'menu') { Game.loadDay(today()); renderMenu(); toast('<b>New daily track is live</b>'); } }
   }, 500);
 
-  $('bRace').onclick = () => startRace(today(), []);
+  // ghosts picked on the leaderboard follow you into a normal Race now too
+  $('bRace').onclick = () => startRace(today(), Object.values((board.sel && board.sel[today()]) || {}));
   $('bGarage').onclick = () => show('garage');
   $('bBoard').onclick = () => { board.day = today(); board.tab = 'daily'; show('board'); };
   $('bArchive').onclick = () => show('archive');
@@ -734,12 +735,12 @@
 
   // ---------------- account (Google sign-in) ----------------
   const G_LOGO = '<svg viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.5 0 6.6 1.2 9.1 3.6l6.8-6.8C35.8 2.4 30.3 0 24 0 14.6 0 6.5 5.4 2.6 13.2l7.9 6.1C12.4 13.6 17.7 9.5 24 9.5z"/><path fill="#4285F4" d="M46.5 24.5c0-1.6-.1-3.1-.4-4.5H24v9h12.7c-.6 3-2.3 5.5-4.8 7.2l7.5 5.8c4.4-4.1 7.1-10.1 7.1-17.5z"/><path fill="#FBBC05" d="M10.5 28.7A14.5 14.5 0 0 1 9.5 24c0-1.6.3-3.2.8-4.7l-7.9-6.1A24 24 0 0 0 0 24c0 3.9.9 7.5 2.6 10.8l7.9-6.1z"/><path fill="#34A853" d="M24 48c6.5 0 11.9-2.1 15.9-5.8l-7.5-5.8c-2.1 1.4-4.9 2.3-8.4 2.3-6.3 0-11.6-4.1-13.5-9.8l-7.9 6.1C6.5 42.6 14.6 48 24 48z"/></svg>';
-  function renderAccount(el) {
+  function renderGoogle(el) {
     const A = DL.Auth, u = A.user;
     if (u) {
       el.innerHTML = `<div class="lbl">Account</div><div class="acct">${u.picture ? `<img alt="" referrerpolicy="no-referrer" src="${esc(u.picture)}">` : ''}<div class="who"><b></b><span class="meta">Signed in with Google</span></div><button class="btn btn-line" data-so>Sign out</button></div>`;
       el.querySelector('b').textContent = u.name;
-      el.querySelector('[data-so]').onclick = () => { A.signOut(); renderAccount(el); };
+      el.querySelector('[data-so]').onclick = () => { A.signOut(); renderGoogle(el); };
       return;
     }
     el.innerHTML = `<div class="lbl">Account</div><div class="gwrap"><div id="gBtn"></div><p class="hint" id="gMsg"></p></div>`;
@@ -749,7 +750,7 @@
       btn.innerHTML = `<button class="gfake" type="button">${G_LOGO}Continue with Google</button>`;
       const setup = () => {
         btn.innerHTML = `<div class="field"><label class="lbl" for="gCid">Google OAuth Web Client ID</label><input type="text" id="gCid" placeholder="123456789-abc.apps.googleusercontent.com" value="${esc(A.clientId())}"></div><button class="btn btn-navy" id="gSave">Save and retry</button>`;
-        btn.querySelector('#gSave').onclick = () => { A.setClientId(btn.querySelector('#gCid').value); renderAccount(el); };
+        btn.querySelector('#gSave').onclick = () => { A.setClientId(btn.querySelector('#gCid').value); renderGoogle(el); };
       };
       if (r.reason === 'noclient' && Net.api) {
         msg.textContent = 'Google sign-in is not switched on for this site yet. The site owner needs to set GOOGLE_CLIENT_ID on the server.';
@@ -762,6 +763,36 @@
         btn.firstChild.onclick = () => toast('Available once Dayline is hosted on its own address');
       }
     });
+  }
+  function renderAccount(el) {
+    if (!Net.api) return renderGoogle(el);
+    if (Net.username) {
+      el.innerHTML = `<div class="lbl">Account</div><div class="acct"><div class="who"><b></b><span class="meta">Signed in. Your times and progress follow you to any device.</span></div><button class="btn btn-line" data-so>Sign out</button></div>`;
+      el.querySelector('b').textContent = Net.username;
+      el.querySelector('[data-so]').onclick = async () => { await Net.signedOut(); toast('Signed out. You are now playing as a new guest'); renderAccount(el); };
+      return;
+    }
+    el.innerHTML = `<div class="lbl">Account</div><div class="stack">
+      <p class="hint">You are playing as a guest. Make an account to keep your times and progress, and log in from any device.</p>
+      <div class="field"><label class="lbl" for="aUser">Username</label><input type="text" id="aUser" autocomplete="username" maxlength="16" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="3-16 letters, numbers or _"></div>
+      <div class="field"><label class="lbl" for="aPass">Password</label><input type="password" id="aPass" autocomplete="current-password" maxlength="72" placeholder="At least 6 characters"></div>
+      <div class="btn-row"><button class="btn btn-navy" id="aReg">Create account</button><button class="btn btn-line" id="aLog">Log in</button></div>
+      <p class="hint" id="aMsg"></p></div>`;
+    const U = el.querySelector('#aUser'), P = el.querySelector('#aPass'), msg = el.querySelector('#aMsg'), bs = el.querySelectorAll('button');
+    const go = async mode => {
+      const u = U.value.trim(), pw = P.value;
+      if (!u || !pw) { msg.textContent = 'Enter a username and a password.'; return; }
+      bs.forEach(b => b.disabled = true); msg.textContent = mode === 'register' ? 'Creating your account…' : 'Logging in…';
+      const r = await Net.passwordAuth(mode, u, pw);
+      bs.forEach(b => b.disabled = false);
+      if (!r.ok) { msg.textContent = r.error; return; }
+      toast(mode === 'register' ? '<b>Account created</b>' : '<b>Welcome back</b>');
+      renderAccount(el);
+    };
+    el.querySelector('#aReg').onclick = () => go('register');
+    el.querySelector('#aLog').onclick = () => go('login');
+    P.addEventListener('keydown', e => { if (e.key === 'Enter') go('login'); });
+    if (Net.google) { const gd = document.createElement('div'); gd.style.marginTop = '10px'; el.appendChild(gd); renderGoogle(gd); }
   }
   DL.on('auth', () => { renderNet(); });
 

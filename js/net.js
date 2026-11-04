@@ -124,10 +124,10 @@
           me = { id: g.j.id, save: null, linked: false, tag: '' };
         }
       } catch (e) { this._setStatus('unreachable'); return; }
-      this.uid = me.id; this.linked = !!me.linked;
+      this.uid = me.id; this.username = me.username || ''; this.linked = !!me.linked || !!this.username;
       if (!this.linked && DL.Auth && DL.Auth.user) DL.Auth.signOut(true);
       this._reconcile(me.save);
-      this.mode = 'online'; this.status = this.linked ? 'Online — signed in with Google' : 'Online — playing as a guest. Sign in with Google to keep your progress on any device';
+      this.mode = 'online'; this.status = this.username ? 'Online — signed in as ' + this.username : this.linked ? 'Online — signed in with Google' : 'Online — playing as a guest. Create an account in Settings to keep your progress on any device';
       this.pushProfile(); this._flushPending();
       DL.emit('net'); DL.emit('save');
     },
@@ -146,10 +146,27 @@
         return true;
       } catch (e) { DL.emit('toast', 'Could not reach the server'); return false; }
     },
+    // username + password: mode is 'register' (turns this guest into an account) or 'login'
+    async passwordAuth(mode, username, password) {
+      if (!this.api) return { ok: false, error: 'Accounts need the online leaderboard' };
+      try {
+        const r = await this._fetch('POST', '/api/auth/' + mode, { username, password });
+        if (!r.j.ok) return { ok: false, error: r.j.error || ('Error ' + r.s) };
+        this.token = r.j.token; DL.store.set('token', this.token);
+        this.uid = r.j.id; this.username = r.j.username || username; this.linked = true; this.mode = 'online';
+        this.status = 'Online — signed in as ' + this.username;
+        this._reconcile(r.j.save);
+        if (r.j.merged) DL.emit('toast', 'Your guest times were merged into your account');
+        if (mode === 'login' && r.j.tag && !this.save.tag) this.save.tag = r.j.tag;
+        this.pushProfile(); this._flushPending();
+        DL.emit('net'); DL.emit('save');
+        return { ok: true };
+      } catch (e) { return { ok: false, error: 'Could not reach the server' }; }
+    },
     async signedOut() {
       if (!this.api) return;
       try { await this._fetch('POST', '/api/auth/logout'); } catch (e) { }
-      DL.store.set('token', null); this.token = null; this.uid = null; this.linked = false;
+      DL.store.set('token', null); this.token = null; this.uid = null; this.linked = false; this.username = '';
       await this.connectApi();
     },
     async _postRun(payload) {
@@ -323,7 +340,7 @@
       if (!this.db || uid === 'me') return null;
       const key = uid + '/' + day, c = this._gcache || (this._gcache = {});
       if (c[key]) return c[key];
-      if (this.api) { const r = await this._fetch('GET', '/api/ghost/' + encodeURIComponent(uid) + '/' + day); return (c[key] = r.j.ok ? r.j.g : null); }
+      if (this.api) { const r = await this._fetch('GET', '/api/ghost/' + encodeURIComponent(uid) + '/' + day); if (r.j && r.j.ok) c[key] = r.j.g; return r.j && r.j.ok ? r.j.g : null; }
       const s = await this._timeout(this.db.doc('players/' + uid + '/ghosts/' + day).get(), 12000);
       return (c[key] = s.exists ? s.data().g : null);
     },
