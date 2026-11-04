@@ -609,8 +609,11 @@
   function burst(x, y, z, n, color, spd) {
     for (let i = 0; i < n; i++) spawn(x + (Math.random() - .5) * 2, y + 0.3, z + (Math.random() - .5) * 2, (Math.random() - .5) * spd, Math.random() * spd * 0.6, (Math.random() - .5) * spd, 0.9, 0.9, color, 1.6);
   }
-  function dustColor() {
+  function dustColor(surf) {
     if (!track) return 0xd8cbb0;
+    if (surf === DL.SURF.MUD) return Math.random() < 0.5 ? 0x5e4430 : 0x7a5c3e;
+    if (surf === DL.SURF.SNOW) return 0xf4f7fa;
+    if (surf === DL.SURF.SAND) return 0xd8c296;
     return { desert: 0xd7c29a, snow: 0xf2f5f8, coast: 0xd9caa5, mountain: 0xb9b3a6, forest: 0xa59c86, country: 0xb8ad8f }[track.biomeKey];
   }
   const pm = new THREE.Matrix4(), pq = new THREE.Quaternion(), pe = new THREE.Euler(), ps = new THREE.Vector3(), pp = new THREE.Vector3();
@@ -655,11 +658,15 @@
     const c = r.view || r.car, eq = DL.Net.save.equip, m = r.model;
     const fx = Math.sin(c.yaw), fz = Math.cos(c.yaw);
     skidMarks(r.view || r.car, dt);
+    if (!r.view && c.surf !== r._lastSurf) {
+      if (c.surf >= DL.SURF.MUD && !(r._lastSurf >= DL.SURF.MUD)) DL.UI.banner({ [DL.SURF.MUD]: 'Mud!', [DL.SURF.SNOW]: 'Snow!', [DL.SURF.SAND]: 'Sand!' }[c.surf], 800);
+      r._lastSurf = c.surf;
+    }
     // dust & tyre smoke
     if (c.grounded && (c.slip > 0.45 || (c.surf >= DL.SURF.GRAVEL && c.speed > 8))) {
       if (Math.random() < 0.7) {
         const side = Math.random() < 0.5 ? -1 : 1;
-        spawn(c.x - fx * 1.4 - fz * side * 0.8, c.y + 0.3, c.z - fz * 1.4 + fx * side * 0.8, -c.vx * 0.15 + (Math.random() - .5), 0.6 + Math.random(), -c.vz * 0.15 + (Math.random() - .5), 0.9, 0.9, c.surf >= DL.SURF.GRAVEL ? dustColor() : 0xe9e4da, 2.0);
+        spawn(c.x - fx * 1.4 - fz * side * 0.8, c.y + 0.3, c.z - fz * 1.4 + fx * side * 0.8, -c.vx * 0.15 + (Math.random() - .5), 0.6 + Math.random(), -c.vz * 0.15 + (Math.random() - .5), 0.9, 0.9, c.surf >= DL.SURF.GRAVEL ? dustColor(c.surf) : 0xe9e4da, 2.0);
       }
     }
     // exhaust

@@ -4,9 +4,11 @@
 
   const STEP = 4;          // metres between centreline samples
   const HALF = 6.5;        // road half-width
-  const SURF = { ROAD: 0, KERB: 1, GRAVEL: 2, OFF: 3 };
+  const SURF = { ROAD: 0, KERB: 1, GRAVEL: 2, OFF: 3, MUD: 4, SNOW: 5, SAND: 6 };
   DL.SURF = SURF; DL.ROAD_HALF = HALF;
-  DL.TRACK_VER = 4;   // bump whenever track generation changes, then re-run `npm run digests`
+  // dailies from this day on get mud / snow / sand stretches on the road; earlier days stay exactly as they were raced
+  DL.PATCH_FROM = '20261105';
+  DL.TRACK_VER = 5;   // bump whenever track generation changes, then re-run `npm run digests`
 
   function Track(day, custom) {
     this.day = day; this.custom = custom || null;
@@ -32,6 +34,7 @@
     this._placeCheckpoints();
     this._placeRamps();
     this._placeObstacles();
+    this._placePatches();
     this.minTime = this.length / 58;
   }
   DL.Track = Track;
@@ -304,7 +307,7 @@
     const r = this.nearestRoad(x, z);
     out.road = r;
     let y, surf;
-    if (r.dist < HALF && !visual) { y = r.y + this.rampOffset(r.s); surf = SURF.ROAD; }
+    if (r.dist < HALF && !visual) { y = r.y + this.rampOffset(r.s); const pa = this.patches && this.patches.length ? this.patchAt(r.s) : null; surf = pa ? pa.surf : SURF.ROAD; }
     else if (r.dist < 999) {
       const th = this._terrain(x, z, r);
       const k = DL.smooth(HALF + 1.5, HALF + 30, r.dist);
@@ -393,6 +396,28 @@
       if (this.shortcut && i > this.shortcut.ia - 10 && i < this.shortcut.ib + 10) continue;
       this.ramps.push({ i0: i, i1: i + 4, s0: this.s[i], s1: this.s[i + 4], h: 2.4 });
     }
+  };
+
+  // loose-surface stretches across the full road width: mud on most maps, packed snow on snowy maps, sand in the desert
+  Track.prototype._placePatches = function () {
+    this.patches = [];
+    if (this.custom || !(this.day >= DL.PATCH_FROM)) return;
+    const rnd = DL.mulberry32(this.seed ^ 0x6d7564);       // own stream: other features are unaffected
+    const kind = this.biomeKey === 'snow' ? 'snow' : this.biomeKey === 'desert' ? 'sand' : 'mud';
+    const want = (kind === 'snow' ? 3 : 2) + (rnd() < 0.35 ? 1 : 0);
+    for (let n = 0; n < 80 && this.patches.length < want; n++) {
+      const len = 15 + Math.floor(rnd() * 16);                // 60–120 m
+      const i0 = 28 + Math.floor(rnd() * Math.max(1, this.N - 70 - len)), i1 = i0 + len;
+      if (this.ramps.some(r => i1 > r.i0 - 12 && i0 < r.i1 + 8)) continue;
+      if (this.patches.some(p => i1 > p.i0 - 35 && i0 < p.i1 + 35)) continue;
+      this.patches.push({ i0, i1, s0: this.s[i0], s1: this.s[i1], kind, surf: kind === 'snow' ? SURF.SNOW : kind === 'sand' ? SURF.SAND : SURF.MUD });
+    }
+    this.patches.sort((a, b) => a.i0 - b.i0);
+  };
+  Track.prototype.patchAt = function (s) {
+    const P = this.patches; if (!P || !P.length) return null;
+    for (let k = 0; k < P.length; k++) if (s >= P[k].s0 && s < P[k].s1) return P[k];
+    return null;
   };
 
   Track.prototype._addCollider = function (c) {
@@ -642,6 +667,78 @@
     group.add(ribbon(-HALF, -HALF + 0.9, 0.05, i => tight(i) ? (((i >> 1) & 1) ? 0xf05a35 : 0xf4ecdc) : 0xf4ecdc, i => tight(i) || (i % 1 === 0)));
     group.add(ribbon(HALF - 0.9, HALF, 0.05, i => tight(i) ? (((i >> 1) & 1) ? 0xf05a35 : 0xf4ecdc) : 0xf4ecdc));
     group.add(ribbon(-0.18, 0.18, 0.05, () => 0xe8dcc0, i => (i % 4) < 2));
+
+    // mud / snow / sand stretches: ragged-edged overlay with tyre ruts, puddles and a warning sign
+    const PATCH_LOOK = {
+      mud: { a: 0x5e4430, b: 0x684b33, rut: 0x46321f, puddle: 0x55606a, sign: 'mud' },
+      snow: { a: 0xeef2f6, b: 0xe2e9f0, rut: 0xbfcad6, puddle: 0xcfe0ee, sign: 'snow' },
+      sand: { a: 0xd8be8f, b: 0xcfb27f, rut: 0xb89a6a, puddle: null, sign: 'sand' }
+    };
+    for (const pa of (track.patches || [])) {
+      const look = PATCH_LOOK[pa.kind], jr = DL.mulberry32(track.seed ^ pa.i0 * 977);
+      const P = [], C = [], I = []; let v = 0;
+      const i0 = Math.max(0, pa.i0 - 1), i1 = Math.min(N - 1, pa.i1 + 1);
+      for (let i = i0; i <= i1; i++) {
+        const nxv = -track.tz[i], nzv = track.tx[i], y = track.py[i] + 0.075;
+        const end = Math.min(i - i0, i1 - i);
+        const taper = end === 0 ? 0.45 : end === 1 ? 0.8 : 1;
+        const wl = (HALF + 0.3 + jr() * 0.9) * taper, wr = (HALF + 0.3 + jr() * 0.9) * taper;
+        const sh = end === 0 ? (jr() - 0.5) * 3 : 0;
+        P.push(track.px[i] + nxv * -wl + track.tx[i] * sh, y, track.pz[i] + nzv * -wl + track.tz[i] * sh,
+               track.px[i], y, track.pz[i],
+               track.px[i] + nxv * wr - track.tx[i] * sh, y, track.pz[i] + nzv * wr - track.tz[i] * sh);
+        for (let k = 0; k < 3; k++) { const c = col(jr() < 0.5 ? look.a : look.b); C.push(c.r, c.g, c.b); }
+        if (i > i0) I.push(v - 3, v - 2, v, v - 2, v + 1, v, v - 2, v - 1, v + 1, v - 1, v + 2, v + 1);
+        v += 3;
+      }
+      const g = new THREE.BufferGeometry();
+      g.setAttribute('position', new THREE.Float32BufferAttribute(P, 3)); g.setAttribute('color', new THREE.Float32BufferAttribute(C, 3));
+      g.setIndex(I); g.computeVertexNormals();
+      const m = new THREE.Mesh(g, new THREE.MeshLambertMaterial({ vertexColors: true, side: THREE.DoubleSide, flatShading: true, polygonOffset: true, polygonOffsetFactor: -3 }));
+      m.receiveShadow = true; group.add(m);
+      // tyre ruts
+      const rutM = new THREE.MeshLambertMaterial({ color: look.rut, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -4 });
+      for (const off of [-2.6, -1.0, 1.0, 2.6]) {
+        const Pr = [], Ir = []; let w = 0;
+        for (let i = pa.i0 + 1; i <= pa.i1 - 1; i++) {
+          const nxv = -track.tz[i], nzv = track.tx[i], y = track.py[i] + 0.09, o = off + Math.sin(i * 0.7 + off) * 0.25;
+          Pr.push(track.px[i] + nxv * (o - 0.28), y, track.pz[i] + nzv * (o - 0.28), track.px[i] + nxv * (o + 0.28), y, track.pz[i] + nzv * (o + 0.28));
+          if (i > pa.i0 + 1) Ir.push(w - 2, w - 1, w, w - 1, w + 1, w); w += 2;
+        }
+        const gr = new THREE.BufferGeometry(); gr.setAttribute('position', new THREE.Float32BufferAttribute(Pr, 3)); gr.setIndex(Ir); gr.computeVertexNormals();
+        const mr = new THREE.Mesh(gr, rutM); mr.receiveShadow = true; group.add(mr);
+      }
+      // puddles (mud) / drifts (snow)
+      const blobM = look.puddle != null ? new THREE.MeshLambertMaterial({ color: look.puddle, polygonOffset: true, polygonOffsetFactor: -5 }) : null;
+      for (let k = 0; blobM && k < 3; k++) {
+        const i = pa.i0 + 3 + Math.floor(jr() * Math.max(1, pa.i1 - pa.i0 - 6)), lat = (jr() - 0.5) * HALF * 1.3;
+        const b = new THREE.Mesh(new THREE.CircleGeometry(1, 9), blobM);
+        b.rotation.x = -Math.PI / 2; b.rotation.z = jr() * 3;
+        b.scale.set(1.4 + jr() * 1.6, 0.9 + jr() * 0.8, 1);
+        b.position.set(track.px[i] - track.tz[i] * lat, track.py[i] + 0.1, track.pz[i] + track.tx[i] * lat);
+        b.receiveShadow = true; group.add(b);
+      }
+      if (pa.kind === 'snow') {
+        const dm = flat(0xf4f7fa);
+        for (const sg of [-1, 1]) for (let i = pa.i0 + 1; i < pa.i1; i += 2) {
+          const b = new THREE.Mesh(new THREE.IcosahedronGeometry(1, 0), dm);
+          const lat = sg * (HALF + 0.6 + jr() * 0.8);
+          b.scale.set(1.2 + jr(), 0.35 + jr() * 0.3, 1.6 + jr());
+          b.position.set(track.px[i] - track.tz[i] * lat, track.py[i] + 0.05, track.pz[i] + track.tx[i] * lat);
+          b.castShadow = true; b.receiveShadow = true; group.add(b);
+        }
+      }
+      // warning sign on both sides, ~36 m before
+      const si = Math.max(1, pa.i0 - 9);
+      const yawS = Math.atan2(track.tx[si], track.tz[si]);
+      for (const sg of [-1, 1]) {
+        const lat = sg * (HALF + 2.4), x = track.px[si] - track.tz[si] * lat, z = track.pz[si] + track.tx[si] * lat;
+        const gy = track.groundAt(x, z, tmp, true).y;
+        const post = new THREE.Mesh(new THREE.BoxGeometry(0.16, 2.4, 0.16), flat(0x2a3140)); post.position.set(x, gy + 1.2, z); post.castShadow = true; group.add(post);
+        const sgn = new THREE.Mesh(new THREE.BoxGeometry(1.6, 1.25, 0.08), new THREE.MeshLambertMaterial({ map: patchSignTex(look.sign) }));
+        sgn.position.set(x, gy + 2.5, z); sgn.rotation.y = yawS + Math.PI; sgn.castShadow = true; group.add(sgn);
+      }
+    }
 
     // shortcut gravel track
     if (track.shortcut) {
@@ -949,6 +1046,24 @@
   };
 
   let _checker = null;
+  const _patchSigns = {};
+  function patchSignTex(kind) {
+    if (_patchSigns[kind]) return _patchSigns[kind];
+    const c = document.createElement('canvas'); c.width = 128; c.height = 100; const x = c.getContext('2d');
+    x.fillStyle = '#1f2a3d'; x.fillRect(0, 0, 128, 100);
+    x.fillStyle = kind === 'snow' ? '#e9eef3' : '#f2c14e'; x.fillRect(5, 5, 118, 90);
+    x.fillStyle = '#1f2a3d'; x.strokeStyle = '#1f2a3d'; x.lineCap = 'round';
+    if (kind === 'snow') {
+      x.lineWidth = 6; for (let k = 0; k < 3; k++) { const a = k * Math.PI / 3; x.beginPath(); x.moveTo(64 - Math.cos(a) * 30, 46 - Math.sin(a) * 30); x.lineTo(64 + Math.cos(a) * 30, 46 + Math.sin(a) * 30); x.stroke(); }
+    } else {
+      // car sliding with wavy tracks
+      x.fillRect(40, 26, 46, 18); x.fillRect(48, 16, 28, 12);
+      x.lineWidth = 5; for (const o of [-14, 14]) { x.beginPath(); for (let k = 0; k <= 10; k++) { const yy = 50 + k * 3.5, xx = 63 + o + Math.sin(k * 0.9) * 7; k ? x.lineTo(xx, yy) : x.moveTo(xx, yy); } x.stroke(); }
+    }
+    x.font = '900 18px sans-serif'; x.textAlign = 'center'; x.fillText(kind === 'snow' ? 'SNOW' : kind === 'sand' ? 'SAND' : 'MUD', 64, 92);
+    const t = new THREE.CanvasTexture(c); if ('colorSpace' in t) t.colorSpace = THREE.SRGBColorSpace;
+    return (_patchSigns[kind] = t);
+  }
   let _rampSign = null;
   function rampSignTex() {
     if (_rampSign) return _rampSign;

@@ -30,6 +30,9 @@
     if (surf === SURF.ROAD) return [1.0 * B.roadGrip, 54, 0];
     if (surf === SURF.KERB) return [0.96 * B.roadGrip, 54, 0.4];
     if (surf === SURF.GRAVEL) return [B.offGrip * 0.85, 34, 2.2];
+    if (surf === SURF.MUD) return [0.52, 38, 1.5];         // slippery and draggy
+    if (surf === SURF.SNOW) return [0.46, 47, 0.35];       // packed snow: fast but very loose
+    if (surf === SURF.SAND) return [0.64, 39, 1.2];
     return [B.offGrip, 31, 3.0];                // grass, sand, snow verge
   };
 

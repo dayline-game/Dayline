@@ -80,6 +80,9 @@ window.DL = window.DL || {};
 
   // ---------- patch notes (major releases only, newest first) ----------
   DL.PATCHES = [
+    { v: '1.6', date: 'November 2026', title: 'Rough Roads', art: 'offroad',
+      lead: 'From tomorrow, every daily has stretches where the tarmac gives way. Read the signs and adjust.',
+      items: ['Mud stretches: slippery and draggy, brake early', 'Snowy maps get packed-snow sections: fast but very loose', 'Desert maps get drifting sand across the road', 'Ramps rebuilt with a proper steel structure'] },
     { v: '1.5', date: 'November 2026', title: 'Community Tracks', art: 'community',
       lead: 'Build your own track, publish it, and race the community’s.',
       items: ['Track editor: click to lay a road, drag to shape it, test drive and publish', 'Community page with automatic thumbnails, plus a side panel of fastest times with Play', 'Quick paint: pick a colour, pattern and number. The pixel editor is now under Advanced'] },
