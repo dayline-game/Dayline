@@ -531,24 +531,19 @@
       tmpV.set(0, r.model.userData.roofY - 0.2, 0.3).applyMatrix4(b.matrixWorld);
       tmpL.set(0, r.model.userData.roofY - 0.35, 12).applyMatrix4(b.matrixWorld);
       camera.position.copy(tmpV); camera.lookAt(tmpL);
-      r.camRoll = (r.camRoll || 0) + ((-c.yawRate * 0.012) - (r.camRoll || 0)) * Math.min(1, dt * 6);
-      camera.rotateZ(r.camRoll);
-      if (r.shake > 0.01) { camera.position.y += (Math.random() - 0.5) * r.shake * 0.3; r.shake *= Math.exp(-6 * dt); }
+            if (r.shake > 0.01) { camera.position.y += (Math.random() - 0.5) * r.shake * 0.3; r.shake *= Math.exp(-6 * dt); }
       r.model.visible = false;
-      setFov(74 + DL.clamp(c.speed, 0, 55) * 0.2, dt);
+      setFov(74, dt);
       return;
     }
     r.model.visible = true;
     const sp = c.speed;
-    // heading: blend car yaw with its velocity direction so drifts swing the view round
-    let want = c.yaw;
-    if (sp > 4 && c.vF > 0) want = c.yaw + wrapA(Math.atan2(c.vx, c.vz) - c.yaw) * (0.35 + 0.3 * DL.clamp(c.slip, 0, 1));
-    const dy = wrapA(want - r.camYaw);
-    r.camYaw += snap ? dy : dy * (1 - Math.exp(-m.yawLag * dt));
+    // heading locked to the car: no swing, no lag
+    r.camYaw = c.yaw;
     const yawC = r.camYaw + (m.side || 0);
     // filtered car height so bumps and crests don't jolt the view
     if (snap || r.cy == null) r.cy = c.y;
-    r.cy += (c.y - r.cy) * (1 - Math.exp(-(c.grounded ? 8 : 3.5) * dt));
+    r.cy = c.y;
     // fixed rig: the camera keeps the same distance and height at every speed, so it never stretches back or up
     const dist = m.d;
     const rise = m.h;
@@ -560,7 +555,7 @@
     if (tmpV.y < minY) tmpV.y = minY;
     if (snap) camera.position.copy(tmpV);
     else {
-      const kh = 1, kv = 1 - Math.exp(-m.lag * 0.75 * dt);
+      const kh = 1, kv = 1;
       camera.position.x += (tmpV.x - camera.position.x) * kh;
       camera.position.z += (tmpV.z - camera.position.z) * kh;
       camera.position.y += (tmpV.y - camera.position.y) * kv;
@@ -568,18 +563,17 @@
     }
     // look ahead along the direction of travel, tilting with the slope of the road ahead
     let lx = Math.sin(c.yaw), lz = Math.cos(c.yaw);
-    if (sp > 3) { const vl = Math.hypot(c.vx, c.vz) || 1; lx = lx * 0.6 + (c.vx / vl) * 0.4; lz = lz * 0.6 + (c.vz / vl) * 0.4; }
-    const ahead = m.ahead * (0.7 + DL.clamp(sp / 40, 0, 0.6));
+    const ahead = m.ahead;
     const gx = c.x + lx * ahead, gz = c.z + lz * ahead;
     const gAhead = r.track.groundAt(gx, gz, gTmp, true).y;
-    const ly = r.cy + m.look + DL.clamp((gAhead - r.cy) * 0.55, -3, 4);
+    const ly = r.cy + m.look;
     tmpL.set(gx, ly, gz);
     if (!r.camLook) r.camLook = new THREE.Vector3();
-    if (snap) r.camLook.copy(tmpL); else r.camLook.lerp(tmpL, 1 - Math.exp(-11 * dt));
+    r.camLook.copy(tmpL);
     if (r.shake > 0.01) { camera.position.x += (Math.random() - 0.5) * r.shake * 0.5; camera.position.y += (Math.random() - 0.5) * r.shake * 0.5; r.shake *= Math.exp(-6 * dt); }
     camera.lookAt(r.camLook);
     // lean into corners
-    const roll = DL.clamp(-c.yawRate * 0.018 - wrapA(c.yaw - r.camYaw) * 0.05, -0.07, 0.07) * (r.camMode === 4 ? 0.3 : 1);
+    const roll = 0;
     r.camRoll = (r.camRoll || 0) + (roll - (r.camRoll || 0)) * Math.min(1, dt * 5);
     camera.rotateZ(r.camRoll);
     // field of view widens with speed and kicks on landings
