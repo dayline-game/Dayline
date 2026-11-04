@@ -429,11 +429,11 @@
 
   // ---------------- cameras ----------------
   const CAMS = [
-    { d: 5.6, h: 2.1, look: 1.1, ahead: 6, fov: 62, lag: 9, yawLag: 5.5 },                 // chase
-    { d: 8.8, h: 3.5, look: 1.2, ahead: 9, fov: 62, lag: 7, yawLag: 4.5 },                 // far chase
+    { d: 6.8, h: 2.7, look: 2.1, ahead: 15, fov: 64, lag: 9, yawLag: 5.5 },                 // chase
+    { d: 10.5, h: 4.6, look: 2.3, ahead: 19, fov: 62, lag: 7, yawLag: 4.5 },                // far chase
     null,                                                                                   // bonnet
-    { d: 4.6, h: 1.15, look: 0.9, ahead: 5, side: 0.5, fov: 72, lag: 10, yawLag: 6 },       // low rally
-    { d: 13, h: 7.8, look: 0.6, ahead: 16, fov: 54, lag: 4.5, yawLag: 2.6 }                 // drone
+    { d: 5.8, h: 1.75, look: 1.5, ahead: 13, side: 0.18, fov: 72, lag: 10, yawLag: 6 },     // low rally
+    { d: 15, h: 9.5, look: 1.6, ahead: 24, fov: 56, lag: 4.5, yawLag: 2.6 }                 // drone
   ];
   const CAM_COUNT = CAMS.length;
   const tmpV = new THREE.Vector3(), tmpL = new THREE.Vector3(), gTmp = {};
@@ -476,7 +476,7 @@
     // keep the lens above the terrain, including the stretch between car and camera
     let gmax = r.track.groundAt(tmpV.x, tmpV.z, gTmp, true).y;
     gmax = Math.max(gmax, r.track.groundAt((tmpV.x + c.x) / 2, (tmpV.z + c.z) / 2, gTmp, true).y - 0.2);
-    const minY = gmax + (r.camMode === 4 ? 2.2 : 1.1);
+    const minY = gmax + (r.camMode === 4 ? 2.6 : 1.4);
     if (tmpV.y < minY) tmpV.y = minY;
     if (snap) camera.position.copy(tmpV);
     else {
