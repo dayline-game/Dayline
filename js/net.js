@@ -275,7 +275,32 @@
 
     // ---------- runs ----------
     // meta: {recoveries, airMax, beatGhost, archive}
+    // community tracks: a small finish reward, a personal best and a posted time, but no streak or daily score
+    _submitCustom(track, time, ghostEnc) {
+      const s = this.save, day = track.day;
+      const res = { coins: [], ach: [], prevBest: s.best[day] || null, isPB: false, community: true };
+      s.runs++;
+      const cl = s.claimed[day] || (s.claimed[day] = { done: 0, pb: 0 });
+      if (!cl.done) { cl.done = 1; res.coins.push(['Community finish', 10]); s.coins += 10; }
+      if (!res.prevBest || time < res.prevBest) {
+        res.isPB = true; s.best[day] = time;
+        DL.store.set('ghost:' + day, ghostEnc);
+        if (this.mode === 'online' && this.api) {
+          const payload = { day, time: Math.round(time * 1000) / 1000, ghost: ghostEnc, car: s.car, tv: this.trackVer };
+          this._pending = this._postRun(payload).then(r => {
+            if (r.s === 409 && r.j.reload) DL.emit('toast', 'A new version of Dayline is out — reload the page to post times');
+            else if (r.s === 422) { if (res.prevBest) s.best[day] = res.prevBest; else delete s.best[day]; DL.store.set('ghost:' + day, null); this.persist(); DL.emit('toast', 'Lap time deleted. Don’t cheat.'); }
+            else if (r.s === 404) DL.emit('toast', 'That track no longer exists');
+            else if (r.s !== 200) throw new Error('post');
+          }).catch(() => { DL.store.set('pendingRun:' + day, payload); DL.emit('toast', 'Offline — your time will post when the connection returns'); });
+        }
+      }
+      res.total = res.coins.reduce((a, c) => a + c[1], 0);
+      this.persist();
+      return res;
+    },
     submitRun(track, time, ghostEnc, meta) {
+      if (track.custom) return this._submitCustom(track, time, ghostEnc);
       const s = this.save, day = track.day, today = DL.dayKey();
       const res = { coins: [], ach: [], prevBest: s.best[day] || null, isPB: false };
       const add = (label, n) => { if (n > 0) { res.coins.push([label, n]); s.coins += n; } };
@@ -334,6 +359,33 @@
       } else if (this.mode === 'online') this.pushProfile();
       this.persist();
       return res;
+    },
+
+    // ---------- community tracks ----------
+    async ctList(sort) {
+      if (!this.api) return null;
+      const bc = this._cc || (this._cc = {}), c = bc[sort];
+      if (c && Date.now() - c.t < 15000) return c.rows;
+      if (this._pending) { try { await this._pending; } catch (e) { } }
+      const r = await this._fetch('GET', '/api/ctracks?sort=' + encodeURIComponent(sort || 'new'));
+      if (!r.j.ok) throw new Error('list');
+      bc[sort || 'new'] = { rows: r.j.rows, t: Date.now() }; return r.j.rows;
+    },
+    async ctGet(id) {
+      const r = await this._fetch('GET', '/api/ctrack/' + id);
+      return r.j.ok ? r.j.track : null;
+    },
+    async ctPublish(p) {
+      if (!this.api || this.mode !== 'online') return { ok: false, error: 'Publishing needs the online leaderboard' };
+      try {
+        const r = await this._fetch('POST', '/api/ctrack', Object.assign({ tv: this.trackVer, car: this.save.car }, p));
+        this._cc = null;
+        if (r.j.ok) return { ok: true, id: r.j.id };
+        return { ok: false, error: r.j.reload ? 'A new version of Dayline is out. Reload the page' : (r.j.error || 'Could not publish (' + r.s + ')') };
+      } catch (e) { return { ok: false, error: 'Could not reach the server' }; }
+    },
+    async ctDelete(id) {
+      const r = await this._fetch('POST', '/api/ctrack/' + id + '/delete'); this._cc = null; return !!r.j.ok;
     },
 
     // ---------- boards ----------

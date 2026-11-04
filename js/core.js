@@ -80,6 +80,9 @@ window.DL = window.DL || {};
 
   // ---------- patch notes (major releases only, newest first) ----------
   DL.PATCHES = [
+    { v: '1.5', date: 'November 2026', title: 'Community Tracks', art: 'community',
+      lead: 'Build your own track, publish it, and race the community’s.',
+      items: ['Track editor: click to lay a road, drag to shape it, test drive and publish', 'Community page with automatic thumbnails, plus a side panel of fastest times with Play', 'Quick paint: pick a colour, pattern and number. The pixel editor is now under Advanced'] },
     { v: '1.4', date: 'November 2026', title: 'Off the Beaten Track', art: 'offroad',
       lead: 'The road now matters. Cut a corner across the grass and you will feel it.',
       items: ['Grass, gravel and sand slow the car and reduce grip', 'Tyre skid marks and a personal-best celebration', 'Daily track now rolls over at 12am Gulf time', 'Much faster leaderboards'] },

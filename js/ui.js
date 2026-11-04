@@ -7,7 +7,7 @@
   const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const h = (html) => { const t = document.createElement('template'); t.innerHTML = html.trim(); return t.content.firstElementChild; };
   let screen = 'loading';
-  const SCREENS = ['menu', 'garage', 'shop', 'board', 'archive', 'hud', 'replay'];
+  const SCREENS = ['menu', 'garage', 'shop', 'board', 'archive', 'hud', 'replay', 'community', 'editor'];
   const today = () => DL.dayKey();
 
   DL.biomeOf = day => DL.BIOMES[DL.BIOME_KEYS[Math.floor(DL.mulberry32(DL.seedFor(day))() * DL.BIOME_KEYS.length)]];
@@ -17,9 +17,10 @@
   function show(name) {
     screen = name;
     SCREENS.forEach(s => { $(s).hidden = s !== name; });
-    $('topnav').hidden = name === 'hud' || name === 'replay';
+    $('topnav').hidden = name === 'hud' || name === 'replay' || name === 'editor';
     closeModal();
     if (name !== 'shop' && Game._preview) Game.showcase(null);
+    if (name === 'menu' && Game.track() && Game.track().day !== today()) Game.loadDay(today());
     Game.setMode(name === 'hud' ? 'race' : name);
     if (name !== 'replay') $('hGap').hidden = true;
     DL.Audio.click();
@@ -28,9 +29,11 @@
     if (name === 'shop') renderShop();
     if (name === 'board') renderBoard();
     if (name === 'archive') renderArchive();
+    if (name === 'community' && UI.renderCommunity) UI.renderCommunity();
+    if (name === 'editor' && UI.renderEditor) UI.renderEditor();
   }
   UI.show = show;
-  UI.back = function () { if ($('modalRoot').firstChild) { closeModal(); return; } if (screen === 'replay') { show('board'); return; } if (['garage', 'shop', 'board', 'archive'].includes(screen)) show('menu'); };
+  UI.back = function () { if ($('modalRoot').firstChild) { closeModal(); return; } if (screen === 'replay') { show(UI._replayBack || 'board'); return; } if (screen === 'editor') { show('community'); return; } if (['garage', 'shop', 'board', 'archive', 'community'].includes(screen)) show('menu'); };
   document.querySelectorAll('[data-back]').forEach(b => b.addEventListener('click', () => show('menu')));
 
   // ---------------- toasts & modals ----------------
@@ -98,12 +101,19 @@
   $('bArchive').onclick = () => show('archive');
   $('bShop').onclick = () => show('shop');
 
-  function startRace(day, ghosts) {
+  function startRace(day, ghosts, custom, opts) {
     DL.Audio.init();
+    UI._leave = (opts && opts.leave) || 'menu';
     show('hud');
     const touchOn = Game.settings.touch === 'on' || (Game.settings.touch === 'auto' && (matchMedia('(pointer:coarse)').matches || 'ontouchstart' in window));
     $('touch').classList.toggle('on', touchOn);
-    Game.startRace(day, ghosts);
+    Game.startRace(day, ghosts, custom, opts);
+  }
+  // where Quit / Menu go after a race: the menu, the community page or the editor
+  function leaveRace() {
+    const to = UI._leave || 'menu';
+    if (to === 'menu') Game.loadDay(today());
+    show(to);
   }
 
   // ---------------- HUD ----------------
@@ -224,7 +234,7 @@
     m.querySelector('#pRestart').onclick = () => Game.restart();
     m.querySelector('#pRecover').onclick = () => { Game.pause(false); Game.recover(); };
     m.querySelector('#pSettings').onclick = () => openSettings(true);
-    m.querySelector('#pQuit').onclick = () => { Game.loadDay(today()); show('menu'); };
+    m.querySelector('#pQuit').onclick = () => leaveRace();
   };
 
   UI.finished = function (r, t, res, valid) {
@@ -251,7 +261,7 @@
       <div class="btn-row"><button class="btn btn-go" id="rRetry" style="font-size:24px">Retry</button><button class="btn btn-line" id="rMenu">Menu</button></div>
       <button class="btn btn-line btn-sm" id="rBoard">View leaderboard</button>`, { sticky: true });
     m.querySelector('#rRetry').onclick = () => Game.restart();
-    m.querySelector('#rMenu').onclick = () => { Game.loadDay(today()); show('menu'); };
+    m.querySelector('#rMenu').onclick = () => leaveRace();
     m.querySelector('#rBoard').onclick = () => { board.day = day; board.tab = 'daily'; Game.loadDay(today()); show('board'); };
     if (res && res.total) { DL.Audio.coin(); renderCoins(); }
     if (valid && res && res.isPB) { UI.confetti(); DL.Audio.chime(); }
@@ -323,10 +333,63 @@
     const s = Net.save, p = s.paint[s.car] || { l: DL.encodeLivery(DL.defaultLivery()), b: DL.DEFAULT_BASE };
     ed = { liv: DL.decodeLivery(p.l), base: p.b == null ? DL.DEFAULT_BASE : p.b, color: ed ? ed.color : 13, tool: ed ? ed.tool : 'brush', stamp: 'roundel', mirror: ed ? ed.mirror : true, undo: [], redo: [], active: 'left', canv: {} };
   }
-  UI.paintActive = () => screen === 'garage' && gTab === 'paint' && !!ed;
+  UI.paintActive = () => screen === 'garage' && gTab === 'paint' && !!ed && paintMode === 'pro';
+
+  // ---- Quick paint: body colour + pattern + number, no pixels ----
+  let paintMode = 'quick';
+  const QP = { pat: 'none', col: 13, num: '' };
+  const PATTERNS = [['none', 'Plain'], ['stripe', 'Stripe'], ['twin', 'Twin stripe'], ['band', 'Side band'], ['checker', 'Checker'], ['nose', 'Nose & tail']];
+  function patHit(pat, key, x, y, p) {
+    const side = key === 'left' || key === 'right', end = key === 'front' || key === 'rear';
+    if (pat === 'stripe') return key === 'top' ? (y === 5 || y === 6) : end ? (x === 5 || x === 6) : (y === 4 || y === 5);
+    if (pat === 'twin') return key === 'top' ? (y === 3 || y === 4 || y === 7 || y === 8) : end ? (x === 3 || x === 4 || x === 7 || x === 8) : (y === 3 || y === 6);
+    if (pat === 'band') return side ? (y >= 6 && y <= 8) : end ? (y >= 7 && y <= 8) : false;
+    if (pat === 'checker') return side ? (y >= 7 && y <= 8 && (((x >> 1) + y) & 1)) : end ? (y >= 8 && (((x >> 1) + y) & 1)) : (x >= 26 && (((x >> 1) + y) & 1));
+    if (pat === 'nose') return end ? true : side ? (x < 5 || x > 26) : (x < 6 || x > 25);
+    return false;
+  }
+  function applyQuick() {
+    pushUndo();
+    ed.liv.fill(0);
+    const P = DL.PANELS, saved = ed.mirror; ed.mirror = false;
+    for (const key in P) { const p = P[key]; for (let y = 0; y < p.h; y++) for (let x = 0; x < p.w; x++) if (patHit(QP.pat, key, x, y, p)) setCell(key, x, y, QP.col); }
+    if (QP.num !== '') {
+      const white = ed.base === 29 || ed.base === 8 ? 1 : 29, digs = String(QP.num).slice(0, 2).split('');
+      const w = digs.length * 4 - 1, ox0 = Math.floor((P.left.w - w) / 2);
+      for (const key of ['left', 'right', 'top']) {
+        const p = P[key], oy = Math.floor((p.h - 5) / 2), ox = key === 'top' ? ox0 + 0 : ox0;
+        // plate behind the digits so they read on any pattern
+        for (let y = oy - 1; y <= oy + 5; y++) for (let x = ox - 1; x <= ox + w; x++) if (y >= 0 && y < p.h && x >= 0 && x < p.w) setCell(key, x, y, key === 'right' ? 0 : 0);
+        digs.forEach((dg, i) => { const d = DL.DIGITS[+dg]; for (let j = 0; j < 5; j++) for (let k = 0; k < 3; k++) if (d[j * 3 + k] === '1') setCell(key, ox + i * 4 + k, oy + j, white); });
+      }
+    }
+    ed.mirror = saved; commit();
+  }
+  function renderQuick(body) {
+    const sec = (t, node) => { const w = h(`<div class="qp-sec"><div class="lbl">${t}</div></div>`); w.appendChild(node); body.appendChild(w); };
+    const sw = (get, set) => { const pal = h('<div class="palette"></div>'); DL.PALETTE.forEach((c, i) => { if (!i) return; const b = h(`<button class="sw ${get() === i ? 'on' : ''}" aria-label="${c}" style="background:${c}"></button>`); b.onclick = () => { set(i); renderGarage(); }; pal.appendChild(b); }); return pal; };
+    sec('Body colour', sw(() => ed.base, i => { pushUndo(); ed.base = i; commit(); }));
+    const pr = h('<div class="paint-tools"></div>');
+    PATTERNS.forEach(([id, nm]) => { const b = h(`<button class="tool ${QP.pat === id ? 'on' : ''}">${nm}</button>`); b.onclick = () => { QP.pat = id; applyQuick(); renderGarage(); }; pr.appendChild(b); });
+    sec('Pattern', pr);
+    if (QP.pat !== 'none') sec('Pattern colour', sw(() => QP.col, i => { QP.col = i; applyQuick(); }));
+    const nr = h(`<div class="paint-tools" style="align-items:center"><input type="text" inputmode="numeric" maxlength="2" id="qpNum" value="${QP.num}" placeholder="--" style="width:64px;text-align:center"><span class="hint" style="margin:0">Race number, 1–2 digits (optional)</span></div>`);
+    nr.firstElementChild.oninput = e => { QP.num = e.target.value.replace(/\D/g, '').slice(0, 2); e.target.value = QP.num; applyQuick(); };
+    sec('Number', nr);
+    const act = h('<div class="paint-tools"><button class="tool">Undo</button><button class="tool">Reset to stock</button></div>');
+    act.children[0].disabled = !ed.undo.length; act.children[0].onclick = () => undo();
+    act.children[1].onclick = () => { pushUndo(); ed.liv = DL.defaultLivery(); ed.base = DL.DEFAULT_BASE; QP.pat = 'none'; QP.num = ''; commit(); renderGarage(); };
+    body.appendChild(act);
+    body.appendChild(h('<p class="hint">Pick a colour, a pattern and a number. Saves automatically; keep favourites under Designs. Want pixel-level control? Switch to Advanced.</p>'));
+  }
 
   function renderPaint(body) {
     if (!ed) openEditor();
+    const modes = h('<div class="paint-tools qp-modes"><button class="tool">Quick</button><button class="tool">Advanced pixel editor</button></div>');
+    modes.children[0].classList.toggle('on', paintMode === 'quick'); modes.children[1].classList.toggle('on', paintMode === 'pro');
+    modes.children[0].onclick = () => { paintMode = 'quick'; renderGarage(); }; modes.children[1].onclick = () => { paintMode = 'pro'; renderGarage(); };
+    body.appendChild(modes);
+    if (paintMode === 'quick') { renderQuick(body); return; }
     const tools = [['brush', 'Brush'], ['big', 'Big brush'], ['fill', 'Fill'], ['erase', 'Eraser'], ['pick', 'Pick'], ['stamp', 'Stamp']];
     const tb = h('<div class="paint-tools"></div>');
     tools.forEach(([id, nm]) => { const b = h(`<button class="tool ${ed.tool === id ? 'on' : ''}">${nm}</button>`); b.onclick = () => { ed.tool = id; renderGarage(); }; tb.appendChild(b); });
@@ -482,7 +545,7 @@
     const up = () => { if (down) { down = false; refreshUndoButtons(); } };
     c.addEventListener('pointerup', up); c.addEventListener('pointercancel', up);
   }
-  function refreshUndoButtons() { if (screen === 'garage' && gTab === 'paint') { const tb = $('gBody').querySelectorAll('.paint-tools')[0]; if (tb) { const b = tb.querySelectorAll('button'); b[b.length - 2].disabled = !ed.undo.length; b[b.length - 1].disabled = !ed.redo.length; } } }
+  function refreshUndoButtons() { if (screen === 'garage' && gTab === 'paint') { const tb = $('gBody').querySelectorAll('.paint-tools')[1]; if (tb) { const b = tb.querySelectorAll('button'); b[b.length - 2].disabled = !ed.undo.length; b[b.length - 1].disabled = !ed.redo.length; } } }
   // painting directly on the 3D body
   let paintStroke = false;
   UI.paintUV = function (uv, start) {
@@ -593,7 +656,7 @@
   let seeking = false;
   UI.openReplay = function (day, spec, enc, time) {
     show('replay');
-    if (!Game.startReplay(day, enc, spec)) { toast('That replay could not be played'); show('board'); return; }
+    if (!Game.startReplay(day, enc, spec)) { toast('That replay could not be played'); show(UI._replayBack || 'board'); return; }
     const r = Game.race();
     $('rpName').textContent = spec.label || 'Driver';
     $('rpTime').textContent = DL.fmtTime(time);
@@ -608,7 +671,7 @@
   $('rpPlay').onclick = () => { const r = rp(); if (r) { if (r.rt >= r.dur) { r.rt = 0; r.snap = true; } r.paused = !r.paused; } };
   $('rpRate').onclick = () => { const r = rp(); if (!r) return; r.rate = RATES[(RATES.indexOf(r.rate) + 1) % RATES.length]; $('rpRate').textContent = r.rate + '×'; };
   $('rpCam').onclick = () => Game.cycleCamera();
-  $('rpClose').onclick = () => show('board');
+  $('rpClose').onclick = () => show(UI._replayBack || 'board');
   $('rpSeek').addEventListener('input', e => { const r = rp(); if (r) { seeking = true; r.rt = e.target.value / 1000 * r.dur; r.snap = true; } });
   $('rpSeek').addEventListener('change', () => { seeking = false; });
   window.addEventListener('keydown', e => {
@@ -693,7 +756,7 @@
             const enc = await Net.ghost(me ? 'me' : r.uid, board.day);
             if (!enc) { toast('No replay saved for that run'); return; }
             const nm = displayName(r, names);
-            UI.openReplay(board.day, { uid: r.uid, label: me ? 'You' : nm, car: r.car, l: r.l, b: r.b, equip: r.equip }, enc, r.time);
+            UI._replayBack = 'board'; UI.openReplay(board.day, { uid: r.uid, label: me ? 'You' : nm, car: r.car, l: r.l, b: r.b, equip: r.equip }, enc, r.time);
           } catch (e) { toast('Could not load that replay'); }
           finally { wb.disabled = false; wb.textContent = '▶ Watch'; }
         };
@@ -853,6 +916,7 @@
     account: () => '<rect x="118" y="38" width="164" height="104" rx="12" fill="#f3ead7"/><rect x="118" y="38" width="164" height="22" rx="12" fill="#1c2536"/><circle cx="160" cy="92" r="16" fill="#f05a35"/><path d="M134 128 Q160 100 186 128Z" fill="#f05a35"/><rect x="200" y="82" width="64" height="8" rx="4" fill="#1c2536"/><rect x="200" y="100" width="48" height="8" rx="4" fill="#cbbb9c"/><rect x="200" y="116" width="56" height="8" rx="4" fill="#cbbb9c"/><circle cx="270" cy="49" r="4" fill="#f2c14e"/>',
     ghost: () => CAR(150, 126, 1.05, '#f05a35') + CAR(238, 118, 1.05, '#f3ead7', .5) + '<path d="M222 96 q0 -22 22 -22 q22 0 22 22 v18 l-7 -6 l-7 6 l-8 -6 l-7 6 l-7 -6 l-7 6Z" fill="#f3ead7" opacity=".9" transform="translate(-20 -24) scale(.8)"/>',
     garage: () => CAR(200, 120, 1.5, '#2f7d8a') + '<g><rect x="60" y="30" width="22" height="22" rx="5" fill="#f05a35"/><rect x="88" y="30" width="22" height="22" rx="5" fill="#f2c14e"/><rect x="116" y="30" width="22" height="22" rx="5" fill="#8aa36b"/><rect x="60" y="58" width="22" height="22" rx="5" fill="#7d8fd0"/><rect x="88" y="58" width="22" height="22" rx="5" fill="#e78fb3"/><rect x="116" y="58" width="22" height="22" rx="5" fill="#f3ead7"/></g>',
+    community: () => '<g fill="none" stroke="#1c2536" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"><path d="M70 140 C100 60 150 150 190 90 S250 50 262 100"/></g><g fill="none" stroke="#f3ead7" stroke-width="3" stroke-dasharray="7 7"><path d="M70 140 C100 60 150 150 190 90 S250 50 262 100"/></g><circle cx="70" cy="140" r="9" fill="#3a8a5a"/><circle cx="262" cy="100" r="9" fill="#f05a35"/><g fill="#f3ead7" stroke="#1c2536" stroke-width="2"><circle cx="130" cy="108" r="6"/><circle cx="190" cy="90" r="6"/></g>',
     launch: () => '<g><rect x="168" y="34" width="5" height="120" fill="#1c2536"/><path d="M173 38 H260 V86 H173Z" fill="#f3ead7"/><g fill="#1c2536">' + Array.from({ length: 24 }, (_, i) => { const x = i % 6, y = (i / 6) | 0; return (x + y) % 2 ? `<rect x="${173 + x * 14.5}" y="${38 + y * 12}" width="14.5" height="12"/>` : ''; }).join('') + '</g></g>'
   };
   function hero(kind) {
@@ -931,6 +995,8 @@
       catch (e) { const r = document.createRange(); r.selectNodeContents(m.querySelector('#shText')); const sel = getSelection(); sel.removeAllRanges(); sel.addRange(r); toast('Press Ctrl+C to copy'); }
     };
   }
+
+  UI._x = { show, modal, closeModal, toast, esc, h, whoCell, displayName, startRace, leaveRace, renderCoins, board, today, renderNet };
 
   // ---------------- boot ----------------
   DL.on('save', () => { renderCoins(); });

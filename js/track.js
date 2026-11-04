@@ -8,18 +8,19 @@
   DL.SURF = SURF; DL.ROAD_HALF = HALF;
   DL.TRACK_VER = 4;   // bump whenever track generation changes, then re-run `npm run digests`
 
-  function Track(day) {
-    this.day = day;
-    this.seed = DL.seedFor(day);
+  function Track(day, custom) {
+    this.day = day; this.custom = custom || null;
+    this.seed = custom ? DL.hashStr('community:' + custom.id) : DL.seedFor(day);
     const rnd = this.rnd = DL.mulberry32(this.seed);
-    this.biomeKey = DL.BIOME_KEYS[Math.floor(rnd() * DL.BIOME_KEYS.length)];
+    this.biomeKey = custom ? (DL.BIOMES[custom.biome] ? custom.biome : 'country') : DL.BIOME_KEYS[Math.floor(rnd() * DL.BIOME_KEYS.length)];
     this.B = DL.BIOMES[this.biomeKey];
     this.noise = DL.makeNoise(this.seed ^ 0x9e3779b9);
     this.half = HALF;
     this.water = this.B.water;
     this.seaDir = null;
     this._r = { i: 0, dist: 0, y: 0, lat: 0, t: 0, s: 0 };
-    for (let attempt = 0; attempt < 6; attempt++) {
+    if (custom) this._customCenterline(custom.pts);
+    else for (let attempt = 0; attempt < 6; attempt++) {
       this._genRnd = DL.mulberry32(this.seed + attempt * 7919);
       this._generateCenterline();
       if (this.length > 1900) break;
@@ -106,6 +107,11 @@
     }
     const tail = tryPath([[44, 0]]) || tryPath([[20, 0]]);
     if (tail) commit(tail);
+    this._centerlineArrays(xs, zs);
+  };
+
+  // shared by generated and player-made tracks: turns sampled points into tangents, curvature and bounds
+  Track.prototype._centerlineArrays = function (xs, zs) {
     const N = this.N = xs.length;
     this.px = Float32Array.from(xs); this.pz = Float32Array.from(zs);
     this.py = new Float32Array(N);
@@ -127,6 +133,63 @@
     let minX = 1e9, maxX = -1e9, minZ = 1e9, maxZ = -1e9;
     for (let i = 0; i < N; i++) { minX = Math.min(minX, xs[i]); maxX = Math.max(maxX, xs[i]); minZ = Math.min(minZ, zs[i]); maxZ = Math.max(maxZ, zs[i]); }
     this.bounds = { minX, maxX, minZ, maxZ };
+  };
+
+  // ---------- player-made tracks ----------
+  // Catmull-Rom spline through the waypoints with a short straight lead-in and run-out, resampled every STEP metres.
+  DL.customCenterline = function (pts) {
+    const P = pts.map(p => [+p[0], +p[1]]), n = P.length;
+    const d0 = [P[1][0] - P[0][0], P[1][1] - P[0][1]], l0 = Math.hypot(d0[0], d0[1]) || 1;
+    const d1 = [P[n - 1][0] - P[n - 2][0], P[n - 1][1] - P[n - 2][1]], l1 = Math.hypot(d1[0], d1[1]) || 1;
+    const Q = [[P[0][0] - d0[0] / l0 * 28, P[0][1] - d0[1] / l0 * 28]].concat(P, [[P[n - 1][0] + d1[0] / l1 * 28, P[n - 1][1] + d1[1] / l1 * 28]]);
+    const m = Q.length, dense = [];
+    const at = i => Q[Math.max(0, Math.min(m - 1, i))];
+    for (let i = 0; i < m - 1; i++) {
+      const p0 = at(i - 1), p1 = at(i), p2 = at(i + 1), p3 = at(i + 2);
+      const seg = Math.hypot(p2[0] - p1[0], p2[1] - p1[1]), k = Math.max(8, Math.ceil(seg / 2));
+      for (let j = 0; j < k; j++) {
+        const t = j / k, t2 = t * t, t3 = t2 * t;
+        const f = (a, b, c, d) => 0.5 * ((2 * b) + (-a + c) * t + (2 * a - 5 * b + 4 * c - d) * t2 + (-a + 3 * b - 3 * c + d) * t3);
+        dense.push([f(p0[0], p1[0], p2[0], p3[0]), f(p0[1], p1[1], p2[1], p3[1])]);
+      }
+    }
+    dense.push(Q[m - 1]);
+    const xs = [dense[0][0]], zs = [dense[0][1]];
+    let acc = 0, last = dense[0];
+    for (let i = 1; i < dense.length; i++) {
+      let cur = dense[i], seg = Math.hypot(cur[0] - last[0], cur[1] - last[1]);
+      while (acc + seg >= STEP) {
+        const t = (STEP - acc) / seg, x = last[0] + (cur[0] - last[0]) * t, z = last[1] + (cur[1] - last[1]) * t;
+        xs.push(x); zs.push(z); last = [x, z]; seg = Math.hypot(cur[0] - last[0], cur[1] - last[1]); acc = 0;
+      }
+      acc += seg; last = cur;
+    }
+    return { xs, zs };
+  };
+  DL.CUSTOM = { MIN_PTS: 3, MAX_PTS: 40, LIM: 1300, MIN_LEN: 500, MAX_LEN: 3800, MIN_R: 16 };
+  DL.validateCustomTrack = function (pts) {
+    const C = DL.CUSTOM;
+    if (!Array.isArray(pts) || pts.length < C.MIN_PTS) return { ok: false, error: 'Add at least ' + C.MIN_PTS + ' points' };
+    if (pts.length > C.MAX_PTS) return { ok: false, error: 'Too many points (max ' + C.MAX_PTS + ')' };
+    for (const p of pts) if (!Array.isArray(p) || !isFinite(p[0]) || !isFinite(p[1]) || Math.abs(p[0]) > C.LIM || Math.abs(p[1]) > C.LIM) return { ok: false, error: 'A point is outside the map' };
+    for (let i = 1; i < pts.length; i++) if (Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1]) < 30) return { ok: false, error: 'Points are too close together' };
+    const { xs, zs } = DL.customCenterline(pts), N = xs.length, len = (N - 1) * STEP;
+    if (len < C.MIN_LEN) return { ok: false, error: 'Track is too short (' + Math.round(len) + ' m, min ' + C.MIN_LEN + ')', length: len };
+    if (len > C.MAX_LEN) return { ok: false, error: 'Track is too long (' + Math.round(len) + ' m, max ' + C.MAX_LEN + ')', length: len };
+    for (let i = 0; i < N; i++) for (let j = i + 22; j < N; j++) {
+      const dx = xs[i] - xs[j], dz = zs[i] - zs[j];
+      if (dx * dx + dz * dz < 34 * 34) return { ok: false, error: 'The track crosses or touches itself', length: len, at: [xs[i], zs[i]] };
+    }
+    for (let i = 0; i + 6 < N; i++) {
+      const h1 = Math.atan2(xs[i + 3] - xs[i], zs[i + 3] - zs[i]), h2 = Math.atan2(xs[i + 6] - xs[i + 3], zs[i + 6] - zs[i + 3]);
+      let d = h2 - h1; while (d > Math.PI) d -= 2 * Math.PI; while (d < -Math.PI) d += 2 * Math.PI;
+      if (Math.abs(d) > 1e-4 && 12 / Math.abs(d) < C.MIN_R) return { ok: false, error: 'A corner is too tight to drive', length: len, at: [xs[i + 3], zs[i + 3]] };
+    }
+    return { ok: true, length: len };
+  };
+  Track.prototype._customCenterline = function (pts) {
+    const c = DL.customCenterline(pts);
+    this._centerlineArrays(c.xs, c.zs);
   };
 
   Track.prototype._buildGrid = function () {

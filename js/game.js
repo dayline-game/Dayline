@@ -121,10 +121,14 @@
     });
   }
 
-  Game.loadDay = function (day) {
-    if (track && track.day === day) return track;
+  // player-made tracks are registered here by id (day key 'c_xxxxxxxx') before they are raced
+  DL.customTracks = DL.customTracks || {};
+  Game.loadDay = function (day, custom) {
+    custom = custom || DL.customTracks[day] || null;
+    const key = custom ? day + '|' + custom.biome + '|' + JSON.stringify(custom.pts) : day;
+    if (track && track._key === key) return track;
     if (world) { scene.remove(world.group); disposeGroup(world.group); }
-    track = new DL.Track(day);
+    track = new DL.Track(day, custom); track._key = key;
     world = DL.buildTrackScene(track, scene, { lowQuality: !settings.hq });
     const B = track.B;
     scene.background = new THREE.Color(B.sky);
@@ -184,14 +188,14 @@
     mode = m;
     if (race && m !== 'race' && m !== 'replay') endRace();
     if (m === 'garage' || m === 'shop') { orbit.auto = true; }
-    if (m === 'menu' || m === 'board' || m === 'archive') { parkPlayer(); }
+    if (m === 'menu' || m === 'board' || m === 'archive' || m === 'community' || m === 'editor') { parkPlayer(); }
   };
   Game.mode = () => mode;
 
   // ---------------- race ----------------
-  Game.startRace = async function (day, ghostSpecs) {
+  Game.startRace = async function (day, ghostSpecs, custom, opts) {
     DL.Audio.init();
-    Game.loadDay(day);
+    Game.loadDay(day, custom);
     if (race) endRace();
     mode = 'race';
     const car = new DL.Car(track);
@@ -201,6 +205,7 @@
       ghosts: [], ghostsOn: true, ghostSpecs: ghostSpecs || [], pbCp: null, farT: 0, waterT: 0,
       camYaw: track.start.yaw, shake: 0, camMode: settings.cam, trailT: 0
     };
+    race.test = !!(opts && opts.test); race.noPB = race.test;
     trail.points.length = 0; clearSkids();
     resetCarToStart();
     DL.UI.raceStarted(race);
@@ -421,6 +426,11 @@
     const gh = DL.decodeGhost(enc);
     const valid = DL.validateRun(r.track, gh, t);
     const beatGhost = r.ghosts.some(g => !g.spec.mine && g.time > t) || r.ghosts.some(g => g.spec.mine && g.time > t + 0.001);
+    if (r.track.custom) {
+      if (r.test) { DL.UI.testFinished(r, t, valid, enc); return; }
+      const cres = valid ? DL.Net.submitRun(r.track, t, enc, {}) : null;
+      DL.UI.finishedCustom(r, t, cres, valid); return;
+    }
     let res = null;
     if (valid) res = DL.Net.submitRun(r.track, t, enc, { recoveries: r.recoveries, airMax: r.airMax, beatGhost });
     DL.UI.finished(r, t, res, valid);
