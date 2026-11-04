@@ -10,6 +10,7 @@
 
   function Track(day) {
     this.day = day;
+    this.practice = !/^\d{8}$/.test(day);       // test tracks use any other seed and never post times
     this.seed = DL.hashStr('dayline:' + day);
     const rnd = this.rnd = DL.mulberry32(this.seed);
     this.biomeKey = DL.BIOME_KEYS[Math.floor(rnd() * DL.BIOME_KEYS.length)];

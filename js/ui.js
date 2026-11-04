@@ -92,6 +92,9 @@
   }, 500);
 
   // ghosts picked on the leaderboard follow you into a normal Race now too
+  // random seed, never posts a time: for trying out new tracks and physics
+  const newPractice = () => startRace('x' + Math.random().toString(36).slice(2, 7), []);
+  $('bPractice').onclick = newPractice; $('hNewTrack').onclick = newPractice;
   $('bRace').onclick = () => startRace(today(), Object.values((board.sel && board.sel[today()]) || {}));
   $('bGarage').onclick = () => show('garage');
   $('bBoard').onclick = () => { board.day = today(); board.tab = 'daily'; show('board'); };
@@ -110,7 +113,8 @@
   let deltaTimer = 0, bannerTimer = 0;
   UI.raceStarted = function (r) {
     const best = Net.save.best[r.track.day];
-    $('hPB').textContent = best ? 'PB ' + DL.fmtTime(best) : 'No time yet';
+    $('hPB').textContent = r.track.practice ? 'TEST TRACK · ' + r.track.day.slice(1).toUpperCase() + ' · NOT RANKED' : best ? 'PB ' + DL.fmtTime(best) : 'No time yet';
+    $('hNewTrack').hidden = !r.track.practice;
     $('hDots').innerHTML = r.track.checkpoints.map(() => '<i></i>').join('');
     $('hCP').textContent = '0 / ' + r.track.checkpoints.length;
     $('hDelta').className = 'delta';
@@ -159,6 +163,7 @@
   $('hGhost').onclick = () => openGhostPicker();
   async function openGhostPicker() {
     const r = Game.race(); if (!r || r.replay) return;
+    if (r.track.practice) { toast('No ghosts on test tracks'); return; }
     const day = r.track.day, wasPaused = r.paused;
     Game.setPaused(true);
     const m = modal(`<div class="lbl">Race against</div><h2>Ghosts</h2>
@@ -221,32 +226,32 @@
 
   UI.finished = function (r, t, res, valid) {
     UI.checkpoint(r.track.checkpoints.length, r.track.checkpoints.length, null);
-    const day = r.track.day, isToday = day === today();
-    const prev = res ? res.prevBest : Net.save.best[day];
+    const day = r.track.day, isToday = day === today(), prac = r.track.practice;
+    const prev = prac ? null : res ? res.prevBest : Net.save.best[day];
     let cmp = '';
     if (prev) { const d = t - prev; cmp = `<span class="num" style="color:${d <= 0 ? 'var(--good)' : 'var(--bad)'}">${DL.fmtDelta(d)}</span>`; }
     const coins = res ? res.coins.map(c => `<div class="res-row"><span>${esc(c[0])}</span><b class="num">+${c[1]}</b></div>`).join('') : '';
     const m = modal(`
-      <div class="lbl">${isToday ? 'Daily No. ' + DL.dayNumber(day) : 'Archive · ' + DL.prettyDay(day)} · ${esc(r.track.B.name)}</div>
+      <div class="lbl">${prac ? 'Test track · ' + esc(day.slice(1).toUpperCase()) : isToday ? 'Daily No. ' + DL.dayNumber(day) : 'Archive · ' + DL.prettyDay(day)} · ${esc(r.track.B.name)}</div>
       <h2>${!valid ? 'Run not counted' : res && res.isPB && prev ? 'New personal best' : 'Finished'}</h2>
       <div class="res-time">${DL.fmtTime(t)}</div>
       <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
         ${r.recoveries ? `<span class="tag">${r.recoveries} recover${r.recoveries > 1 ? 'ies' : 'y'}</span>` : '<span class="tag">Clean run</span>'}
       </div>
       ${!valid ? '<p class="hint">This run failed the plausibility check (it skipped part of the route), so it was not saved.</p>' : ''}
-      <div>
+      ${prac ? '<p class="hint">Test tracks are for practice. Times and coins are not saved or posted.</p>' : `<div>
         <div class="res-row"><span>Previous best</span><b class="num">${prev ? DL.fmtTime(prev) : '—'} ${cmp}</b></div>
         <div class="res-row"><span>Board position</span><b id="rPos" class="num">${Net.db && Net.mode === 'online' ? 'Checking…' : 'Saved on this device'}</b></div>
         ${coins}
         ${res && res.total ? `<div class="res-row" style="border:0"><span class="lbl">Coins earned</span><b class="price num" style="font-size:26px"><span class="coin"></span>+${res.total}</b></div>` : ''}
-      </div>
+      </div>`}
       <div class="btn-row"><button class="btn btn-go" id="rRetry" style="font-size:24px">Retry</button><button class="btn btn-line" id="rMenu">Menu</button></div>
-      <button class="btn btn-line btn-sm" id="rBoard">View leaderboard</button>`, { sticky: true });
+      <button class="btn btn-line btn-sm" id="rBoard">${prac ? 'New test track' : 'View leaderboard'}</button>`, { sticky: true });
     m.querySelector('#rRetry').onclick = () => Game.restart();
     m.querySelector('#rMenu').onclick = () => { Game.loadDay(today()); show('menu'); };
-    m.querySelector('#rBoard').onclick = () => { board.day = day; board.tab = 'daily'; Game.loadDay(today()); show('board'); };
+    m.querySelector('#rBoard').onclick = () => { if (prac) { newPractice(); return; } board.day = day; board.tab = 'daily'; Game.loadDay(today()); show('board'); };
     if (res && res.total) { DL.Audio.coin(); renderCoins(); }
-    if (Net.db && Net.mode === 'online' && valid) {
+    if (Net.db && Net.mode === 'online' && valid && !prac) {
       setTimeout(async () => {
         try {
           const rows = (await Net.boardDaily(day, 500)).filter(x => x.time >= r.track.minTime);

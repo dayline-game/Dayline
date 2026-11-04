@@ -182,6 +182,7 @@
   // ---------------- modes ----------------
   Game.setMode = function (m) {
     mode = m;
+    if (m !== 'race' && m !== 'replay' && track && track.practice) Game.loadDay(DL.dayKey());   // leave the test track behind
     if (race && m !== 'race' && m !== 'replay') endRace();
     if (m === 'garage' || m === 'shop') { orbit.auto = true; }
     if (m === 'menu' || m === 'board' || m === 'archive') { parkPlayer(); }
@@ -209,6 +210,7 @@
   };
 
   async function loadGhosts(r) {
+    if (r.track.practice) return;
     const specs = r.ghostSpecs.slice();
     const myUid = DL.Net.uid || 'me';
     const wantPB = settings.pbGhost && !r.noPB && DL.Net.save.best[r.track.day];
@@ -422,7 +424,7 @@
     const valid = DL.validateRun(r.track, gh, t);
     const beatGhost = r.ghosts.some(g => !g.spec.mine && g.time > t) || r.ghosts.some(g => g.spec.mine && g.time > t + 0.001);
     let res = null;
-    if (valid) res = DL.Net.submitRun(r.track, t, enc, { recoveries: r.recoveries, airMax: r.airMax, beatGhost });
+    if (valid && !r.track.practice) res = DL.Net.submitRun(r.track, t, enc, { recoveries: r.recoveries, airMax: r.airMax, beatGhost });
     DL.UI.finished(r, t, res, valid);
   }
 

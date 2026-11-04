@@ -24,10 +24,13 @@
     this.steerVis = 0;
   };
 
+  // grip, top-speed scale and extra rolling drag per surface: tarmac and kerbs are fast, gravel and grass bog the car down
   Car.prototype.surfaceProps = function (surf) {
     const B = this.track.B;
-    // every surface drives like tarmac: going off the road never costs speed or grip
-    return [1.0 * B.roadGrip, 54];
+    if (surf === SURF.ROAD) return [1.0 * B.roadGrip, 54, 0];
+    if (surf === SURF.KERB) return [0.96 * B.roadGrip, 54, 0.4];
+    if (surf === SURF.GRAVEL) return [B.offGrip * 0.85, 34, 2.2];
+    return [B.offGrip, 31, 3.0];                // grass, sand, snow verge
   };
 
   // inp: {throttle 0..1, brake 0..1, steer -1..1 (+ = right), handbrake bool}
@@ -39,7 +42,7 @@
     t.groundAt(this.x, this.z, g);
     const groundY0 = g.y;
     this.surf = g.surf;
-    const [grip0, vmax] = this.surfaceProps(g.surf);
+    const [grip0, vmax, rough] = this.surfaceProps(g.surf);
     const grip = this.inWater ? 0.3 : grip0;
     this.steerVis += (inp.steer - this.steerVis) * Math.min(1, dt * 12);
 
@@ -60,6 +63,7 @@
       let a = drive - Math.sign(vF) * brakeF;
       a -= k * vF * Math.abs(vF);
       a -= Math.sign(vF) * 0.45;
+      if (rough) a -= Math.sign(vF) * rough * DL.clamp(Math.abs(vF) / 8, 0, 1.6);   // grass and gravel drag
       const fy = t.groundAt(this.x + fx * 1.6, this.z + fz * 1.6, this.g2).y;
       const by = t.groundAt(this.x - fx * 1.6, this.z - fz * 1.6, this.g2).y;
       a -= G * ((fy - by) / 3.2);
