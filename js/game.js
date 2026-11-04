@@ -560,7 +560,7 @@
     if (tmpV.y < minY) tmpV.y = minY;
     if (snap) camera.position.copy(tmpV);
     else {
-      const kh = 1 - Math.exp(-m.lag * 4 * dt), kv = 1 - Math.exp(-m.lag * 0.75 * dt);
+      const kh = 1, kv = 1 - Math.exp(-m.lag * 0.75 * dt);
       camera.position.x += (tmpV.x - camera.position.x) * kh;
       camera.position.z += (tmpV.z - camera.position.z) * kh;
       camera.position.y += (tmpV.y - camera.position.y) * kv;
@@ -584,7 +584,7 @@
     camera.rotateZ(r.camRoll);
     // field of view widens with speed and kicks on landings
     r.fovKick = (r.fovKick || 0) * Math.exp(-4 * dt);
-    setFov(m.fov + DL.clamp(sp, 0, 58) * 0.05 + r.fovKick, dt);
+    setFov(m.fov + r.fovKick, dt);
   }
 
   // ---------------- particles (low-poly puffs) ----------------
