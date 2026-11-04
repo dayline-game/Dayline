@@ -81,8 +81,8 @@ window.DL = window.DL || {};
   // ---------- patch notes (major releases only, newest first) ----------
   DL.PATCHES = [
     { v: '1.7', date: 'November 2026', title: 'Roadside Life', art: 'offroad',
-      lead: 'The road is no longer just barrels. Every biome has its own hazards and landmarks from tomorrow’s map.',
-      items: ['New road hazards: lane-closure cones, concrete chicanes, tyre walls, broken-down cars, fallen logs, rockfalls, snowbanks, hay bales and roadworks', 'Hot air balloons, billboards and tyre stacks beside the road', 'Cabins, watchtowers, snowmen, igloos, lifeguard towers, pumpjacks and more per biome'] },
+      lead: 'Every biome has its own landmarks and roadside life from tomorrow’s map.',
+      items: ['Hot air balloons, billboards and tyre stacks beside the road', 'Cabins, watchtowers, snowmen, igloos, lifeguard towers, pumpjacks and more per biome'] },
     { v: '1.6', date: 'November 2026', title: 'Rough Roads', art: 'offroad',
       lead: 'From tomorrow, every daily has stretches where the tarmac gives way. Read the signs and adjust.',
       items: ['Mud stretches: slippery and draggy, brake early', 'Snowy maps get packed-snow sections: fast but very loose', 'Desert maps get drifting sand across the road', 'Ramps rebuilt with a proper steel structure'] },

@@ -491,9 +491,10 @@
     country: ['hay', 'wreck', 'roadworks', 'cones', 'tirewall']
   };
   DL.HAZARDS = HAZARDS;
+  DL.HAZARDS_ON = false;   // road hazards parked: nothing solid in the racing line
   Track.prototype._placeHazards = function () {
     this.hazards = [];
-    if (this.custom || !(this.day >= DL.PATCH_FROM)) return;
+    if (!DL.HAZARDS_ON || this.custom || !(this.day >= DL.PATCH_FROM)) return;
     const rnd = DL.mulberry32(this.seed ^ 0x0b57ac1e);      // own stream
     const pool = (HAZ_POOL[this.biomeKey] || HAZ_POOL.country).slice();
     for (let i = pool.length - 1; i > 0; i--) { const j = Math.floor(rnd() * (i + 1)); const t = pool[i]; pool[i] = pool[j]; pool[j] = t; }
