@@ -155,7 +155,54 @@
   };
   $('hPause').onclick = () => Game.togglePause();
   $('hRestart').onclick = () => Game.restart();
-  $('hGhost').onclick = () => Game.toggleGhosts();
+  $('hGhost').onclick = () => openGhostPicker();
+  async function openGhostPicker() {
+    const r = Game.race(); if (!r || r.replay) return;
+    const day = r.track.day, wasPaused = r.paused;
+    Game.setPaused(true);
+    const m = modal(`<div class="lbl">Race against</div><h2>Ghosts</h2>
+      <div class="toggle-row"><span>Show ghosts</span><button class="chk ${r.ghostsOn ? 'on' : ''}" id="gShow">${r.ghostsOn ? 'On' : 'Off'}</button></div>
+      <div class="hint">Pick up to 3 drivers from today’s board. They appear on the track straight away.</div>
+      <div id="gList" class="stack"><div class="empty"><p>Loading the board…</p></div></div>
+      <button class="btn btn-go" id="gDone">Back to race</button>`, { sticky: true });
+    const done = () => { closeModal(); if (!wasPaused) Game.setPaused(false); };
+    m.querySelector('#gDone').onclick = done;
+    m.querySelector('#gShow').onclick = e => { Game.toggleGhosts(); const on = Game.race().ghostsOn; e.target.textContent = on ? 'On' : 'Off'; e.target.classList.toggle('on', on); };
+    const list = m.querySelector('#gList');
+    const paint = (rows, names) => {
+      list.innerHTML = '';
+      const active = () => Game.activeGhosts();
+      const entries = [];
+      const best = Net.save.best[day];
+      if (best) entries.push({ spec: { uid: 'me', label: 'Your best', car: Net.save.car, l: (Net.save.paint[Net.save.car] || {}).l, b: (Net.save.paint[Net.save.car] || {}).b, equip: Net.save.equip, mine: true }, time: best, nm: 'Your best' });
+      rows.forEach((x, i) => { if (x.uid === Net.uid) return; const nm = displayName(x, names); entries.push({ spec: { uid: x.uid, label: (i === 0 ? 'WR · ' : '') + nm, car: x.car, l: x.l, b: x.b, equip: x.equip, mine: false }, time: x.time, nm, rank: i + 1 }); });
+      if (!entries.length) { list.innerHTML = '<div class="empty"><p>Nobody has set a time on this track yet.</p></div>'; return; }
+      entries.slice(0, 16).forEach(en => {
+        const row = h(`<div class="design-row" style="grid-template-columns:34px 1fr auto auto"><b class="num"></b><span></span><span class="num"></span><button class="chk"></button></div>`);
+        row.children[0].textContent = en.rank ? en.rank : '★';
+        row.children[1].textContent = en.nm; row.children[1].style.cssText = 'overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:600';
+        row.children[2].textContent = DL.fmtTime(en.time);
+        const btn = row.children[3];
+        const sync = () => { const on = active().some(a => a.uid === en.spec.uid || (en.spec.mine && a.mine)); btn.textContent = on ? 'On' : 'Add'; btn.classList.toggle('on', on); btn.dataset.on = on ? '1' : ''; };
+        sync();
+        btn.onclick = async () => {
+          if (btn.dataset.on) { Game.removeGhost(en.spec.uid); sync(); return; }
+          if (active().filter(a => !a.mine).length >= 3 && !en.spec.mine) { toast('Three ghosts at a time'); return; }
+          btn.textContent = '…'; const ok = await Game.addGhost(en.spec);
+          if (!ok) toast('Could not load that ghost');
+          sync();
+        };
+        list.appendChild(row);
+      });
+    };
+    if (!Net.db) { paint([], {}); return; }
+    try {
+      const rows = (await Net.boardDaily(day, 40)) || [];
+      let names = {}; try { names = await Net.names(rows.slice(0, 16).map(x => x.uid)); } catch (e) { }
+      if (!list.isConnected) return;
+      paint(rows, names);
+    } catch (e) { list.innerHTML = '<div class="empty"><p>The board did not answer. Try again in a moment.</p></div>'; }
+  }
   $('hCam').onclick = () => Game.cycleCamera();
 
   UI.paused = function (on) {

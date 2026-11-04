@@ -211,33 +211,65 @@
   async function loadGhosts(r) {
     const specs = r.ghostSpecs.slice();
     const myUid = DL.Net.uid || 'me';
-    const wantPB = settings.pbGhost && DL.Net.save.best[r.track.day];
-    if (wantPB && !specs.some(s => s.uid === myUid || s.uid === 'me')) {
-      const p = DL.Net.save.paint[DL.Net.save.car] || {};
-      specs.unshift({ uid: 'me', label: 'Your best', car: DL.Net.save.car, l: p.l, b: p.b, equip: DL.Net.save.equip, mine: true });
-    }
-    for (const s of specs) {
-      try {
-        const enc = await DL.Net.ghost(s.uid === myUid ? 'me' : s.uid, r.track.day);
-        if (race !== r) return;
-        const gh = DL.decodeGhost(enc); if (!gh) continue;
-        const t = (gh.n - 1) / gh.hz;
-        if (!DL.validateRun(r.track, gh, t)) { DL.emit('toast', 'Skipped a ghost that failed validation'); continue; }
-        const model = DL.buildCar({ car: s.car, livery: s.l ? DL.decodeLivery(s.l) : DL.defaultLivery(), base: s.b, equip: s.equip, ghost: true });
-        const label = makeLabel(s.label || 'Ghost', s.mine);
-        model.add(label);
-        scene.add(model);
-        // checkpoint split times for live deltas
-        const pg = new DL.Progress(r.track);
-        for (let i = 1; i < gh.n; i++) pg.update(gh.f[(i - 1) * 8], gh.f[(i - 1) * 8 + 2], gh.f[i * 8], gh.f[i * 8 + 2], i / gh.hz);
-        const g = { spec: s, gh, model, time: t, cp: pg.cpTimes, buf: [], label };
-        r.ghosts.push(g);
-        if (s.mine || s.uid === myUid) r.pbCp = pg.cpTimes;
-        model.visible = r.ghostsOn;
-        DL.UI.ghostsChanged(r);
-      } catch (e) { console.warn('ghost', e); }
-    }
+    const wantPB = settings.pbGhost && !r.noPB && DL.Net.save.best[r.track.day];
+    if (wantPB && !specs.some(s => s.uid === myUid || s.uid === 'me')) specs.unshift(mineSpec());
+    for (const s of specs) await loadOneGhost(r, s);
   }
+  function mineSpec() {
+    const p = DL.Net.save.paint[DL.Net.save.car] || {};
+    return { uid: 'me', label: 'Your best', car: DL.Net.save.car, l: p.l, b: p.b, equip: DL.Net.save.equip, mine: true };
+  }
+  async function loadOneGhost(r, s) {
+    const myUid = DL.Net.uid || 'me';
+    if (r.ghosts.some(g => g.spec.uid === s.uid)) return true;
+    try {
+      const enc = await DL.Net.ghost(s.uid === myUid ? 'me' : s.uid, r.track.day);
+      if (race !== r) return false;
+      const gh = enc && DL.decodeGhost(enc);
+      if (!gh) { DL.emit('toast', 'No ghost saved for ' + (s.label || 'that driver')); return false; }
+      const t = (gh.n - 1) / gh.hz;
+      if (!DL.validateRun(r.track, gh, t)) { DL.emit('toast', 'Skipped a ghost that failed validation'); return false; }
+      if (r.ghosts.some(g => g.spec.uid === s.uid)) return true;
+      const model = DL.buildCar({ car: s.car, livery: s.l ? DL.decodeLivery(s.l) : DL.defaultLivery(), base: s.b, equip: s.equip, ghost: true });
+      const label = makeLabel(s.label || 'Ghost', s.mine);
+      model.add(label);
+      scene.add(model);
+      // checkpoint split times for live deltas
+      const pg = new DL.Progress(r.track);
+      for (let i = 1; i < gh.n; i++) pg.update(gh.f[(i - 1) * 8], gh.f[(i - 1) * 8 + 2], gh.f[i * 8], gh.f[i * 8 + 2], i / gh.hz);
+      const g = { spec: s, gh, model, time: t, cp: pg.cpTimes, buf: [], label };
+      r.ghosts.push(g);
+      if (s.mine || s.uid === myUid) r.pbCp = pg.cpTimes;
+      model.visible = r.ghostsOn;
+      DL.UI.ghostsChanged(r);
+      return true;
+    } catch (e) { console.warn('ghost', e); return false; }
+  }
+  // pick ghosts while racing: add or drop one driver without restarting
+  Game.addGhost = async function (spec) {
+    const r = race; if (!r || r.replay) return false;
+    if (!r.ghostSpecs.some(x => x.uid === spec.uid)) r.ghostSpecs.push(spec);
+    if (spec.mine || spec.uid === 'me') r.noPB = false;
+    r.ghostsOn = true;
+    const ok = await loadOneGhost(r, spec);
+    if (!ok) r.ghostSpecs = r.ghostSpecs.filter(x => x.uid !== spec.uid);
+    DL.UI.ghostsChanged(r);
+    return ok;
+  };
+  Game.removeGhost = function (uid) {
+    const r = race; if (!r || r.replay) return;
+    const myUid = DL.Net.uid || 'me';
+    r.ghostSpecs = r.ghostSpecs.filter(x => x.uid !== uid);
+    if (uid === 'me' || uid === myUid) r.noPB = true;
+    r.ghosts = r.ghosts.filter(g => {
+      const hit = g.spec.uid === uid || ((uid === 'me' || uid === myUid) && g.spec.mine);
+      if (hit) { scene.remove(g.model); g.model.userData.dispose(); if (r.pbCp === g.cp) r.pbCp = null; }
+      return !hit;
+    });
+    DL.UI.ghostsChanged(r);
+  };
+  Game.activeGhosts = () => race && !race.replay ? race.ghosts.map(g => g.spec) : [];
+  Game.setPaused = on => { if (race && !race.finished) race.paused = !!on; };
 
   function makeLabel(text, mine) {
     const c = document.createElement('canvas'), ctx = c.getContext('2d');
