@@ -576,8 +576,107 @@
         { geo: new THREE.BoxGeometry(1.4, 0.8, 0.05), color: 0xf05a35, matrix: M4(0.75, 5.5, 0) }]);
       case 'haybale': return DL.mergeColored([{ geo: new THREE.CylinderGeometry(1, 1, 1.6, 8), color: 0xd8bb78, matrix: new THREE.Matrix4().makeRotationZ(Math.PI / 2).premultiply(M4(0, 1, 0)) }]);
     }
+    return propGeometry2(type);
   }
-  const PROP_RADIUS = { pine: 0.7, snowpine: 0.7, round: 0.7, palm: 0.5, cactus: 0.6, rock: 1.1, boulder: 3.0, haybale: 1.1, bush: 0, shrub: 0, house: 4.2, barn: 5, windmill: 2.4, lighthouse: 2.4, mesa: 0, sign: 0.5, pole: 0.35, stand: 0, flagpole: 0.2 };
+  // ---- v1.7 unique props (new days only) ----
+  const CY = (a, b, h, c, x, y, z, sx, sy, sz, ry) => ({ geo: new THREE.CylinderGeometry(a, b, h, 8), color: c, matrix: M4(x, y, z, sx, sy, sz, ry) });
+  const BX = (w, h, d, c, x, y, z, ry) => ({ geo: new THREE.BoxGeometry(w, h, d), color: c, matrix: M4(x, y, z, 1, 1, 1, ry) });
+  const CO = (r, h, c, x, y, z, n, ry) => ({ geo: new THREE.ConeGeometry(r, h, n || 6), color: c, matrix: M4(x, y, z, 1, 1, 1, ry) });
+  const IC = (r, c, x, y, z, sx, sy, sz) => ({ geo: new THREE.IcosahedronGeometry(r, 0), color: c, matrix: M4(x, y, z, sx, sy, sz) });
+  const SP = (r, c, x, y, z, sx, sy, sz) => ({ geo: new THREE.SphereGeometry(r, 8, 6), color: c, matrix: M4(x, y, z, sx || 1, sy || 1, sz || 1) });
+  function tiltY(g, rz) { return g; }
+  function propGeometry2(type) {
+    const CR = 0xf4ecdc, NV = 0x1f2a3d, CL = 0xf05a35, GD = 0xe6b84f;
+    switch (type) {
+      case 'tirestack': {
+        const p = [];
+        for (let k = 0; k < 3; k++) p.push({ geo: new THREE.TorusGeometry(0.55, 0.28, 5, 9), color: k === 1 ? CR : NV, matrix: new THREE.Matrix4().makeRotationX(Math.PI / 2).premultiply(M4(0, 0.3 + k * 0.52, 0, 1, 1, 1, k * 0.5)) });
+        p.push({ geo: new THREE.TorusGeometry(0.55, 0.28, 5, 9), color: CL, matrix: new THREE.Matrix4().makeRotationX(Math.PI / 2).premultiply(M4(1.2, 0.3, 0.3)) });
+        p.push({ geo: new THREE.TorusGeometry(0.55, 0.28, 5, 9), color: NV, matrix: new THREE.Matrix4().makeRotationX(Math.PI / 2).premultiply(M4(1.2, 0.82, 0.3)) });
+        return DL.mergeColored(p);
+      }
+      case 'billboard': return DL.mergeColored([
+        CY(0.2, 0.25, 7, 0x4b5563, -3, 3.5, 0), CY(0.2, 0.25, 7, 0x4b5563, 3, 3.5, 0),
+        BX(9, 4, 0.4, NV, 0, 8, 0), BX(8.4, 0.5, 0.45, CL, 0, 9.5, 0), BX(8.4, 0.5, 0.45, CL, 0, 6.5, 0),
+        BX(1.2, 2.2, 0.5, CR, -2.6, 8, 0), BX(1.2, 2.2, 0.5, CR, -0.3, 8, 0), BX(2.8, 0.5, 0.5, CL, 2.4, 8, 0),
+        BX(9.4, 0.3, 1, 0x4b5563, 0, 10.2, 0)]);
+      case 'balloon': return DL.mergeColored([
+        SP(5, CL, 0, 9, 0, 1, 1.15, 1), { geo: new THREE.SphereGeometry(5.05, 8, 6, 0, Math.PI * 2, 2.1, 0.9), color: CR, matrix: M4(0, 9, 0, 1, 1.15, 1) },
+        { geo: new THREE.SphereGeometry(5.1, 8, 6, 0, Math.PI * 2, 1.0, 0.6), color: NV, matrix: M4(0, 9, 0, 1, 1.15, 1) },
+        CY(0.9, 0.9, 1.1, 0x8a6e52, 0, 0.5, 0), CY(0.05, 0.05, 4, 0x4b5563, 1.4, 3, 1.4), CY(0.05, 0.05, 4, 0x4b5563, -1.4, 3, 1.4), CY(0.05, 0.05, 4, 0x4b5563, 1.4, 3, -1.4), CY(0.05, 0.05, 4, 0x4b5563, -1.4, 3, -1.4)]);
+      case 'scarecrow': return DL.mergeColored([
+        CY(0.08, 0.1, 3, 0x6b5442, 0, 1.5, 0), BX(2.2, 0.14, 0.14, 0x6b5442, 0, 2.4, 0), BX(0.7, 1, 0.4, 0x5a7a8f, 0, 2.3, 0),
+        SP(0.35, 0xe6c88b, 0, 3.1, 0), CY(0.55, 0.55, 0.08, 0xb5503c, 0, 3.35, 0), CO(0.3, 0.55, 0xb5503c, 0, 3.7, 0, 8), BX(0.3, 0.3, 0.3, GD, 1.1, 2.1, 0), BX(0.3, 0.3, 0.3, GD, -1.1, 2.1, 0)]);
+      case 'silo': return DL.mergeColored([
+        CY(2, 2, 9, 0xb7c0c9, 0, 4.5, 0), { geo: new THREE.SphereGeometry(2, 8, 5, 0, Math.PI * 2, 0, Math.PI / 2), color: 0xd9644a, matrix: M4(0, 9, 0) },
+        CY(2.05, 2.05, 0.3, 0x5b6572, 0, 3, 0), CY(2.05, 2.05, 0.3, 0x5b6572, 0, 6, 0), CY(0.12, 0.12, 4, 0x4b5563, 2.3, 4, 0)]);
+      case 'watertower': return DL.mergeColored([
+        BX(0.3, 8, 0.3, 0x4b5563, -2, 4, -2), BX(0.3, 8, 0.3, 0x4b5563, 2, 4, -2), BX(0.3, 8, 0.3, 0x4b5563, -2, 4, 2), BX(0.3, 8, 0.3, 0x4b5563, 2, 4, 2),
+        BX(4.4, 0.25, 0.25, 0x4b5563, 0, 3, 2), BX(4.4, 0.25, 0.25, 0x4b5563, 0, 5.5, -2),
+        CY(2.6, 2.6, 3.4, 0xf1e8d6, 0, 9.7, 0), CO(2.7, 1.6, CL, 0, 12.2, 0, 8), BX(1.4, 0.7, 0.05, NV, 0, 9.7, 2.62)]);
+      case 'tractor': return DL.mergeColored([
+        BX(2.4, 1.2, 1.6, 0x3f8f5a, 0.4, 1.5, 0), BX(1.2, 1.2, 1.4, 0x3f8f5a, -0.9, 2.5, 0), BX(1.0, 0.1, 1.5, NV, -0.9, 3.15, 0),
+        { geo: new THREE.CylinderGeometry(1.0, 1.0, 0.6, 8), color: NV, matrix: new THREE.Matrix4().makeRotationX(Math.PI / 2).premultiply(M4(-1, 1, 1)) },
+        { geo: new THREE.CylinderGeometry(1.0, 1.0, 0.6, 8), color: NV, matrix: new THREE.Matrix4().makeRotationX(Math.PI / 2).premultiply(M4(-1, 1, -1)) },
+        { geo: new THREE.CylinderGeometry(0.5, 0.5, 0.5, 8), color: NV, matrix: new THREE.Matrix4().makeRotationX(Math.PI / 2).premultiply(M4(1.3, 0.55, 0.9)) },
+        { geo: new THREE.CylinderGeometry(0.5, 0.5, 0.5, 8), color: NV, matrix: new THREE.Matrix4().makeRotationX(Math.PI / 2).premultiply(M4(1.3, 0.55, -0.9)) },
+        CY(0.08, 0.08, 1.2, 0x4b5563, 1.2, 2.5, 0.5)]);
+      case 'cabin': return DL.mergeColored([
+        BX(5, 3, 4, 0x9a6b45, 0, 1.5, 0), CO(3.9, 2.4, 0x5b4636, 0, 4.2, 0, 4, Math.PI / 4), BX(0.9, 1.7, 0.1, 0x3a2a20, 0, 0.85, 2.02), BX(0.8, 0.8, 0.1, 0xfff1b0, 1.5, 1.8, 2.02),
+        BX(0.7, 2.2, 0.7, 0x6b5442, 1.6, 4.6, -0.8), BX(5.2, 0.25, 4.2, 0x7d5a3b, 0, 3.05, 0)]);
+      case 'watchtower': return DL.mergeColored([
+        BX(0.35, 11, 0.35, 0x7d5a3b, -1.3, 5.5, -1.3), BX(0.35, 11, 0.35, 0x7d5a3b, 1.3, 5.5, -1.3), BX(0.35, 11, 0.35, 0x7d5a3b, -1.3, 5.5, 1.3), BX(0.35, 11, 0.35, 0x7d5a3b, 1.3, 5.5, 1.3),
+        BX(3.4, 0.2, 0.2, 0x7d5a3b, 0, 4, 1.3), BX(3.4, 0.2, 0.2, 0x7d5a3b, 0, 7, -1.3),
+        BX(4, 0.3, 4, 0x9a6b45, 0, 11, 0), BX(3.4, 1.6, 3.4, 0xb08a5c, 0, 11.9, 0), CO(3.2, 1.8, CL, 0, 13.6, 0, 4, Math.PI / 4), BX(1.2, 0.7, 0.1, 0xfff1b0, 0, 12, 1.75)]);
+      case 'logpile': {
+        const p = [];
+        for (let r = 0; r < 3; r++) for (let k = 0; k < 3 - r; k++) p.push({ geo: new THREE.CylinderGeometry(0.4, 0.4, 3, 6), color: r % 2 ? 0x9a6b45 : 0x7d5a3b, matrix: new THREE.Matrix4().makeRotationX(Math.PI / 2).premultiply(M4(-0.8 + k * 0.85 + r * 0.42, 0.4 + r * 0.7, 0)) });
+        return DL.mergeColored(p);
+      }
+      case 'tent': return DL.mergeColored([
+        CO(2.6, 2.6, CL, 0, 1.3, 0, 4, Math.PI / 4), BX(0.9, 1.3, 0.1, 0x7a2f1e, 0, 0.65, 1.3), CY(0.05, 0.05, 1, 0xe8e1d2, 0, 3, 0),
+        { geo: new THREE.CylinderGeometry(0.5, 0.5, 0.2, 7), color: 0x4b5563, matrix: M4(3, 0.1, 0.5) }, CO(0.35, 0.8, GD, 3, 0.55, 0.5, 5)]);
+      case 'snowman': return DL.mergeColored([
+        SP(1.1, 0xf4f8fb, 0, 1, 0, 1, 0.9, 1), SP(0.8, 0xf4f8fb, 0, 2.4, 0), SP(0.55, 0xf4f8fb, 0, 3.4, 0),
+        CO(0.1, 0.55, CL, 0, 3.4, 0.55, 5), { geo: new THREE.CylinderGeometry(0.3, 0.3, 0.55, 8), color: NV, matrix: M4(0, 4.1, 0) }, CY(0.5, 0.5, 0.07, NV, 0, 3.9, 0),
+        BX(1.2, 0.18, 0.18, 0x6b5442, 1.2, 2.7, 0, 0.2), BX(1.2, 0.18, 0.18, 0x6b5442, -1.2, 2.7, 0, -0.2), BX(0.9, 0.2, 0.9, CL, 0, 2.95, 0)]);
+      case 'igloo': return DL.mergeColored([
+        { geo: new THREE.SphereGeometry(2.8, 9, 6, 0, Math.PI * 2, 0, Math.PI / 2), color: 0xeef4f8, matrix: M4(0, 0, 0, 1, 0.85, 1) },
+        BX(1.3, 1.2, 1.8, 0xdde7ee, 0, 0.6, 2.6), { geo: new THREE.SphereGeometry(0.75, 6, 4, 0, Math.PI * 2, 0, Math.PI / 2), color: 0x2a3b52, matrix: M4(0, 0, 3.4, 1, 1, 0.3) }]);
+      case 'icespire': return DL.mergeColored([
+        CO(1.5, 8, 0xbfe3f2, 0, 4, 0, 5), CO(1, 5, 0xd6eefa, 1.8, 2.5, 0.6, 5), CO(0.9, 4, 0xaad6ea, -1.5, 2, -0.5, 5)]);
+      case 'umbrella': return DL.mergeColored([
+        CY(0.06, 0.06, 3, 0xe8e1d2, 0, 1.5, 0), CO(2, 0.9, CL, 0, 3.1, 0, 8), CO(2.02, 0.5, CR, 0, 2.9, 0, 4, Math.PI / 4),
+        BX(1.5, 0.12, 0.7, 0x5a7a8f, 2, 0.15, 0.3, 0.3), BX(1.5, 0.12, 0.7, GD, 2.1, 0.15, -1, -0.2)]);
+      case 'lifeguard': return DL.mergeColored([
+        BX(0.25, 3, 0.25, CR, -0.9, 1.5, -0.9), BX(0.25, 3, 0.25, CR, 0.9, 1.5, -0.9), BX(0.25, 3, 0.25, CR, -0.9, 1.5, 0.9), BX(0.25, 3, 0.25, CR, 0.9, 1.5, 0.9),
+        BX(2.4, 0.2, 2.4, CL, 0, 3, 0), BX(2.4, 1.6, 0.15, CR, 0, 3.9, -1.1), BX(0.15, 1.6, 2.4, CR, -1.1, 3.9, 0), BX(0.15, 1.6, 2.4, CR, 1.1, 3.9, 0),
+        BX(2.8, 0.2, 2.8, CL, 0, 4.8, 0), BX(0.6, 2.6, 0.1, CL, 0, 1.3, 1.4, 0), CY(0.04, 0.04, 2, 0xe8e1d2, -1.2, 5.8, -1.2), BX(0.7, 0.4, 0.05, CL, -0.85, 6.5, -1.2)]);
+      case 'cratestack': return DL.mergeColored([
+        BX(1.4, 1.4, 1.4, 0xb08a5c, 0, 0.7, 0, 0.2), BX(1.4, 1.4, 1.4, 0x9a6b45, 1.7, 0.7, 0.3, -0.1), BX(1.3, 1.3, 1.3, 0xb08a5c, 0.8, 2.05, 0.1, 0.5), BX(1.5, 0.12, 0.12, CL, 0, 1.45, 0.72, 0.2)]);
+      case 'pumpjack': return DL.mergeColored([
+        BX(3, 0.5, 2, 0x5b6572, 0, 0.25, 0), BX(0.3, 3.5, 0.3, NV, -0.5, 2, 0.6), BX(0.3, 3.5, 0.3, NV, -0.5, 2, -0.6), BX(0.3, 3.2, 0.3, NV, 0.4, 1.9, 0.6), BX(0.3, 3.2, 0.3, NV, 0.4, 1.9, -0.6),
+        BX(6, 0.5, 0.7, CL, 0, 4, 0, 0), CO(0.9, 1.4, CL, 3.2, 4, 0, 4), BX(1.2, 1.2, 0.8, 0x5b6572, -3, 4, 0), CY(0.08, 0.08, 3.5, 0xe8e1d2, 3, 2.2, 0), CY(0.2, 0.2, 1.2, 0x4b5563, 3.2, 0.7, 0)]);
+      case 'rockarch': return DL.mergeColored([
+        { geo: new THREE.DodecahedronGeometry(3, 0), color: 0xc08a62, matrix: M4(-4.2, 3, 0, 1, 1.9, 1.1) }, { geo: new THREE.DodecahedronGeometry(3, 0), color: 0xb87f57, matrix: M4(4.2, 3, 0, 1, 1.9, 1.1) },
+        { geo: new THREE.DodecahedronGeometry(3.2, 0), color: 0xd7a77c, matrix: M4(0, 7.2, 0, 2.1, 0.8, 1) }, IC(2.2, 0xa9724f, -3.5, 7, 0.4, 1, 1, 1), IC(2, 0xc9946a, 3.2, 7, -0.3, 1, 1, 1)]);
+      case 'radiomast': return DL.mergeColored([
+        CY(0.12, 0.35, 22, 0xe8e1d2, 0, 11, 0), CY(0.45, 0.45, 1.2, CL, 0, 6, 0), CY(0.42, 0.42, 1.2, CL, 0, 12, 0), CY(0.38, 0.38, 1.2, CL, 0, 18, 0), SP(0.35, 0xff4a3a, 0, 22.4, 0),
+        BX(5, 0.14, 0.14, 0x4b5563, 0, 15, 0), BX(0.14, 0.14, 4, 0x4b5563, 0, 17, 0)]);
+    }
+    return null;
+  }
+  const PROP_RADIUS = { pine: 0.7, snowpine: 0.7, round: 0.7, palm: 0.5, cactus: 0.6, rock: 1.1, boulder: 3.0, haybale: 1.1, bush: 0, shrub: 0, house: 4.2, barn: 5, windmill: 2.4, lighthouse: 2.4, mesa: 0, sign: 0.5, pole: 0.35, stand: 0, flagpole: 0.2,
+    tirestack: 1.3, billboard: 3.4, balloon: 0, scarecrow: 0.4, silo: 2.1, watertower: 2.6, tractor: 1.6, cabin: 3, watchtower: 2, logpile: 1.5, tent: 2, snowman: 1.1, igloo: 2.8, icespire: 1.5, umbrella: 0.4, lifeguard: 1.4, cratestack: 1.5, pumpjack: 2.2, rockarch: 4.5, radiomast: 0.5 };
+  const UNIQUE_PROPS = {
+    all: { tirestack: [0, 0], billboard: [2.2, 0], balloon: [1.6, 0] },
+    country: { scarecrow: [3, 0], silo: [1.4, 0], watertower: [0.9, 0], tractor: [1.6, 0] },
+    forest: { cabin: [1.6, 0], watchtower: [0.8, 0], logpile: [3, 0], tent: [1.6, 0] },
+    mountain: { cabin: [1.4, 0], watchtower: [0.9, 0], logpile: [2, 0], tent: [1.4, 0], radiomast: [0.7, 0] },
+    snow: { snowman: [4, 0], igloo: [1.2, 0], icespire: [4, 0], radiomast: [0.6, 0] },
+    coast: { umbrella: [6, 0], lifeguard: [1.2, 0], cratestack: [4, 0] },
+    desert: { pumpjack: [1.8, 0], rockarch: [1.2, 0], tent: [1.2, 0], cratestack: [3, 0], radiomast: [0.7, 0] }
+  };
 
   DL.buildTrackScene = function (track, scene, opts) {
     opts = opts || {};
@@ -972,6 +1071,43 @@
       if (!okSpot(x, z, HALF + 3, 1.5)) continue;
       push('sign', { x, y: tmp.y - 0.05, z, s: 1.2, sy: 1.2, ry: Math.atan2(track.tx[i], track.tz[i]) + (side > 0 ? 0 : Math.PI) + Math.PI, d: 0 });
     }
+    // v1.7 unique props: separate rng so older props never move; only on new days
+    if (!track.custom && track.day >= DL.PATCH_FROM) {
+      const p2 = DL.mulberry32(track.seed ^ 0x7e7e1d);
+      const list2 = Object.assign({}, UNIQUE_PROPS.all, UNIQUE_PROPS[track.biomeKey] || {});
+      for (const type in list2) {
+        if (type === 'tirestack') {
+          // stacks on the outside of tight corners
+          for (let i = 22; i < track.N - 8; i += 2) {
+            const c = track.curv[i];
+            if (Math.abs(c) < 1 / 90 || (i % 6) || p2() < 0.25) continue;
+            const side = c > 0 ? -1 : 1, off = side * (HALF + 3.6 + p2() * 2);
+            const x = track.px[i] - track.tz[i] * off, z = track.pz[i] + track.tx[i] * off;
+            if (!okSpot(x, z, HALF + 2.2, 1.5)) continue;
+            push(type, { x, y: tmp.y - 0.05, z, s: 1, sy: 1, ry: p2() * 6.28, d: tmp.road.dist });
+          }
+          continue;
+        }
+        const count = Math.max(type === 'balloon' || type === 'lifeguard' || type === 'igloo' || type === 'billboard' ? 1 : 0, Math.round(list2[type][0] * km * qmul));
+        const far = type === 'balloon', big = type === 'billboard' || type === 'rockarch' || type === 'watchtower' || type === 'watertower' || type === 'silo' || type === 'radiomast';
+        const minO = far ? 30 : big ? HALF + 9 : HALF + 6, maxO = far ? 200 : big ? 70 : 45;
+        let n = 0;
+        for (let a = 0; a < count * 40 && n < count; a++) {
+          const i = 24 + Math.floor(p2() * (track.N - 34)), side = p2() < 0.5 ? -1 : 1;
+          const off = side * (minO + p2() * (maxO - minO));
+          const x = track.px[i] - track.tz[i] * off, z = track.pz[i] + track.tx[i] * off;
+          if (!okSpot(x, z, minO - 3, 2.5)) continue;
+          const g1 = track.groundAt(x + 5, z, {}, true).y, g2 = track.groundAt(x - 5, z, {}, true).y, g3 = track.groundAt(x, z + 5, {}, true).y, g4 = track.groundAt(x, z - 5, {}, true).y;
+          if (!far && Math.max(g1, g2, g3, g4) - Math.min(g1, g2, g3, g4) > 2.6) continue;
+          if ((items[type] || []).some(o => Math.hypot(o.x - x, o.z - z) < (far ? 120 : 28))) continue;
+          const face = Math.atan2(track.tx[i], track.tz[i]) + (side > 0 ? Math.PI : 0);   // billboards/cabins face the road
+          const rot = type === 'billboard' || type === 'cabin' || type === 'lifeguard' || type === 'tractor' ? face + (p2() - 0.5) * 0.5 : p2() * 6.28;
+          const s = 0.9 + p2() * 0.3;
+          push(type, { x, y: (far ? tmp.y + 28 + p2() * 40 : Math.min(tmp.y, g1, g2, g3, g4)) - 0.1, z, s, sy: s, ry: rot, d: far ? 99 : tmp.road.dist });
+          n++;
+        }
+      }
+    }
     {
       const i0 = 8, nrm = [-track.tz[i0], track.tx[i0]], yaw = Math.atan2(track.tx[i0], track.tz[i0]);
       const sx = track.px[i0] + nrm[0] * (HALF + 13), sz = track.pz[i0] + nrm[1] * (HALF + 13);
@@ -982,6 +1118,7 @@
         push('flagpole', { x: track.px[j] - track.tz[j] * off, y: track.py[j] - 0.05, z: track.pz[j] + track.tx[j] * off, s: 1, sy: 1, ry: yaw + (k % 2 ? 0 : Math.PI), d: 0 });
       }
     }
+    track.propItems = items;
     for (const type in items) {
       const list = items[type];
       if (!list.length) continue;

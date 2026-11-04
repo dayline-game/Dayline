@@ -80,6 +80,9 @@ window.DL = window.DL || {};
 
   // ---------- patch notes (major releases only, newest first) ----------
   DL.PATCHES = [
+    { v: '1.7', date: 'November 2026', title: 'Roadside Life', art: 'offroad',
+      lead: 'Every biome now has its own landmarks, from tomorrow’s map onwards.',
+      items: ['Hot air balloons drifting over the course', 'Tyre stacks on the outside of tight corners', 'Cabins, watchtowers, snowmen, igloos, lifeguard towers, pumpjacks and more per biome', 'Giant billboards along the route'] },
     { v: '1.6', date: 'November 2026', title: 'Rough Roads', art: 'offroad',
       lead: 'From tomorrow, every daily has stretches where the tarmac gives way. Read the signs and adjust.',
       items: ['Mud stretches: slippery and draggy, brake early', 'Snowy maps get packed-snow sections: fast but very loose', 'Desert maps get drifting sand across the road', 'Ramps rebuilt with a proper steel structure'] },
