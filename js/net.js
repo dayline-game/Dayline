@@ -39,11 +39,28 @@
     save: null, canWrite: false,
     _q: {},
 
+    // a regenerated day invalidates anything this device remembers about the old layout
+    applyRegen() {
+      const s = this.save; if (!s) return;
+      s.regen = s.regen || {};
+      let changed = false;
+      for (const day of Object.keys(DL.REGEN || {})) {
+        const r = DL.REGEN[day].r;
+        if (s.regen[day] !== r) {
+          if (s.best[day]) delete s.best[day];
+          DL.store.set('ghost:' + day, null); DL.store.set('pendingRun:' + day, null);
+          s.regen[day] = r; changed = true;
+          if (day === DL.dayKey()) DL.emit('toast', 'Today’s track was regenerated. Old times for it were cleared');
+        }
+      }
+      if (changed) this.persist();
+    },
     initLocal() {
       const s = DL.store.get('save', null);
       this.save = Object.assign(defaultSave(), s || {});
       this.save.owned = Object.assign(defaultSave().owned, this.save.owned || {});
       this.save.equip = Object.assign(defaultSave().equip, this.save.equip || {});
+      this.applyRegen();
     },
 
     async connect() {
@@ -127,6 +144,7 @@
       this.uid = me.id; this.username = me.username || ''; this.linked = !!me.linked || !!this.username;
       if (!this.linked && DL.Auth && DL.Auth.user) DL.Auth.signOut(true);
       this._reconcile(me.save);
+      this.applyRegen();
       this.mode = 'online'; this.status = this.username ? 'Online — signed in as ' + this.username : this.linked ? 'Online — signed in with Google' : 'Online — playing as a guest. Create an account in Settings to keep your progress on any device';
       this.pushProfile(); this._flushPending();
       DL.emit('net'); DL.emit('save');
@@ -298,7 +316,12 @@
           const payload = { day, time: Math.round(time * 1000) / 1000, ghost: ghostEnc, car: s.car, tv: this.trackVer };
           this._pending = this._postRun(payload).then(r => {
             if (r.s === 409 && r.j.reload) DL.emit('toast', 'A new version of Dayline is out — reload the page to post times');
-            else if (r.s === 422) DL.emit('toast', 'The server did not accept that time');
+            else if (r.s === 422) {
+              // the server checks every run against the track: an impossible one is deleted, never kept
+              if (res.prevBest) s.best[day] = res.prevBest; else delete s.best[day];
+              DL.store.set('ghost:' + day, null); this.persist();
+              DL.emit('toast', 'Lap time deleted. Don’t cheat.');
+            }
             else if (r.s !== 200) throw new Error('post');
           }).catch(() => { DL.store.set('pendingRun:' + day, payload); DL.emit('toast', 'Offline — your time will post when the connection returns'); });
           this.pushProfile();

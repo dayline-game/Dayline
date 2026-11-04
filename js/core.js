@@ -52,6 +52,10 @@ window.DL = window.DL || {};
     d = d || new Date(Date.now() + DL.RESET_OFFSET_H * 3600000);   // no argument = "today" for the game; a Date = plain UTC calendar date
     return d.getUTCFullYear() + String(d.getUTCMonth() + 1).padStart(2, '0') + String(d.getUTCDate()).padStart(2, '0');
   };
+  // Days listed here were regenerated into a brand new track after they went live: times posted before `at` belong to the old layout and are wiped.
+  // Every other day, including tomorrow, keeps its normal seed and rolls over at 12am Gulf time as usual.
+  DL.REGEN = { '20261104': { r: 1, at: 1793786061149 } };
+  DL.seedFor = day => DL.hashStr('dayline:' + day + (DL.REGEN[day] ? ':r' + DL.REGEN[day].r : ''));
   DL.keyToDate = k => new Date(Date.UTC(+k.slice(0, 4), +k.slice(4, 6) - 1, +k.slice(6, 8)));
   DL.addDays = (k, n) => DL.dayKey(new Date(DL.keyToDate(k).getTime() + n * 86400000));
   DL.EPOCH = '20260101';

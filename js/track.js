@@ -6,12 +6,11 @@
   const HALF = 6.5;        // road half-width
   const SURF = { ROAD: 0, KERB: 1, GRAVEL: 2, OFF: 3 };
   DL.SURF = SURF; DL.ROAD_HALF = HALF;
-  DL.TRACK_VER = 3;   // bump whenever track generation changes, then re-run `npm run digests`
+  DL.TRACK_VER = 4;   // bump whenever track generation changes, then re-run `npm run digests`
 
   function Track(day) {
     this.day = day;
-    this.practice = !/^\d{8}$/.test(day);       // test tracks use any other seed and never post times
-    this.seed = DL.hashStr('dayline:' + day);
+    this.seed = DL.seedFor(day);
     const rnd = this.rnd = DL.mulberry32(this.seed);
     this.biomeKey = DL.BIOME_KEYS[Math.floor(rnd() * DL.BIOME_KEYS.length)];
     this.B = DL.BIOMES[this.biomeKey];
