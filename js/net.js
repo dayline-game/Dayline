@@ -189,6 +189,7 @@
     },
     async _postRun(payload) {
       for (let attempt = 0; attempt < 2; attempt++) {
+        this._bc = null;
         const r = await this._fetch('POST', '/api/run', payload);
         if (r.s === 429 && attempt === 0) { await new Promise(res => setTimeout(res, 6500)); continue; }
         return r;
@@ -338,7 +339,14 @@
     // ---------- boards ----------
     async boardDaily(day, limit) {
       if (!this.db) return null;
-      if (this.api) { if (this._pending) await this._pending; const r = await this._fetch('GET', '/api/board/daily?day=' + day); if (!r.j.ok) throw new Error('board'); return r.j.rows.slice(0, limit || 200); }
+      if (this.api) {
+        const bc = this._bc || (this._bc = {}), c = bc[day];
+        if (c && c.rows && Date.now() - c.t < 20000) return c.rows.slice(0, limit || 200);
+        if (c && c.p) return (await c.p).slice(0, limit || 200);
+        const p = (async () => { if (this._pending) await this._pending; const r = await this._fetch('GET', '/api/board/daily?day=' + day); if (!r.j.ok) throw new Error('board'); return r.j.rows; })();
+        bc[day] = { p, t: 0 };
+        try { const rows = await p; bc[day] = { rows, t: Date.now() }; return rows.slice(0, limit || 200); } catch (e) { delete bc[day]; throw e; }
+      }
       const f = 't_' + day;
       const snap = await this._timeout(this.db.collection('players').where(f, '>', 0).orderBy(f).limit(limit || 200).get(), 12000);
       return snap.docs.map(d => { const x = d.data(); return { uid: d.id, time: x[f], car: x.car, l: x.l, b: x.b, equip: x.equip, tag: x.tag, streak: x.streak, friends: x.friends || [] }; });
