@@ -299,6 +299,13 @@
       this.persist();
       return res;
     },
+    // fire-and-forget: one row per attempt (finished or not) for the daily recap reels
+    logAttempt(day, secs, finished, ghostEnc, cps) {
+      if (!this.api || !this.token) return;
+      const body = { day, secs, fin: finished ? 1 : 0, cps: cps | 0, ghost: ghostEnc, car: this.save.car, tv: this.trackVer };
+      const send = () => this._fetch('POST', '/api/attempt', body).catch(() => { });
+      if (finished) setTimeout(send, 1500); else send();   // let the scored run go first
+    },
     submitRun(track, time, ghostEnc, meta) {
       if (track.custom) return this._submitCustom(track, time, ghostEnc);
       const s = this.save, day = track.day, today = DL.dayKey();

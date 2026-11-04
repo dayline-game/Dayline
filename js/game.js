@@ -290,8 +290,24 @@
     return sp;
   }
 
+  // every attempt on a daily (finished or abandoned) is logged at 5 Hz for the community recap reels
+  function logAttempt(r, finished, t) {
+    if (!r || r.replay || r.test || r.track.custom || r.attemptLogged) return;
+    const secs = t != null ? t : r.steps * DT;
+    if (secs < 1.0 || !r.frames || r.frames.length < 4) return;
+    r.attemptLogged = true;
+    const fr = r.frames.filter((f, i) => i % 3 === 0);
+    const enc = DL.encodeGhost(fr); if (!enc) return;
+    enc.hz = 5;
+    DL.Net.logAttempt && DL.Net.logAttempt(r.track.day, Math.round(secs * 1000) / 1000, !!finished, enc, r.prog ? r.prog.next : 0);
+  }
+  Game._logAttempt = () => race && logAttempt(race, false);
+  window.addEventListener('pagehide', () => { if (race && race.running && !race.finished) logAttempt(race, false); });
+
   function resetCarToStart() {
     const r = race, s = r.track.start;
+    if (r.steps > 0 && !r.finished) logAttempt(r, false);
+    r.attemptLogged = false;
     r.car.reset(s.x, r.track.groundAt(s.x, s.z, {}).y, s.z, s.yaw);
     r.prog = new DL.Progress(r.track);
     r.steps = 0; r.acc = 0; r.frames = []; r.recoveries = 0; r.airMax = 0; r.finished = false; r.running = false;
@@ -377,6 +393,7 @@
 
   function endRace() {
     if (!race) return;
+    if (!race.finished && race.running !== undefined) logAttempt(race, false);
     race.ghosts.forEach(g => { scene.remove(g.model); g.model.userData.dispose(); });
     race = null;
     DL.Audio.stopEngine();
@@ -421,6 +438,7 @@
   function onFinish(r, t) {
     r.finished = true;
     record();
+    logAttempt(r, true, t);
     DL.Audio.chime();
     const enc = DL.encodeGhost(r.frames);
     const gh = DL.decodeGhost(enc);
