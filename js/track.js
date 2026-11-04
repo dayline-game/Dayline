@@ -660,29 +660,82 @@
 
     // ---- ramps ----
     for (const r of track.ramps) {
-      const P = [], C = [], I = [];
-      let v = 0;
-      for (let i = r.i0; i <= r.i1; i++) {
-        const nxv = -track.tz[i], nzv = track.tx[i];
-        const h = r.h * (track.s[i] - r.s0) / (r.s1 - r.s0);
-        const y = track.py[i] + 0.04;
-        const stripe = ((i - r.i0) & 1) ? 0xf05a35 : 0xf4ecdc;
-        const c = col(stripe);
-        P.push(track.px[i] + nxv * -HALF, y + h, track.pz[i] + nzv * -HALF, track.px[i] + nxv * HALF, y + h, track.pz[i] + nzv * HALF);
-        C.push(c.r, c.g, c.b, c.r, c.g, c.b);
-        if (i > r.i0) I.push(v - 2, v - 1, v, v - 1, v + 1, v);
-        v += 2;
+      buildRampFrame(r);
+    }
+    // steel structure under and around a ramp (visual only; physics uses rampOffset)
+    function buildRampFrame(r) {
+      const steel = flat(0x2a3140), steelL = flat(0x4b5b74), coral = flat(0xf05a35), cream = flat(0xf4ecdc);
+      const a = r.i0, b = r.i1, L = r.s1 - r.s0, H = r.h;
+      const fx = (track.px[b] - track.px[a]) / L, fz = (track.pz[b] - track.pz[a]) / L;
+      const nx = -fz, nz = fx, yaw = Math.atan2(fx, fz);
+      const roadY = u => { const t = DL.clamp(u / L, 0, 1); return track.py[a] + (track.py[b] - track.py[a]) * t + 0.04; };
+      const deck = u => H * DL.clamp(u / L, 0, 1);
+      const P = (u, lat, up) => [track.px[a] + fx * u + nx * lat, roadY(u) + up, track.pz[a] + fz * u + nz * lat];
+      const frame = new THREE.Group(); group.add(frame);
+      const beam = (p, q, w, h, mat) => {   // box from point p to point q
+        const dx = q[0] - p[0], dy = q[1] - p[1], dz = q[2] - p[2], len = Math.hypot(dx, dy, dz);
+        const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, len), mat);
+        m.position.set((p[0] + q[0]) / 2, (p[1] + q[1]) / 2, (p[2] + q[2]) / 2);
+        m.rotation.order = 'YXZ'; m.rotation.y = Math.atan2(dx, dz); m.rotation.x = -Math.atan2(dy, Math.hypot(dx, dz));
+        m.castShadow = true; m.receiveShadow = true; frame.add(m); return m;
+      };
+      const box = (w, h, d, mat, p) => {
+        const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat);
+        m.position.set(p[0], p[1], p[2]); m.rotation.y = yaw; m.castShadow = true; m.receiveShadow = true; frame.add(m); return m;
+      };
+      const STEPU = L / 8;
+      // deck: hard-edged coral / cream bands with a dark fascia edge so it reads as a solid plate
+      {
+        const Pp = [], Cc = [], Ii = []; let v = 0;
+        const quad = (p0, p1, p2, p3, c) => { Pp.push(...p0, ...p1, ...p2, ...p3); for (let k = 0; k < 4; k++) Cc.push(c.r, c.g, c.b); Ii.push(v, v + 2, v + 1, v + 1, v + 2, v + 3); v += 4; };
+        const cc = col(0xf05a35), cw = col(0xf4ecdc), cn = col(0x2a3140);
+        const NB = 8;
+        for (let k = 0; k < NB; k++) {
+          const u0 = k * L / NB, u1 = (k + 1) * L / NB, c = k % 2 ? cw : cc;
+          quad(P(u0, -HALF, deck(u0)), P(u0, HALF, deck(u0)), P(u1, -HALF, deck(u1)), P(u1, HALF, deck(u1)), c);
+          for (const sg of [-1, 1]) quad(P(u0, sg * HALF, deck(u0)), P(u1, sg * HALF, deck(u1)), P(u0, sg * HALF, deck(u0) - 0.28), P(u1, sg * HALF, deck(u1) - 0.28), cn);
+        }
+        quad(P(L, -HALF, H), P(L, HALF, H), P(L, -HALF, H - 0.28), P(L, HALF, H - 0.28), cn);
+        const gd = new THREE.BufferGeometry();
+        gd.setAttribute('position', new THREE.Float32BufferAttribute(Pp, 3)); gd.setAttribute('color', new THREE.Float32BufferAttribute(Cc, 3));
+        gd.setIndex(Ii); gd.computeVertexNormals();
+        const dm = new THREE.Mesh(gd, new THREE.MeshLambertMaterial({ vertexColors: true, side: THREE.DoubleSide, flatShading: true }));
+        dm.castShadow = true; dm.receiveShadow = true; frame.add(dm);
       }
-      // back face down to road
-      const i = r.i1, nxv = -track.tz[i], nzv = track.tx[i], y = track.py[i] + 0.04, cN = col(0x2a3140);
-      P.push(track.px[i] + nxv * -HALF, y, track.pz[i] + nzv * -HALF, track.px[i] + nxv * HALF, y, track.pz[i] + nzv * HALF);
-      C.push(cN.r, cN.g, cN.b, cN.r, cN.g, cN.b);
-      I.push(v - 2, v - 1, v, v - 1, v + 1, v);
-      const g = new THREE.BufferGeometry();
-      g.setAttribute('position', new THREE.Float32BufferAttribute(P, 3)); g.setAttribute('color', new THREE.Float32BufferAttribute(C, 3));
-      g.setIndex(I); g.computeVertexNormals();
-      const m = new THREE.Mesh(g, new THREE.MeshLambertMaterial({ vertexColors: true, side: THREE.DoubleSide, flatShading: true }));
-      m.castShadow = true; m.receiveShadow = true; group.add(m);
+      for (const sg of [-1, 1]) {
+        const lat = sg * (HALF - 0.12), latR = sg * (HALF + 0.05);
+        beam(P(0, lat, 0.1), P(L, lat, 0.1), 0.24, 0.24, steel);                    // ground rail
+        beam(P(0, lat, 0.0), P(L, lat, H - 0.14), 0.26, 0.26, steel);                // top chord under deck edge
+        for (let k = 1; k <= 8; k++) {
+          const u = k * STEPU, d = deck(u);
+          if (d > 0.3) beam(P(u, lat, 0), P(u, lat, d - 0.1), 0.24, 0.24, steel);    // posts
+          if (k > 1 && d > 0.6) {                                                      // alternating diagonals
+            const u0 = (k - 1) * STEPU;
+            if (k % 2) beam(P(u0, lat, 0.12), P(u, lat, d - 0.16), 0.14, 0.14, steelL);
+            else beam(P(u0, lat, deck(u0) - 0.16), P(u, lat, 0.12), 0.14, 0.14, steelL);
+          }
+          if (k % 2 === 0 && d > 0.5) beam(P(u, -HALF + 0.12, d - 0.2), P(u, HALF - 0.12, d - 0.2), 0.2, 0.2, steel);  // cross beams
+        }
+        // guard rail
+        for (const u of [STEPU * 2, STEPU * 4, STEPU * 6, L - 0.15]) beam(P(u, latR, deck(u)), P(u, latR, deck(u) + 0.8), 0.12, 0.12, steel);
+        beam(P(STEPU * 2, latR, deck(STEPU * 2) + 0.8), P(L - 0.15, latR, H + 0.8), 0.14, 0.14, cream);
+        beam(P(STEPU * 2, latR, deck(STEPU * 2) + 0.45), P(L - 0.15, latR, H + 0.45), 0.08, 0.08, coral);
+      }
+      // rear: X-bracing across the open back + kicker lip + hazard band
+      beam(P(L - 0.05, -HALF + 0.2, 0.1), P(L - 0.05, HALF - 0.2, H - 0.3), 0.16, 0.16, steelL);
+      beam(P(L - 0.05, HALF - 0.2, 0.1), P(L - 0.05, -HALF + 0.2, H - 0.3), 0.16, 0.16, steelL);
+      box(HALF * 2 + 0.3, 0.22, 0.45, coral, P(L - 0.1, 0, H + 0.02));
+      for (let k = 0; k < 6; k++) box((HALF * 2) / 6 - 0.15, 0.32, 0.06, k % 2 ? cream : coral, P(L + 0.03, -HALF + (k + 0.5) * (HALF * 2) / 6, H - 0.4));
+      // entry plate
+      box(HALF * 2, 0.08, 1.4, steelL, P(-0.5, 0, 0.0));
+      // warning signs on the approach
+      for (const sg of [-1, 1]) {
+        const p = P(-38, sg * (HALF + 2.4), 0);
+        p[1] = track.groundAt(p[0], p[2], {}, true).y;
+        box(0.16, 2.4, 0.16, steel, [p[0], p[1] + 1.2, p[2]]);
+        const s = box(1.6, 1.25, 0.08, new THREE.MeshLambertMaterial({ map: rampSignTex() }), [p[0], p[1] + 2.5, p[2]]);
+        s.rotation.y = yaw + Math.PI;
+      }
     }
 
     // ---- gates ----
@@ -896,6 +949,18 @@
   };
 
   let _checker = null;
+  let _rampSign = null;
+  function rampSignTex() {
+    if (_rampSign) return _rampSign;
+    const c = document.createElement('canvas'); c.width = 128; c.height = 100; const x = c.getContext('2d');
+    x.fillStyle = '#1f2a3d'; x.fillRect(0, 0, 128, 100);
+    x.fillStyle = '#f2c14e'; x.fillRect(5, 5, 118, 90);
+    x.fillStyle = '#1f2a3d'; x.beginPath(); x.moveTo(18, 78); x.lineTo(96, 78); x.lineTo(96, 40); x.closePath(); x.fill();
+    x.beginPath(); x.moveTo(98, 34); x.lineTo(112, 22); x.lineTo(104, 44); x.closePath(); x.fill();
+    x.fillRect(18, 82, 92, 5);
+    _rampSign = new THREE.CanvasTexture(c); if ('colorSpace' in _rampSign) _rampSign.colorSpace = THREE.SRGBColorSpace;
+    return _rampSign;
+  }
   function checkerTex() {
     if (_checker) return _checker;
     const c = document.createElement('canvas'); c.width = 32; c.height = 4;
