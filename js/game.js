@@ -706,7 +706,6 @@
     menuT += dt;
     readInput(dt);
     if (world && world.group.userData.clouds) world.group.userData.clouds.children.forEach((c, i) => { c.position.x += dt * (1.5 + (i % 3)); });
-    { const live = mode === 'race' && race && race.running && !race.finished && !race.paused; DL.UI.speedFx(live ? race.car.speed : 0, !!live); }
     if (mode === 'race' && race) {
       updateRace(dt);
       setOffset(camera, 'none');

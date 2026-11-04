@@ -82,7 +82,7 @@ window.DL = window.DL || {};
   DL.PATCHES = [
     { v: '1.4', date: 'November 2026', title: 'Off the Beaten Track', art: 'offroad',
       lead: 'The road now matters. Cut a corner across the grass and you will feel it.',
-      items: ['Grass, gravel and sand slow the car and reduce grip', 'Tyre skid marks, speed lines and a personal-best celebration', 'Daily track now rolls over at 12am Gulf time', 'Much faster leaderboards'] },
+      items: ['Grass, gravel and sand slow the car and reduce grip', 'Tyre skid marks and a personal-best celebration', 'Daily track now rolls over at 12am Gulf time', 'Much faster leaderboards'] },
     { v: '1.3', date: 'November 2026', title: 'Your Account, Anywhere', art: 'account',
       lead: 'Sign in with a username and password and your garage, coins and times follow you to any device.',
       items: ['Simple username and password accounts', 'Progress syncs across devices', 'Cheat protection: implausible runs are deleted'] },
