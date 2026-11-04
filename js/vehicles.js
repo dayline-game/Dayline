@@ -7,25 +7,25 @@
     pebble:  { name: 'Pebble', cls: 'Hatch', price: 0, blurb: 'The car everyone starts in. Chunky, honest, quick.',
       W: 1.9, lower: [[-2.0, .32], [2.0, .32], [2.1, .6], [2.0, .86], [1.0, 1.02], [-1.95, 1.05], [-2.08, .72]],
       cabin: [[1.05, 1.0], [.2, 1.72], [-1.55, 1.72], [-1.95, 1.02]], cw: .84, wz: [1.3, -1.3], wr: .38, wx: .86 },
-    comet:   { name: 'Comet', cls: 'Sports', price: 650, blurb: 'Long nose, low roof, all attitude.',
-      W: 2.0, lower: [[-2.2, .28], [2.2, .28], [2.35, .45], [2.2, .68], [.6, .88], [-1.6, .95], [-2.25, .85]],
-      cabin: [[.7, .86], [-.2, 1.3], [-1.0, 1.32], [-1.75, .93]], cw: .8, wz: [1.45, -1.45], wr: .37, wx: .9 },
-    rallye:  { name: 'Rallye', cls: 'Rally', price: 800, blurb: 'Boxy stage-car stance with a raised ride.',
-      W: 1.9, lower: [[-1.95, .42], [1.95, .42], [2.05, .66], [1.95, .95], [1.0, 1.08], [-1.95, 1.1], [-2.05, .78]],
-      cabin: [[1.0, 1.06], [.35, 1.78], [-1.6, 1.8], [-1.92, 1.08]], cw: .86, wz: [1.3, -1.3], wr: .41, wx: .88 },
-    mule:    { name: 'Mule', cls: 'Van', price: 700, blurb: 'A delivery van that refuses to deliver slowly.', paintCabin: true,
+    comet:   { name: 'Comet', cls: 'Sports', price: 650, blurb: 'Long nose, low roof, all attitude.', feat: 'comet',
+      W: 2.12, lower: [[-2.2, .24], [2.2, .24], [2.4, .4], [2.25, .6], [.5, .8], [-1.6, .9], [-2.25, .82]],
+      cabin: [[.55, .8], [-.25, 1.2], [-1.0, 1.22], [-1.75, .9]], cw: .74, wz: [1.5, -1.45], wr: .36, wx: .92 },
+    rallye:  { name: 'Rallye', cls: 'Rally', price: 800, blurb: 'Boxy stage-car stance with a raised ride.', feat: 'rallye',
+      W: 1.98, lower: [[-1.9, .5], [1.95, .5], [2.05, .72], [1.95, 1.0], [1.0, 1.12], [-1.9, 1.14], [-2.0, .8]],
+      cabin: [[1.0, 1.1], [.4, 1.84], [-1.7, 1.86], [-1.9, 1.12]], cw: .84, wz: [1.3, -1.3], wr: .45, wx: .9 },
+    mule:    { name: 'Mule', cls: 'Van', price: 700, blurb: 'A delivery van that refuses to deliver slowly.', paintCabin: true, feat: 'mule',
       W: 1.95, lower: [[-2.3, .4], [2.3, .4], [2.4, .66], [2.3, 1.0], [1.6, 1.15], [-2.3, 1.15], [-2.38, .75]],
       cabin: [[1.6, 1.12], [.95, 2.25], [-2.3, 2.3], [-2.3, 1.12]], cw: .96, wz: [1.5, -1.5], wr: .4, wx: .88, windows: true },
-    ridge:   { name: 'Ridge', cls: 'Off-road', price: 950, blurb: 'Pickup on big tyres. Looks like it climbs walls.',
+    ridge:   { name: 'Ridge', cls: 'Off-road', price: 950, blurb: 'Pickup on big tyres. Looks like it climbs walls.', feat: 'ridge',
       W: 2.05, lower: [[-2.2, .62], [2.2, .62], [2.3, .88], [2.2, 1.18], [1.2, 1.28], [-2.2, 1.28], [-2.3, .98]],
       cabin: [[1.2, 1.25], [.6, 1.98], [-.6, 1.98], [-.85, 1.25]], cw: .9, wz: [1.4, -1.4], wr: .53, wx: .92, bed: true },
-    vintage: { name: 'Vintage', cls: 'Classic', price: 1100, blurb: 'Sixties coupe lines in angular low-poly.',
+    vintage: { name: 'Vintage', cls: 'Classic', price: 1100, blurb: 'Sixties coupe lines in angular low-poly.', feat: 'vintage',
       W: 1.85, lower: [[-2.2, .35], [2.2, .35], [2.3, .55], [2.1, .8], [1.0, .92], [-1.4, .95], [-2.0, .85], [-2.3, .6]],
-      cabin: [[.8, .9], [.2, 1.45], [-.9, 1.45], [-1.5, .92]], cw: .82, wz: [1.4, -1.45], wr: .36, wx: .82 },
-    bubble:  { name: 'Bubble', cls: 'Micro', price: 1250, blurb: 'Mostly windscreen. Entirely joyful.',
+      cabin: [[.6, .92], [.0, 1.42], [-.8, 1.42], [-1.4, .95]], cw: .8, wz: [1.45, -1.45], wr: .34, wx: .82 },
+    bubble:  { name: 'Bubble', cls: 'Micro', price: 1250, blurb: 'Mostly windscreen. Entirely joyful.', feat: 'bubble',
       W: 1.6, lower: [[-1.4, .3], [1.4, .3], [1.55, .55], [1.4, .8], [.9, .95], [-1.3, .98], [-1.5, .7]],
-      cabin: [[.9, .92], [.5, 1.6], [-.6, 1.75], [-1.25, 1.5], [-1.35, .95]], cw: .88, wz: [.95, -.95], wr: .3, wx: .72 },
-    loaf:    { name: 'Loaf', cls: 'Oddball', price: 1500, blurb: 'A breadbin on wheels. Same pace as everything else.', paintCabin: true,
+      cabin: [[.9, .92], [.6, 1.1], [-.6, 1.18], [-1.25, 1.05], [-1.35, .95]], cw: .7, wz: [.95, -.95], wr: .3, wx: .72 },
+    loaf:    { name: 'Loaf', cls: 'Oddball', price: 1500, blurb: 'A breadbin on wheels. Same pace as everything else.', paintCabin: true, feat: 'loaf',
       W: 1.85, lower: [[-1.8, .35], [1.8, .35], [1.86, 1.3], [-1.86, 1.3]],
       cabin: [[1.62, 1.28], [1.5, 2.05], [-1.7, 2.08], [-1.82, 1.28]], cw: .95, wz: [1.25, -1.25], wr: .34, wx: .84, windows: true }
   };
@@ -183,6 +183,85 @@
     return g;
   }
 
+
+  // Signature parts so each car reads as a different machine, not just a different outline.
+  function addFeatures(F) {
+    const { body, spec, bodyMat, extraMat, headMat, tailMat, glassMat, frontZ, rearZ, roofY, lightY, deckY, ghost } = F;
+    const M = (k, mk) => ghost ? glassMat : sharedMat(k, mk);
+    const chrome = M('chrome', () => new THREE.MeshStandardMaterial({ color: 0xdfe4ea, roughness: 0.25, metalness: 0.8, flatShading: true }));
+    const dark = M('dark2', () => new THREE.MeshLambertMaterial({ color: 0x14181f, flatShading: true }));
+    const coral = M('coral2', () => new THREE.MeshLambertMaterial({ color: 0xf05a35, flatShading: true }));
+    const cream = M('cream2', () => new THREE.MeshLambertMaterial({ color: 0xf3ead7, flatShading: true }));
+    const bx = (w, h, d, x, y, z, mat, rx, rz, ry) => { const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat || dark); m.position.set(x, y, z); if (rx) m.rotation.x = rx; if (rz) m.rotation.z = rz; if (ry) m.rotation.y = ry; m.castShadow = !ghost; body.add(m); return m; };
+    const cy = (r, h, x, y, z, mat, ax, seg) => { const m = new THREE.Mesh(new THREE.CylinderGeometry(r, r, h, seg || 10), mat); m.position.set(x, y, z); if (ax === 'x') m.rotation.z = Math.PI / 2; else if (ax === 'z') m.rotation.x = Math.PI / 2; m.castShadow = !ghost; body.add(m); return m; };
+    const W = spec.W, both = f => [-1, 1].forEach(f);
+    const wheelFlares = (thick, up) => both(s => spec.wz.forEach(z => bx(thick, 0.16, spec.wr * 2.5, s * (W / 2 + thick / 2 - 0.02), spec.wr * 2 + up, z)));
+    const f = spec.feat;
+    if (f === 'comet') {
+      wheelFlares(0.2, 0.0);
+      both(s => bx(0.07, 0.2, 0.8, s * (W / 2 + 0.02), 0.58, -0.7, dark));                      // side intakes
+      bx(W * 0.96, 0.06, 0.55, 0, deckY + 0.3, rearZ + 0.3, coral, -0.12);                       // integrated rear wing
+      both(s => { bx(0.06, 0.3, 0.6, s * W * 0.49, deckY + 0.3, rearZ + 0.3, dark); bx(0.1, 0.34, 0.1, s * W * 0.3, deckY + 0.16, rearZ + 0.4, dark); });
+      bx(W * 0.9, 0.07, 0.4, 0, 0.3, frontZ + 0.05, dark);                                         // front splitter
+      bx(W * 0.5, 0.05, 0.7, 0, 0.9, 1.0, dark);                                                   // bonnet vent
+      bx(W * 0.9, 0.09, 0.1, 0, lightY - 0.1, frontZ + 0.08, coral);                               // nose stripe
+    } else if (f === 'rallye') {
+      wheelFlares(0.16, 0.05);
+      bx(0.8, 0.2, 0.9, 0, 1.2, 1.0, dark, 0.12);                                                  // bonnet scoop
+      for (let k = 0; k < 4; k++) cy(0.15, 0.14, (k - 1.5) * 0.4, roofY - 0.02, 0.95, headMat, 'z');   // roof light pods
+      bx(W * 0.72, 0.06, 0.1, 0, roofY - 0.1, 0.78, dark);
+      bx(W * 0.9, 0.08, 0.5, 0, deckY + 0.35, rearZ + 0.35, coral, 0.1);                         // fixed wing
+      both(s => { bx(0.07, 0.4, 0.5, s * W * 0.4, deckY + 0.2, rearZ + 0.4, dark); bx(0.04, 0.34, 0.5, s * (W * 0.5 + 0.0), deckY + 0.35, rearZ + 0.35, dark); });
+      both(s => spec.wz.forEach(z => bx(0.05, 0.3, 0.3, s * (W / 2 + 0.1), 0.35, z - Math.sign(z) * (spec.wr + 0.15), dark)));  // mud flaps
+      cy(0.1, 0.1, 0.0, 0.62, frontZ + 0.04, coral, 'z', 8);
+      cy(0.3, 0.14, 0, roofY + 0.28, -1.0, M('spare', () => new THREE.MeshLambertMaterial({ color: 0x1b1e24, flatShading: true })), 'y', 9);   // spare on roof
+    } else if (f === 'mule') {
+      bx(W * 0.5, 0.14, 0.5, 0, roofY + 0.08, -0.4, dark); bx(0.45, 0.12, 0.45, 0, roofY + 0.08, 0.4, dark);   // roof vents
+      both(s => bx(0.06, 0.07, 3.6, s * W * 0.42, roofY + 0.07, -0.2, dark));                       // roof rails
+      for (let k = 0; k < 5; k++) bx(W * 0.84, 0.05, 0.06, 0, roofY + 0.14, -1.7 + k * 0.85, dark);
+      bx(0.05, 1.05, 0.04, 0, 1.6, rearZ - 0.03, dark); bx(W * 0.3, 0.12, 0.04, W * 0.2, 1.5, rearZ - 0.04, dark); // barn doors
+      both(s => { bx(0.12, 0.26, 0.1, s * (W / 2 + 0.16), 1.9, 1.1, dark); bx(0.05, 0.9, 0.04, s * (W / 2 + 0.03), 1.5, -0.4, dark); }); // mirrors + door seam
+      bx(W * 0.8, 0.28, 0.08, 0, 0.72, frontZ + 0.1, dark);                                         // grille
+      bx(W * 1.02, 0.14, 0.2, 0, 0.45, frontZ + 0.1, chrome); bx(W * 1.02, 0.14, 0.2, 0, 0.45, rearZ - 0.1, chrome);
+    } else if (f === 'ridge') {
+      wheelFlares(0.24, 0.1);
+      for (let k = 0; k < 5; k++) cy(0.12, 0.12, (k - 2) * 0.34, roofY + 0.2, 0.45, headMat, 'z', 8);   // roof light bar
+      bx(W * 0.82, 0.1, 0.14, 0, roofY + 0.1, 0.45, dark);
+      both(s => { bx(0.1, 0.8, 0.1, s * (W / 2 - 0.1), 1.8, -2.0, dark); bx(0.12, 0.08, 1.2, s * (W / 2 - 0.1), 1.45, -1.6, dark); }); // sports bar
+      bx(W * 0.9, 0.1, 0.1, 0, 2.15, -2.0, dark);
+      bx(0.14, 0.9, 0.14, W * 0.42, 1.6, 0.85, dark); bx(0.14, 0.14, 0.4, W * 0.42, 2.05, 0.7, dark);    // snorkel
+      both(s => bx(0.16, 0.08, 1.6, s * (W / 2 + 0.1), 0.62, 0.0, dark));                           // side steps
+      cy(0.5, 0.2, 0, 1.78, -1.55, M('spare2', () => new THREE.MeshLambertMaterial({ color: 0x1b1e24, flatShading: true })), 'x', 10);  // spare
+      bx(W * 0.9, 0.18, 0.2, 0, 0.7, frontZ + 0.08, dark);                                           // skid plate
+      bx(0.5, 0.1, 0.5, 0, 1.31, 1.1, dark);
+    } else if (f === 'vintage') {
+      bx(W + 0.12, 0.12, 0.14, 0, 0.5, frontZ + 0.05, chrome); bx(W + 0.12, 0.12, 0.14, 0, 0.5, rearZ - 0.05, chrome);
+      bx(0.14, 0.16, 0.2, W * 0.46, 0.5, frontZ + 0.02, chrome); bx(0.14, 0.16, 0.2, -W * 0.46, 0.5, frontZ + 0.02, chrome);
+      both(s => { cy(0.22, 0.12, s * W * 0.3, lightY + 0.05, frontZ + 0.1, chrome, 'z', 12); cy(0.17, 0.14, s * W * 0.3, lightY + 0.05, frontZ + 0.13, headMat, 'z', 12); });
+      bx(W * 0.4, 0.3, 0.06, 0, lightY - 0.1, frontZ + 0.1, chrome);                                // grille
+      both(s => { bx(0.07, 0.5, 0.9, s * (W / 2 - 0.1), deckY + 0.3, rearZ + 0.5, coral, 0.25); bx(0.05, 0.05, 3.3, s * (W / 2 + 0.01), 0.76, -0.1, chrome); }); // tail fins + side trim
+      both(s => bx(0.08, 0.08, 0.35, s * W * 0.33, deckY + 0.5, rearZ + 0.35, tailMat));
+      both(s => spec.wz.forEach(z => cy(spec.wr * 0.95, 0.04, s * (W / 2 + 0.0), spec.wr, z, cream, 'x', 12)));   // whitewall rings
+      cy(0.07, 0.1, 0, 0.95, frontZ - 0.35, chrome, 'y', 8);                                         // bonnet ornament
+    } else if (f === 'bubble') {
+      const dome = new THREE.Mesh(new THREE.SphereGeometry(1, 10, 8), glassMat); dome.scale.set(W * 0.5, 0.66, 1.05); dome.position.set(0, 1.12, -0.05); dome.castShadow = !ghost; body.add(dome);
+      both(s => cy(0.24, 0.12, s * W * 0.3, lightY + 0.1, frontZ + 0.02, headMat, 'z', 10));       // big round eyes
+      both(s => cy(0.27, 0.06, s * W * 0.3, lightY + 0.1, frontZ - 0.02, chrome, 'z', 10));
+      bx(W * 0.7, 0.12, 0.08, 0, 0.45, frontZ + 0.04, chrome); bx(W * 0.7, 0.12, 0.08, 0, 0.45, rearZ - 0.04, chrome);
+      cy(0.05, 0.9, -W * 0.22, 1.9, -0.9, dark, 'y', 6); bx(0.14, 0.14, 0.14, -W * 0.22, 2.38, -0.9, coral);   // aerial with flag
+      bx(W * 0.6, 0.5, 0.5, 0, 0.9, rearZ + 0.3, cream);                                          // engine hump
+    } else if (f === 'loaf') {
+      const crust = M('crust', () => new THREE.MeshLambertMaterial({ color: 0xc88a4a, flatShading: true }));
+      const top = new THREE.Mesh(new THREE.CylinderGeometry(W * 0.49, W * 0.49, 3.5, 10, 1, false, Math.PI / 2, Math.PI), crust);
+      top.scale.set(1, 1, 0.45); top.rotation.x = Math.PI / 2; top.position.set(0, 2.06, -0.1); top.castShadow = !ghost; body.add(top);
+      bx(W * 0.82, 0.07, 3.3, 0, 2.06, -0.1, crust, 0, 0);
+      both(s => { cy(0.3, 0.06, s * (W * 0.95 / 2 + 0.03), 1.8, -0.6, glassMat, 'x', 12); cy(0.34, 0.04, s * (W * 0.95 / 2 + 0.02), 1.8, -0.6, chrome, 'x', 12); cy(0.3, 0.06, s * (W * 0.95 / 2 + 0.03), 1.8, 0.4, glassMat, 'x', 12); cy(0.34, 0.04, s * (W * 0.95 / 2 + 0.02), 1.8, 0.4, chrome, 'x', 12); });
+      cy(0.09, 0.8, W * 0.3, 2.45, -1.5, dark, 'y', 8); cy(0.14, 0.06, W * 0.3, 2.88, -1.5, dark, 'y', 8);   // chimney
+      bx(W * 0.7, 0.35, 0.08, 0, 0.8, frontZ + 0.04, dark); bx(W * 1.0, 0.1, 0.1, 0, 0.45, frontZ + 0.05, cream);
+      both(s => bx(0.06, 0.06, 0.4, s * (W / 2 + 0.02), 1.05, 1.0, chrome));                        // door handles
+    }
+  }
+
   // Build a full vehicle. opts: {car, livery(Uint8Array), base, equip:{spoiler,wheels,bumper,finish}, ghost:bool}
   DL.buildCar = function (opts) {
     const spec = DL.CARS[opts.car] || DL.CARS.pebble;
@@ -272,6 +351,8 @@
         p.rotation.x = Math.PI / 2; p.position.set((k - 1.5) * spec.W * 0.2, lightY + 0.06, frontZ + 0.2); body.add(p);
       }
     }
+
+    addFeatures({ body, spec, bodyMat, extraMat, headMat, tailMat, glassMat, frontZ, rearZ, roofY, lightY, deckY, ghost: !!opts.ghost });
 
     // wheels
     const wheels = [];
