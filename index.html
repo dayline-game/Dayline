@@ -123,6 +123,14 @@ canvas.pgrid{width:100%;image-rendering:pixelated;border:1px solid var(--navy);b
 .pgrid-row{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
 .stamps{display:flex;flex-wrap:wrap;gap:5px;}
 .hint{font-size:12px;color:var(--muted);line-height:1.4;}
+.namebox{display:flex;flex-direction:column;gap:6px;padding:11px 12px;border-radius:8px;background:#fbf6ea;border:1.5px solid var(--line);}
+.namebox.need{border-color:var(--coral);box-shadow:0 0 0 3px rgba(240,90,53,.14);}
+.namerow{display:flex;align-items:center;gap:8px;}
+.namerow input{flex:1;min-width:0;font:inherit;font-size:16px;font-weight:600;padding:9px 10px;border-radius:5px;border:1px solid var(--line);background:#fff;color:var(--ink);}
+.namerow input:focus{outline:2px solid var(--coral);outline-offset:1px;}
+.namesaved{font-family:var(--f-display);font-weight:700;font-size:12px;letter-spacing:.1em;text-transform:uppercase;color:#3a8a5a;}
+.namehint{font-size:12.5px;color:var(--muted);}
+.namebox.need .namehint{color:var(--coral-dk);}
 .field{display:flex;flex-direction:column;gap:5px;}
 .field input[type=text],.field input[type=password],.field select{font:inherit;font-size:15px;padding:9px 10px;border-radius:5px;border:1px solid var(--line);background:#fbf6ea;color:var(--ink);}
 .designs{display:flex;flex-direction:column;gap:6px;}
@@ -366,6 +374,11 @@ input[type=range]{width:100%;accent-color:var(--coral);}
       <div class="lbl" id="mBiome" style="color:var(--coral)">—</div><div class="lbl num" style="text-align:right" id="mLength">—</div>
     </div>
     <div class="medals" id="mMedals"></div>
+    <div class="namebox" id="mNameBox">
+      <label class="lbl" for="mTag">Your leaderboard name</label>
+      <div class="namerow"><input type="text" id="mTag" maxlength="16" placeholder="Type a name, e.g. Sideways Sam" autocomplete="nickname" spellcheck="false"><span class="namesaved" id="mTagSaved" hidden>Saved</span></div>
+      <div class="namehint" id="mTagHint">No name yet: you show up as &ldquo;Driver&rdquo; on the leaderboard.</div>
+    </div>
     <button class="btn btn-go" id="bRace">Race now <svg width="26" height="26" viewBox="0 0 24 24" fill="currentColor"><path d="M7 4l12 8-12 8z"/></svg></button>
     <div class="menu-grid">
       <button class="btn btn-line" id="bGarage"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17V9l9-5 9 5v8M7 17v-5h10v5M3 17h18"/></svg>Garage</button>

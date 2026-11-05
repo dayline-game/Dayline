@@ -79,8 +79,29 @@
     const st = streakNow();
     $('mStreak').textContent = st + (st === 1 ? ' day' : ' days') + (Net.save.lastDay === d ? '' : st ? ' · race today to keep it' : '');
     $('mStreakBars').innerHTML = Array.from({ length: 7 }, (_, i) => `<i class="${i < Math.min(st, 7) ? 'on' : ''}"></i>`).join('');
+    renderNameBox();
     renderNet();
   }
+  // leaderboard name (callsign) right on the menu so new players set one
+  function renderNameBox() {
+    const inp = $('mTag'), box = $('mNameBox'); if (!inp) return;
+    const tag = (Net.save.tag || '').trim();
+    if (document.activeElement !== inp) inp.value = Net.save.tag || '';
+    box.classList.toggle('need', !tag);
+    $('mTagHint').innerHTML = tag ? 'Shown next to your times on the leaderboard.' : 'No name yet: you show up as &ldquo;Driver&rdquo; on the leaderboard.';
+  }
+  (function () {
+    const inp = $('mTag'); if (!inp) return;
+    let timer = null;
+    const save = () => {
+      Net.save.tag = inp.value.trim().slice(0, 16); Net.persist(); if (Net.pushProfile) Net.pushProfile();
+      renderNameBox(); const ok = $('mTagSaved'); ok.hidden = false; clearTimeout(ok._t); ok._t = setTimeout(() => { ok.hidden = true; }, 1600);
+    };
+    inp.addEventListener('input', () => { $('mNameBox').classList.toggle('need', !inp.value.trim()); clearTimeout(timer); timer = setTimeout(save, 700); });
+    inp.addEventListener('change', () => { clearTimeout(timer); save(); });
+    inp.addEventListener('keydown', e => { e.stopPropagation(); if (e.key === 'Enter') inp.blur(); });
+    inp.addEventListener('keyup', e => e.stopPropagation());
+  })();
   function renderNet() {
     ['mNet', 'bNet'].forEach(id => {
       const el = $(id); if (!el) return;
