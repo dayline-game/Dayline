@@ -310,7 +310,7 @@
     if (r.dist < HALF && !visual) { y = r.y + this.rampOffset(r.s); const pa = this.patches && this.patches.length ? this.patchAt(r.s) : null; surf = pa ? pa.surf : SURF.ROAD; }
     else if (r.dist < 999) {
       const th = this._terrain(x, z, r);
-      const k = DL.smooth(HALF + 1.5, HALF + 30, r.dist);
+      const k = DL.smooth(HALF + 6, HALF + 32, r.dist);   // verge stays flat well past the tarmac so steep hillsides never clip over the road
       // physics: the verge is flush with the road; the visual mesh sinks only under the tarmac
       const base = visual ? (r.dist < HALF + 0.6 ? r.y - 0.32 : r.y - 0.04) : r.y;
       y = DL.lerp(base, th, k);
@@ -325,7 +325,10 @@
         const d = Math.hypot(x - (sc.ax + sx * t), z - (sc.az + sz * t));
         if (d < 18) {
           const ys = DL.lerp(sc.ay, sc.by, t) - (visual ? 0.3 : 0);
-          y = DL.lerp(ys, y, DL.smooth(4, 18, d));
+          let ysb = DL.lerp(ys, y, DL.smooth(4, 18, d));
+          // the visual mesh eases the shortcut in away from the tarmac so it never rides up over the road edge
+          if (visual) ysb = DL.lerp(y, ysb, DL.smooth(HALF + 0.6, HALF + 9, r.dist));
+          y = ysb;
           if (d < 4.2 && r.dist >= HALF) surf = SURF.GRAVEL;
         }
       }
@@ -1284,11 +1287,16 @@
     const cx = (minX + maxX) / 2, cz = (minZ + maxZ) / 2;
     const R = Math.max(maxX - minX, maxZ - minZ) / 2 + margin + 380;
     const mparts = [];
+    // keep every distant mountain clear of the road: push it outwards until its base is well away from the track
+    const rpx = [], rpz = []; for (let i = 0; i < track.N; i += 3) { rpx.push(track.px[i]); rpz.push(track.pz[i]); }
+    const roadGap = (x, z) => { let d = 1e9; for (let i = 0; i < rpx.length; i++) { const q = (rpx[i] - x) * (rpx[i] - x) + (rpz[i] - z) * (rpz[i] - z); if (q < d) d = q; } return Math.sqrt(d); };
     for (let k = 0; k < 34; k++) {
-      const a = k / 34 * Math.PI * 2 + mr() * 0.15, rr = R + mr() * 380;
+      const a = k / 34 * Math.PI * 2 + mr() * 0.15; let rr = R + mr() * 380;
       const h = 140 + mr() * 300 * (track.biomeKey === 'mountain' ? 1.5 : 1), rad = 180 + mr() * 220;
       const g = new THREE.ConeGeometry(rad, h, 5 + Math.floor(mr() * 3), 1);
-      mparts.push({ geo: g, color: B.mountain, matrix: M4(cx + Math.cos(a) * rr, h / 2 - 30, cz + Math.sin(a) * rr, 1, 1, 0.7 + mr() * 0.6, mr() * 6) });
+      const szz = 0.7 + mr() * 0.6, rot = mr() * 6, reach = rad * Math.max(1, szz) + 70;
+      for (let n = 0; n < 80 && roadGap(cx + Math.cos(a) * rr, cz + Math.sin(a) * rr) < reach; n++) rr += 40;
+      mparts.push({ geo: g, color: B.mountain, matrix: M4(cx + Math.cos(a) * rr, h / 2 - 30, cz + Math.sin(a) * rr, 1, 1, szz, rot) });
       if (track.biomeKey === 'mountain' || track.biomeKey === 'snow' || mr() < 0.3) {
         mparts.push({ geo: new THREE.ConeGeometry(rad * 0.32, h * 0.32, 5, 1), color: 0xf2f4f6, matrix: M4(cx + Math.cos(a) * rr, h - 30 - h * 0.16 + 2, cz + Math.sin(a) * rr, 1, 1, 0.7, mr() * 6) });
       }
