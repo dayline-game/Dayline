@@ -22,8 +22,8 @@
     renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     scene = new THREE.Scene();
     camera = new THREE.PerspectiveCamera(60, 1, 0.3, 5000);
-    hemi = new THREE.HemisphereLight(0xdfe6ea, 0x8a8070, 1.8);
-    sun = new THREE.DirectionalLight(0xfff3dd, 2.8);
+    hemi = new THREE.HemisphereLight(0xdfe6ea, 0x8a8070, 1.5);
+    sun = new THREE.DirectionalLight(0xfff3dd, 2.6);
     sun.castShadow = true;
     sun.shadow.mapSize.set(2048, 2048);
     const sc = sun.shadow.camera; sc.left = -70; sc.right = 70; sc.top = 70; sc.bottom = -70; sc.near = 10; sc.far = 400;
