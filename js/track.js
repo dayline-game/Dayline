@@ -294,11 +294,59 @@
     if (this.off && dist < 999) h += this.off[r.i] * (1 - DL.smooth(HALF + 8, HALF + 62, dist));
     const above = this.water == null ? 1 : DL.smooth(this.water + 1, this.water + 7, h);
     if (above > 0) {
+      const fw = DL.smooth(HALF + 34, HALF + 100, dist) * above;   // landforms only well away from the road, so the driving line is unchanged
+      if (fw > 0) h += this._features(x, z, h) * fw;
       const H = 9 + Math.min(this.B.amp, 60) * 0.3;
       const hl = this.noise.fbm(x / 130 + 300, z / 130 - 200, 3);
       h += (hl * 0.5 + 0.35) * H * DL.smooth(HALF + 16, HALF + 62, dist) * above;
     }
     return h;
+  };
+
+  // per-biome landforms with a daily style (seeded separately so nothing else in the track changes)
+  Track.prototype._style = function () {
+    if (this._tstyle) return this._tstyle;
+    const r = DL.mulberry32(this.seed ^ 0x7e44a1);
+    return this._tstyle = { a: r(), b: r(), c: r(), sc: 0.75 + r() * 0.7, ph: r() * 100 };
+  };
+  Track.prototype._features = function (x, z, h) {
+    const n = this.noise, S = this._style(), sm = DL.smooth, k = this.biomeKey;
+    const X = x + S.ph * 37, Z = z - S.ph * 23;
+    let f = 0;
+    if (k === 'desert') {
+      // flat-topped mesas with steep sides, plus sandstone ridges
+      const v = n.fbm(X / (340 * S.sc) + 500, Z / (340 * S.sc) - 300, 3);
+      f += sm(0.02, 0.16, v) * (30 + 26 * S.a);
+      const r = 1 - Math.abs(n.n2(X / (150 * S.sc) + 9, Z / (150 * S.sc) + 4));
+      f += r * r * r * 9 * (0.5 + S.b);
+    } else if (k === 'mountain') {
+      // sharp ridged peaks
+      const r = 1 - Math.abs(n.n2(X / (210 * S.sc) + 40, Z / (210 * S.sc) - 17));
+      f += Math.pow(r, 3.2) * (70 + 50 * S.a) * sm(-0.2, 0.3, n.fbm(X / 600 + 70, Z / 600 + 8, 2));
+      f += Math.pow(1 - Math.abs(n.n2(X / 80, Z / 80)), 4) * 6;
+    } else if (k === 'snow') {
+      // long smooth dunes of snow and a few jagged ridges
+      f += (n.n2(X / (95 * S.sc), Z / (210 * S.sc)) * 0.5 + 0.5) * 14 * (0.6 + S.a);
+      const r = 1 - Math.abs(n.n2(X / 260 - 20, Z / 260 + 66));
+      f += Math.pow(r, 4) * (40 + 30 * S.b);
+    } else if (k === 'forest') {
+      // steep rounded knolls
+      const v = n.fbm(X / (120 * S.sc) + 200, Z / (120 * S.sc) + 90, 2);
+      f += sm(0.12, 0.5, v) * (34 + 22 * S.a);
+    } else if (k === 'coast') {
+      // stepped sea cliffs: terraces that get steeper inland
+      const v = n.fbm(X / (260 * S.sc) + 30, Z / (260 * S.sc) - 60, 3);
+      f += sm(-0.05, 0.3, v) * (22 + 18 * S.a);
+      const step = 6, q = (h + f) / step, fr = q - Math.floor(q);
+      f += ((Math.floor(q) + sm(0.3, 0.7, fr)) * step - (h + f)) * (0.55 + 0.4 * S.b);
+    } else {
+      // lake country: gentle terraced fields and rounded drumlin hills
+      const v = n.fbm(X / (180 * S.sc) - 140, Z / (180 * S.sc) + 33, 3);
+      f += sm(0.0, 0.4, v) * (20 + 20 * S.a);
+      const step = 4.5, q = (h + f) / step, fr = q - Math.floor(q);
+      f += ((Math.floor(q) + sm(0.25, 0.75, fr)) * step - (h + f)) * (0.35 + 0.4 * S.c);
+    }
+    return f;
   };
 
   // returns {y, surf}; visual=true gives the terrain-mesh height (sunk under the road)
@@ -837,7 +885,7 @@
       const nyv = ux * vz - uz * vx, nl = Math.hypot(uy * vz - uz * vy, nyv, ux * vy - uy * vx) || 1, slope = 1 - Math.abs(nyv) / nl;
       const t = (hy - hmin) / Math.max(1, hmax - hmin);
       let base;
-      if (slope > 0.42) base = gc[3];
+      if (slope > 0.42) { base = gc[3]; if (track.biomeKey === 'desert' || track.biomeKey === 'coast') { c3.copy(base).multiplyScalar(0.9 + 0.2 * ((Math.floor(hy / 3.5) & 1))); base = c3.clone(); } }
       else if (t > 0.82 && (track.biomeKey === 'mountain' || track.biomeKey === 'snow')) base = gc[4];
       else if (t > 0.58) base = gc[2];
       else if (t > 0.3) base = gc[1];

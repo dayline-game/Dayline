@@ -82,7 +82,7 @@ window.DL = window.DL || {};
   DL.PATCHES = [
     { v: '1.9', date: 'November 2026', title: 'Brighter World', art: 'offroad',
       lead: 'A fresh coat of paint on every map: clearer skies, richer colours, bluer water.',
-      items: ['Brighter, richer landscapes in every biome', 'Gradient skies and a cleaner, longer view distance', 'Vivid water, greener trees and brighter mountains', 'Same tracks, same handling'] },
+      items: ['Brighter, richer landscapes in every biome', 'Gradient skies and a cleaner, longer view distance', 'Vivid water, greener trees and brighter mountains', 'New landforms per biome: desert mesas, sharp peaks, snow dunes, forest knolls, sea cliffs, terraced fields. A little different every day', 'Same tracks, same handling'] },
     { v: '1.7', date: 'November 2026', title: 'Roadside Life', art: 'offroad',
       lead: 'Every biome has its own landmarks and roadside life from tomorrow’s map.',
       items: ['Hot air balloons, billboards and tyre stacks beside the road', 'Cabins, watchtowers, snowmen, igloos, lifeguard towers, pumpjacks and more per biome'] },
