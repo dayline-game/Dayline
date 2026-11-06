@@ -80,6 +80,9 @@ window.DL = window.DL || {};
 
   // ---------- patch notes (major releases only, newest first) ----------
   DL.PATCHES = [
+    { v: '1.9', date: 'November 2026', title: 'Brighter World', art: 'offroad',
+      lead: 'A fresh coat of paint on every map: clearer skies, richer colours, bluer water.',
+      items: ['Brighter, more saturated landscapes in every biome', 'Gradient skies and a cleaner, longer view distance', 'Vivid water, greener trees and brighter mountains', 'Same tracks, same handling'] },
     { v: '1.7', date: 'November 2026', title: 'Roadside Life', art: 'offroad',
       lead: 'Every biome has its own landmarks and roadside life from tomorrow’s map.',
       items: ['Hot air balloons, billboards and tyre stacks beside the road', 'Cabins, watchtowers, snowmen, igloos, lifeguard towers, pumpjacks and more per biome'] },
@@ -110,34 +113,34 @@ window.DL = window.DL || {};
   // ---------- biomes ----------
   DL.BIOMES = {
     desert: {
-      name: 'Desert Basin', sky: 0xd8d2c6, fog: 0xd8d2c6, sun: 0xfff1d8, hemiSky: 0xdfe4ea, hemiGround: 0xb39470,
-      ground: [0xd6bc8e, 0xcaa676, 0xb98c62, 0x9f8f86, 0x8d97a3], water: null, amp: 26, scale: 1 / 420,
-      props: { cactus: 160, rock: 260, boulder: 40 }, mountain: 0xa39a91, offGrip: 0.6, roadGrip: 1.0
+      name: 'Desert Basin', sky: 0x62b8ef, fog: 0xf1e6cc, sun: 0xfff1d8, hemiSky: 0xd4eaff, hemiGround: 0xd9ad6c,
+      ground: [0xf2d089, 0xe8bb68, 0xd9a050, 0xb5a091, 0x9ba7b4], water: null, amp: 26, scale: 1 / 420,
+      props: { cactus: 160, rock: 260, boulder: 40 }, mountain: 0xc29a74, offGrip: 0.6, roadGrip: 1.0
     },
     mountain: {
-      name: 'High Pass', sky: 0xcdd6de, fog: 0xcdd6de, sun: 0xfff5e6, hemiSky: 0xdbe3ea, hemiGround: 0x6f7a6a,
-      ground: [0x8f9c80, 0x7c8b77, 0x7a8592, 0x67727f, 0xe9edf0], water: null, amp: 70, scale: 1 / 520,
-      props: { pine: 650, rock: 220, boulder: 60 }, mountain: 0x76828f, offGrip: 0.62, roadGrip: 1.0
+      name: 'High Pass', sky: 0x5aaeea, fog: 0xdcebf7, sun: 0xfff5e6, hemiSky: 0xd4e8ff, hemiGround: 0x6aa253,
+      ground: [0x86c45c, 0x70b04f, 0x8d9aa8, 0x6f7e8e, 0xf7fafd], water: null, amp: 70, scale: 1 / 520,
+      props: { pine: 650, rock: 220, boulder: 60 }, mountain: 0x7589a0, offGrip: 0.62, roadGrip: 1.0
     },
     forest: {
-      name: 'Pine Forest', sky: 0xcfd7d6, fog: 0xc7d0cf, sun: 0xfff4e2, hemiSky: 0xdbe3e3, hemiGround: 0x55664f,
-      ground: [0x7f9373, 0x6d8366, 0x637561, 0x6e7a80, 0x8a949c], water: -6, amp: 34, scale: 1 / 380,
-      props: { pine: 1300, round: 450, rock: 120 }, mountain: 0x6b7a80, offGrip: 0.6, roadGrip: 1.0
+      name: 'Pine Forest', sky: 0x5db6ec, fog: 0xd2ebf2, sun: 0xfff4e2, hemiSky: 0xd4eaf4, hemiGround: 0x4f9446,
+      ground: [0x66b552, 0x57a64a, 0x4b9645, 0x7b8d96, 0x9aaab4], water: -6, amp: 34, scale: 1 / 380,
+      props: { pine: 1300, round: 450, rock: 120 }, mountain: 0x5f8a94, offGrip: 0.6, roadGrip: 1.0
     },
     snow: {
-      name: 'Snowfield', sky: 0xd5dde4, fog: 0xd9e0e6, sun: 0xffffff, hemiSky: 0xe9eef3, hemiGround: 0x9aa6b2,
-      ground: [0xe9edf1, 0xdfe5eb, 0xcbd4dd, 0x9aa6b3, 0x7b8794], water: null, amp: 48, scale: 1 / 460,
-      props: { snowpine: 700, rock: 160 }, mountain: 0x8f9aa6, offGrip: 0.48, roadGrip: 0.86
+      name: 'Snowfield', sky: 0x78c4f4, fog: 0xe8f3fb, sun: 0xffffff, hemiSky: 0xeaf4ff, hemiGround: 0xa9bed2,
+      ground: [0xf8fbfe, 0xeaf3fa, 0xd3e3f0, 0xa4b9cf, 0x8398b0], water: null, amp: 48, scale: 1 / 460,
+      props: { snowpine: 700, rock: 160 }, mountain: 0x91a9c2, offGrip: 0.48, roadGrip: 0.86
     },
     coast: {
-      name: 'Coast Road', sky: 0xcbd6dd, fog: 0xcbd6dd, sun: 0xfff3dd, hemiSky: 0xdbe5ec, hemiGround: 0x9e9478,
-      ground: [0xd9c69e, 0xa7ad88, 0x8c9a7c, 0x7a8691, 0x6a7582], water: 0, amp: 30, scale: 1 / 400, tilt: true,
-      props: { palm: 180, round: 200, rock: 160 }, mountain: 0x7b8793, offGrip: 0.58, roadGrip: 1.0
+      name: 'Coast Road', sky: 0x58b4f0, fog: 0xd6edf9, sun: 0xfff3dd, hemiSky: 0xd4ebff, hemiGround: 0xc9b985,
+      ground: [0xf4dfa8, 0x9bd266, 0x7ec25c, 0x8a9cac, 0x7587a0], water: 0, amp: 30, scale: 1 / 400, tilt: true,
+      props: { palm: 180, round: 200, rock: 160 }, mountain: 0x6f95b0, offGrip: 0.58, roadGrip: 1.0
     },
     country: {
-      name: 'Lake Country', sky: 0xd3dbe0, fog: 0xd3dbe0, sun: 0xfff3dc, hemiSky: 0xdfe6ea, hemiGround: 0x76845f,
-      ground: [0xa4b183, 0x93a376, 0x7f9170, 0x7b8790, 0x8e98a0], water: -4, amp: 28, scale: 1 / 360,
-      props: { round: 700, pine: 200, rock: 90, haybale: 50 }, mountain: 0x7f8c95, offGrip: 0.62, roadGrip: 1.0
+      name: 'Lake Country', sky: 0x5cb8f2, fog: 0xd8eef9, sun: 0xfff3dc, hemiSky: 0xd6ecff, hemiGround: 0x6fae4c,
+      ground: [0x9bd35a, 0x86c44e, 0x72b345, 0x8a9ba8, 0xa0b0bd], water: -4, amp: 28, scale: 1 / 360,
+      props: { round: 700, pine: 200, rock: 90, haybale: 50 }, mountain: 0x7f9fb4, offGrip: 0.62, roadGrip: 1.0
     }
   };
   DL.BIOME_KEYS = ['desert', 'mountain', 'forest', 'snow', 'coast', 'country'];

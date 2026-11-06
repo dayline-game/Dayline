@@ -573,27 +573,27 @@
     switch (type) {
       case 'pine': return DL.mergeColored([
         { geo: new THREE.CylinderGeometry(0.25, 0.35, 2, 5), color: 0x6b5442, matrix: M4(0, 1, 0) },
-        { geo: new THREE.ConeGeometry(2.2, 4, 6), color: 0x4f6b55, matrix: M4(0, 3.6, 0) },
-        { geo: new THREE.ConeGeometry(1.6, 3.2, 6), color: 0x5a7a5f, matrix: M4(0, 5.6, 0) }]);
+        { geo: new THREE.ConeGeometry(2.2, 4, 6), color: 0x3f9a50, matrix: M4(0, 3.6, 0) },
+        { geo: new THREE.ConeGeometry(1.6, 3.2, 6), color: 0x52b05e, matrix: M4(0, 5.6, 0) }]);
       case 'snowpine': return DL.mergeColored([
         { geo: new THREE.CylinderGeometry(0.25, 0.35, 2, 5), color: 0x5e4c3f, matrix: M4(0, 1, 0) },
-        { geo: new THREE.ConeGeometry(2.2, 4, 6), color: 0x4c6a63, matrix: M4(0, 3.6, 0) },
+        { geo: new THREE.ConeGeometry(2.2, 4, 6), color: 0x3b8470, matrix: M4(0, 3.6, 0) },
         { geo: new THREE.ConeGeometry(1.6, 3.2, 6), color: 0xf1f4f7, matrix: M4(0, 5.6, 0) }]);
       case 'round': return DL.mergeColored([
         { geo: new THREE.CylinderGeometry(0.25, 0.35, 2.2, 5), color: 0x6b5442, matrix: M4(0, 1.1, 0) },
-        { geo: new THREE.IcosahedronGeometry(2, 0), color: 0x7b9467, matrix: M4(0, 3.6, 0, 1, 0.9, 1) }]);
+        { geo: new THREE.IcosahedronGeometry(2, 0), color: 0x62bd4c, matrix: M4(0, 3.6, 0, 1, 0.9, 1) }]);
       case 'palm': return DL.mergeColored([
         { geo: new THREE.CylinderGeometry(0.2, 0.32, 6, 5), color: 0x8a6e52, matrix: M4(0.3, 3, 0) },
-        { geo: new THREE.ConeGeometry(2.6, 1.0, 7), color: 0x6f8f5c, matrix: M4(0.5, 6.1, 0) }]);
+        { geo: new THREE.ConeGeometry(2.6, 1.0, 7), color: 0x4fb04a, matrix: M4(0.5, 6.1, 0) }]);
       case 'cactus': return DL.mergeColored([
-        { geo: new THREE.CylinderGeometry(0.4, 0.45, 4, 6), color: 0x6f8a63, matrix: M4(0, 2, 0) },
-        { geo: new THREE.CylinderGeometry(0.28, 0.3, 1.6, 6), color: 0x6f8a63, matrix: M4(0.8, 2.6, 0) },
-        { geo: new THREE.CylinderGeometry(0.28, 0.3, 1.3, 6), color: 0x6f8a63, matrix: M4(-0.75, 2.2, 0) }]);
-      case 'rock': return DL.mergeColored([{ geo: new THREE.DodecahedronGeometry(1.2, 0), color: 0x8c949d, matrix: M4(0, 0.4, 0, 1.2, 0.7, 1) }]);
-      case 'boulder': return DL.mergeColored([{ geo: new THREE.DodecahedronGeometry(3, 0), color: 0x858d96, matrix: M4(0, 1, 0, 1.3, 0.8, 1.1) }]);
+        { geo: new THREE.CylinderGeometry(0.4, 0.45, 4, 6), color: 0x58aa5a, matrix: M4(0, 2, 0) },
+        { geo: new THREE.CylinderGeometry(0.28, 0.3, 1.6, 6), color: 0x58aa5a, matrix: M4(0.8, 2.6, 0) },
+        { geo: new THREE.CylinderGeometry(0.28, 0.3, 1.3, 6), color: 0x58aa5a, matrix: M4(-0.75, 2.2, 0) }]);
+      case 'rock': return DL.mergeColored([{ geo: new THREE.DodecahedronGeometry(1.2, 0), color: 0x9aa7b4, matrix: M4(0, 0.4, 0, 1.2, 0.7, 1) }]);
+      case 'boulder': return DL.mergeColored([{ geo: new THREE.DodecahedronGeometry(3, 0), color: 0x93a0ae, matrix: M4(0, 1, 0, 1.3, 0.8, 1.1) }]);
       case 'bush': return DL.mergeColored([
-        { geo: new THREE.IcosahedronGeometry(0.9, 0), color: 0x6f8a5a, matrix: M4(0, 0.6, 0, 1.2, 0.8, 1.1) },
-        { geo: new THREE.IcosahedronGeometry(0.65, 0), color: 0x7f9a66, matrix: M4(0.9, 0.45, 0.3) }]);
+        { geo: new THREE.IcosahedronGeometry(0.9, 0), color: 0x58ae48, matrix: M4(0, 0.6, 0, 1.2, 0.8, 1.1) },
+        { geo: new THREE.IcosahedronGeometry(0.65, 0), color: 0x70c458, matrix: M4(0.9, 0.45, 0.3) }]);
       case 'shrub': return DL.mergeColored([
         { geo: new THREE.IcosahedronGeometry(0.8, 0), color: 0x9a9a6a, matrix: M4(0, 0.45, 0, 1.3, 0.6, 1.2) },
         { geo: new THREE.IcosahedronGeometry(0.5, 0), color: 0xb0a572, matrix: M4(0.8, 0.3, -0.2) }]);
@@ -774,7 +774,7 @@
         { geo: new THREE.CylinderGeometry(0.14, 0.2, 2.2, 5), color: 0x6b4a30, matrix: new THREE.Matrix4().makeRotationZ(0.9).premultiply(M4(-1.4, 1.2, 0.3)) },
         { geo: new THREE.CylinderGeometry(0.1, 0.16, 1.6, 5), color: 0x6b4a30, matrix: new THREE.Matrix4().makeRotationZ(-0.8).premultiply(M4(1.2, 1.1, -0.2)) }]);
       case 'rock': return DL.mergeColored([
-        { geo: new THREE.DodecahedronGeometry(1, 0), color: 0x8c949d, matrix: M4(0, 0.6, 0, 1, 0.85, 1) },
+        { geo: new THREE.DodecahedronGeometry(1, 0), color: 0x9aa7b4, matrix: M4(0, 0.6, 0, 1, 0.85, 1) },
         { geo: new THREE.DodecahedronGeometry(0.55, 0), color: 0x9aa2ab, matrix: M4(0.9, 0.25, 0.3) }]);
       case 'mound': return DL.mergeColored([
         { geo: new THREE.SphereGeometry(1, 8, 5, 0, Math.PI * 2, 0, Math.PI / 2), color: 0xf1f5f8, matrix: M4(0, 0, 0, 1, 0.75, 1) },
@@ -1276,7 +1276,7 @@
       const wa = wg.attributes.position.array, wr = DL.mulberry32(track.seed ^ 0x4444);
       for (let i = 1; i < wa.length; i += 3) wa[i] = (wr() - 0.5) * 0.6;
       const wgn = wg.toNonIndexed(); wgn.computeVertexNormals();
-      const water = new THREE.Mesh(wgn, new THREE.MeshStandardMaterial({ color: 0x6f95a8, roughness: 0.22, metalness: 0.25, flatShading: true, transparent: true, opacity: 0.88 }));
+      const water = new THREE.Mesh(wgn, new THREE.MeshStandardMaterial({ color: 0x2f9fe6, roughness: 0.3, metalness: 0.1, flatShading: true, transparent: true, opacity: 0.92 }));
       water.position.set((minX + maxX) / 2, track.water, (minZ + maxZ) / 2);
       water.receiveShadow = true; group.add(water);
       group.userData.water = water;

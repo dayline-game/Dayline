@@ -3,7 +3,7 @@
 (function (DL) {
   const Game = DL.Game = {};
   const DT = 1 / 120, REC_EVERY = 120 / DL.GHOST_HZ;
-  let renderer, scene, camera, sun, hemi, envTex;
+  let renderer, scene, camera, sun, hemi, envTex, skyDome;
   let track = null, world = null, playerModel = null;
   let gScene, gCam, gModel, gSun;
   const orbit = { theta: 2.4, phi: 0.3, dist: 9, auto: true, drag: null };
@@ -22,13 +22,17 @@
     renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     scene = new THREE.Scene();
     camera = new THREE.PerspectiveCamera(60, 1, 0.3, 5000);
-    hemi = new THREE.HemisphereLight(0xdfe6ea, 0x8a8070, 1.5);
-    sun = new THREE.DirectionalLight(0xfff3dd, 2.6);
+    hemi = new THREE.HemisphereLight(0xdfe6ea, 0x8a8070, 1.8);
+    sun = new THREE.DirectionalLight(0xfff3dd, 2.8);
     sun.castShadow = true;
     sun.shadow.mapSize.set(2048, 2048);
     const sc = sun.shadow.camera; sc.left = -70; sc.right = 70; sc.top = 70; sc.bottom = -70; sc.near = 10; sc.far = 400;
     sun.shadow.bias = -0.0006; sun.shadow.normalBias = 0.04;
     scene.add(hemi, sun, sun.target);
+    skyDome = new THREE.Mesh(new THREE.SphereGeometry(3000, 20, 12), new THREE.MeshBasicMaterial({ vertexColors: true, side: THREE.BackSide, fog: false, depthWrite: false }));
+    skyDome.renderOrder = -10; skyDome.frustumCulled = false; skyDome.onBeforeRender = (r, s, cam) => skyDome.position.copy(cam.position);
+    { const p = skyDome.geometry.attributes.position, n = p.count; skyDome.geometry.setAttribute('color', new THREE.BufferAttribute(new Float32Array(n * 3), 3)); }
+    scene.add(skyDome);
     buildEnv();
     buildGarage();
     initParticles();
@@ -132,7 +136,10 @@
     world = DL.buildTrackScene(track, scene, { lowQuality: !settings.hq });
     const B = track.B;
     scene.background = new THREE.Color(B.sky);
-    scene.fog = new THREE.Fog(B.fog, 180, 1500);
+    scene.fog = new THREE.Fog(B.fog, 260, 1700);
+    { const top = new THREE.Color(B.sky), hor = new THREE.Color(B.fog), c = new THREE.Color(), p = skyDome.geometry.attributes.position, col = skyDome.geometry.attributes.color;
+      for (let i = 0; i < p.count; i++) { const h = Math.max(0, p.getY(i) / 3000); c.copy(hor).lerp(top, Math.pow(h, 0.55)); col.setXYZ(i, c.r, c.g, c.b); }
+      col.needsUpdate = true; }
     hemi.color.set(B.hemiSky); hemi.groundColor.set(B.hemiGround);
     sun.color.set(B.sun);
     if (playerModel) { scene.add(playerModel); parkPlayer(); }
