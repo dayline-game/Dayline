@@ -331,7 +331,7 @@
     r.car.reset(s.x, r.track.groundAt(s.x, s.z, {}).y, s.z, s.yaw);
     r.prog = new DL.Progress(r.track);
     r.steps = 0; r.acc = 0; r.frames = []; r.recoveries = 0; r.airMax = 0; r.finished = false; r.running = false;
-    r.countdown = 3.2; r.lastBeep = 4; r.camYaw = s.yaw; r.farT = 0; r.waterT = 0;
+    r.countdown = 3.2; r.lastBeep = 4; startLamps(4); r.camYaw = s.yaw; r.farT = 0; r.waterT = 0;
     r.track.checkpoints.forEach((c, k) => { const gt = world.gates[k]; if (gt) gt.userData.stripe.material.color.set(0xf05a35); });
     trail.points.length = 0; clearSkids();
     record();
@@ -839,14 +839,19 @@
     DL.UI.ghostGap(g.spec.label || 'Ghost', d, g.gh && tg >= g.time);
   }
 
+  // start-gate lamps follow the countdown: one red per number, all green on GO
+  function startLamps(n) {
+    const L = world && world.group.userData.lamps; if (!L) return;
+    L.forEach((m, k) => m.color.set(n === 0 ? 0x4cd17a : (n >= 1 && n <= 3 && k <= 3 - n) ? 0xf0452f : 0x2a2f3a));
+  }
   function updateRace(dt) {
     const r = race;
     if (r.paused) { placeCamera(false, 0); return; }
     if (!r.running && !r.finished) {
       r.countdown -= dt;
       const n = Math.ceil(r.countdown);
-      if (n < r.lastBeep && n >= 1 && n <= 3) { r.lastBeep = n; DL.Audio.beep([0, 440, 523, 659][n], 0.16, 'triangle', 0.18); DL.UI.count(n); }
-      if (r.countdown <= 0) { r.running = true; DL.Audio.beep(880, 0.4, 'triangle', 0.22); DL.Audio.beep(1320, 0.35, 'sine', 0.12); DL.UI.count(0); }
+      if (n < r.lastBeep && n >= 1 && n <= 3) { r.lastBeep = n; DL.Audio.beep([0, 440, 523, 659][n], 0.16, 'triangle', 0.18); DL.UI.count(n); startLamps(n); }
+      if (r.countdown <= 0) { r.running = true; DL.Audio.beep(880, 0.4, 'triangle', 0.22); DL.Audio.beep(1320, 0.35, 'sine', 0.12); DL.UI.count(0); startLamps(0); }
       DL.Audio.updateEngine(0, input.throttle, 0, true);
     } else {
       if (r.finished) { input.throttle = 0; input.brake = 0.4; input.steer *= 0.9; }

@@ -681,6 +681,7 @@
         { geo: new THREE.BoxGeometry(2.4, 0.16, 0.16), color: 0x6b5442, matrix: M4(0, 7.4, 0) },
         { geo: new THREE.BoxGeometry(2.4, 0.16, 0.16), color: 0x6b5442, matrix: M4(0, 6.7, 0) }]);
       case 'stand': return DL.mergeColored([
+        { geo: new THREE.BoxGeometry(18.4, 4, 5.2), color: 0x3a4352, matrix: M4(0, -1.9, 0.4) },
         { geo: new THREE.BoxGeometry(18, 1.2, 4), color: 0x4b5563, matrix: M4(0, 0.6, 0) },
         { geo: new THREE.BoxGeometry(18, 1.2, 3), color: 0x5a6574, matrix: M4(0, 1.8, 1.0) },
         { geo: new THREE.BoxGeometry(18, 1.2, 2), color: 0x6a7584, matrix: M4(0, 3.0, 2.0) },
@@ -1108,28 +1109,54 @@
 
     // ---- gates ----
     const gates = [];
-    const makeGate = (cp, finish) => {
-      const g = new THREE.Group();
-      const post = new THREE.BoxGeometry(0.6, 6.5, 0.6);
-      const navy = flat(0x1f2a3d), cream = flat(0xf4ecdc);
-      const banner = new THREE.Mesh(new THREE.BoxGeometry(HALF * 2 + 3.4, 1.5, 0.4), finish ? new THREE.MeshLambertMaterial({ map: checkerTex() }) : cream);
-      const stripe = new THREE.Mesh(new THREE.BoxGeometry(HALF * 2 + 3.5, 0.35, 0.45), flat(0xf05a35));
-      const l = new THREE.Mesh(post, navy), r2 = new THREE.Mesh(post, navy);
-      l.position.set(-(HALF + 1.4), 3.25, 0); r2.position.set(HALF + 1.4, 3.25, 0);
-      banner.position.set(0, 6.4, 0); stripe.position.set(0, 5.55, 0);
-      [l, r2, banner, stripe].forEach(m => { m.castShadow = true; g.add(m); });
+    const lampMats = [0, 1, 2].map(() => new THREE.MeshBasicMaterial({ color: 0x2a2f3a }));
+    group.userData.lamps = lampMats;
+    const makeGate = (cp, kind) => {
+      const g = new THREE.Group(), finish = kind === 'finish', start = kind === 'start';
+      const navy = flat(0x1f2a3d), cream = flat(0xf4ecdc), coral = flat(0xf05a35), dark = flat(0x151b27);
+      const px = HALF + 1.7, bw = px * 2 + 0.2;
+      // posts run well below the road so they never float on a sloping verge, with a plinth at road level
+      const post = new THREE.Mesh(new THREE.BoxGeometry(0.85, 10.2, 0.85), navy);
+      const plinth = new THREE.BoxGeometry(1.5, 0.5, 1.5), band = new THREE.BoxGeometry(0.95, 0.5, 0.95);
+      for (const sx of [-1, 1]) {
+        const p = post.clone(); p.position.set(sx * px, 2.5, 0); p.castShadow = true; g.add(p);
+        const pl = new THREE.Mesh(plinth, cream); pl.position.set(sx * px, 0.25, 0); pl.castShadow = true; g.add(pl);
+        const bd = new THREE.Mesh(band, coral); bd.position.set(sx * px, 1.0, 0); g.add(bd);
+      }
+      // top beam
+      const H = finish || start ? 2.2 : 1.5, by = finish || start ? 6.3 : 6.4;
+      const face = finish ? signTex('FINISH', true) : start ? signTex('START', false) : null;
+      const bm = face ? [navy, navy, navy, navy, new THREE.MeshLambertMaterial({ map: face }), new THREE.MeshLambertMaterial({ map: face })] : cream;
+      const banner = new THREE.Mesh(new THREE.BoxGeometry(bw, H, 0.5), bm);
+      banner.position.set(0, by, 0); banner.castShadow = true; g.add(banner);
+      const stripe = new THREE.Mesh(new THREE.BoxGeometry(bw + 0.1, 0.35, 0.55), flat(0xf05a35));
+      stripe.position.set(0, by - H / 2 - 0.1, 0); stripe.castShadow = true; g.add(stripe);
+      if (finish) {   // chequered flags on the posts
+        for (const sx of [-1, 1]) {
+          const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.08, 3, 5), cream); pole.position.set(sx * px, 8.6, 0); g.add(pole);
+          const flag = new THREE.Mesh(new THREE.BoxGeometry(1.5, 0.95, 0.05), new THREE.MeshLambertMaterial({ map: checkerTex(), side: THREE.DoubleSide })); flag.position.set(sx * px + sx * 0.8, 9.6, 0); g.add(flag);
+        }
+      }
+      if (start) {    // light bar: three lamps that count down with the 3-2-1
+        const bar = new THREE.Mesh(new THREE.BoxGeometry(5.2, 1.5, 0.5), dark); bar.position.set(0, by - H / 2 - 1.15, 0); g.add(bar);
+        [-1.6, 0, 1.6].forEach((x, k) => {
+          for (const zs of [0.29, -0.29]) { const lamp = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.5, 0.12, 12), lampMats[k]); lamp.rotation.x = Math.PI / 2; lamp.position.set(x, by - H / 2 - 1.15, zs); g.add(lamp); }
+        });
+      }
       g.position.set(cp.x, cp.y, cp.z);
       g.rotation.y = Math.atan2(cp.tx, cp.tz);
       g.userData.stripe = stripe; g.userData.banner = banner;
       group.add(g); return g;
     };
-    track.checkpoints.forEach((cp, k) => gates.push(makeGate(cp, k === track.checkpoints.length - 1)));
-    makeGate({ x: track.px[8], y: track.py[8], z: track.pz[8], tx: track.tx[8], tz: track.tz[8] }, true);
-    // start grid stripe
-    const sl = new THREE.Mesh(new THREE.PlaneGeometry(HALF * 2, 1.2), new THREE.MeshLambertMaterial({ map: checkerTex(), polygonOffset: true, polygonOffsetFactor: -4 }));
-    sl.rotation.set(-Math.PI / 2, Math.atan2(track.tx[8], track.tz[8]), 0, 'YXZ');
-    sl.position.set(track.px[8], track.py[8] + 0.06, track.pz[8]);
-    group.add(sl);
+    const lineAt = (x, y, z, tx, tz) => {
+      const ln = new THREE.Mesh(new THREE.PlaneGeometry(HALF * 2, 1.4), new THREE.MeshLambertMaterial({ map: checkerTex(), polygonOffset: true, polygonOffsetFactor: -4 }));
+      ln.rotation.set(-Math.PI / 2, Math.atan2(tx, tz), 0, 'YXZ'); ln.position.set(x, y + 0.06, z); group.add(ln);
+    };
+    const nCP = track.checkpoints.length;
+    track.checkpoints.forEach((cp, k) => { gates.push(makeGate(cp, k === nCP - 1 ? 'finish' : 'cp')); });
+    const fc = track.checkpoints[nCP - 1]; lineAt(fc.x, fc.y, fc.z, fc.tx, fc.tz);
+    makeGate({ x: track.px[8], y: track.py[8], z: track.pz[8], tx: track.tx[8], tz: track.tz[8] }, 'start');
+    lineAt(track.px[8], track.py[8], track.pz[8], track.tx[8], track.tz[8]);
 
     // ---- obstacles ----
     const barrels = track.obstacles.filter(o => o.kind === 'barrel'), blocks = track.obstacles.filter(o => o.kind === 'block');
@@ -1293,12 +1320,12 @@
     }
     {
       const i0 = 8, nrm = [-track.tz[i0], track.tx[i0]], yaw = Math.atan2(track.tx[i0], track.tz[i0]);
-      const sx = track.px[i0] + nrm[0] * (HALF + 13), sz = track.pz[i0] + nrm[1] * (HALF + 13);
-      track.groundAt(sx, sz, tmp, true);
-      push('stand', { x: sx, y: track.py[i0] - 0.2, z: sz, s: 1, sy: 1, ry: yaw + Math.PI, d: 99 });
+      const sx = track.px[i0] + nrm[0] * (HALF + 15), sz = track.pz[i0] + nrm[1] * (HALF + 15);
+      let sy = 1e9; for (const [ox, oz] of [[0, 0], [9, 0], [-9, 0], [0, 4], [0, -4]]) { const q = track.groundAt(sx + Math.cos(yaw) * ox + Math.sin(yaw) * oz, sz - Math.sin(yaw) * ox + Math.cos(yaw) * oz, tmp, true).y; if (q < sy) sy = q; }
+      push('stand', { x: sx, y: sy - 0.1, z: sz, s: 1, sy: 1, ry: yaw + Math.PI, d: 99 });
       for (let k = 0; k < 7; k++) {
-        const j = 2 + k * 3, off = (HALF + 2.6) * (k % 2 ? 1 : -1);
-        push('flagpole', { x: track.px[j] - track.tz[j] * off, y: track.py[j] - 0.05, z: track.pz[j] + track.tx[j] * off, s: 1, sy: 1, ry: yaw + (k % 2 ? 0 : Math.PI), d: 0 });
+        const j = 11 + k * 3, off = (HALF + 3.4) * (k % 2 ? 1 : -1);
+        push('flagpole', { x: track.px[j] - track.tz[j] * off, y: track.groundAt(track.px[j] - track.tz[j] * off, track.pz[j] + track.tx[j] * off, tmp, true).y - 0.05, z: track.pz[j] + track.tx[j] * off, s: 1, sy: 1, ry: yaw + (k % 2 ? 0 : Math.PI), d: 0 });
       }
     }
     track.propItems = items;
@@ -1400,6 +1427,17 @@
     x.fillRect(18, 82, 92, 5);
     _rampSign = new THREE.CanvasTexture(c); if ('colorSpace' in _rampSign) _rampSign.colorSpace = THREE.SRGBColorSpace;
     return _rampSign;
+  }
+  const _signs = {};
+  function signTex(text, chequer) {
+    const key = text + chequer; if (_signs[key]) return _signs[key];
+    const c = document.createElement('canvas'); c.width = 512; c.height = 64; const x = c.getContext('2d');
+    x.fillStyle = '#1f2a3d'; x.fillRect(0, 0, 512, 64);
+    if (chequer) for (let i = 0; i < 64; i++) for (let j = 0; j < 8; j++) if ((i + j) & 1) { x.fillStyle = '#f4ecdc'; x.fillRect(i * 8, j * 8, 8, 8); }
+    x.fillStyle = chequer ? '#1f2a3d' : '#f05a35'; x.fillRect(160, 6, 192, 52);
+    x.font = '900 46px "Barlow Condensed", Impact, Arial Narrow, sans-serif'; x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillStyle = '#f4ecdc'; x.fillText(text, 256, 34);
+    const tex = new THREE.CanvasTexture(c); if ('colorSpace' in tex) tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = 4;
+    return _signs[key] = tex;
   }
   function checkerTex() {
     if (_checker) return _checker;
