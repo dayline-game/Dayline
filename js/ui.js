@@ -151,8 +151,20 @@
   UI.ghostsChanged = r => { $('hGhost').classList.toggle('off', !r.ghostsOn || !r.ghosts.length); $('hGhost').title = r.ghosts.length ? `${r.ghosts.length} ghost${r.ghosts.length > 1 ? 's' : ''} (G)` : 'No ghosts loaded'; };
   UI.count = function (n) {
     const el = $('hCount');
-    if (n > 0) { el.hidden = false; el.textContent = n; }
-    else { el.textContent = 'Go'; setTimeout(() => { el.hidden = true; }, 600); }
+    if (!el._cd) { el.innerHTML = '<i class="cd-bar t"></i><i class="cd-bar b"></i><i class="cd-vig"></i><i class="cd-flash"></i><i class="cd-ring"></i><b class="cd-num"></b>'; el._cd = 1; }
+    const num = el.querySelector('.cd-num'), ring = el.querySelector('.cd-ring'), flash = el.querySelector('.cd-flash');
+    clearTimeout(el._hide);
+    el.hidden = false; el.classList.add('on');
+    const re = x => { const c = x.className; x.className = ''; void x.offsetWidth; x.className = c; };
+    if (n > 0) {
+      num.textContent = n; num.className = 'cd-num n' + n; ring.className = 'cd-ring go'; flash.className = 'cd-flash';
+      re(num); re(ring);
+    } else {
+      num.textContent = 'GO'; num.className = 'cd-num ngo'; ring.className = 'cd-ring go big'; flash.className = 'cd-flash go';
+      re(num); re(ring); re(flash);
+      el.classList.remove('on');
+      el._hide = setTimeout(() => { el.hidden = true; }, 900);
+    }
   };
   UI.banner = function (txt, ms) {
     const b = $('hBanner'); b.textContent = txt; b.classList.add('show');

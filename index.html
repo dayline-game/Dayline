@@ -191,7 +191,25 @@ td.tm{font-family:var(--f-display);font-weight:700;font-size:20px;color:var(--na
 .icon-btn.off{opacity:.5;}
 .speedo{position:absolute;right:max(16px,env(safe-area-inset-right,0px));bottom:calc(16px + env(safe-area-inset-bottom,0px));font-family:var(--f-display);font-weight:900;font-size:56px;color:var(--navy);line-height:.85;text-align:right;text-shadow:0 1px 0 rgba(243,234,215,.8);pointer-events:none;}
 .speedo small{display:block;font-size:13px;letter-spacing:.2em;font-weight:700;}
-.countdown{position:absolute;inset:0;display:grid;place-items:center;pointer-events:none;font-family:var(--f-display);font-weight:900;font-size:min(34vw,220px);color:var(--cream);-webkit-text-stroke:3px var(--navy);text-shadow:0 8px 0 rgba(28,37,54,.25);}
+.countdown{position:absolute;inset:0;display:grid;place-items:center;pointer-events:none;overflow:hidden;font-family:var(--f-display);font-weight:900;}
+.cd-num{position:relative;z-index:3;font-size:min(38vw,260px);line-height:1;letter-spacing:.02em;color:var(--cream);-webkit-text-stroke:4px var(--navy);paint-order:stroke fill;text-shadow:0 10px 0 rgba(28,37,54,.28),0 0 40px rgba(255,255,255,.35);will-change:transform,opacity;}
+.cd-num.n1{color:#f2c14e;} .cd-num.ngo{color:#f05a35;letter-spacing:.06em;}
+.cd-num.n3,.cd-num.n2,.cd-num.n1{animation:cdNum 1s cubic-bezier(.2,.8,.2,1) both;}
+.cd-num.ngo{animation:cdGo .9s cubic-bezier(.2,.9,.2,1) both;}
+@keyframes cdNum{0%{transform:scale(2.4) rotate(-4deg);opacity:0}16%{transform:scale(1) rotate(0);opacity:1}72%{transform:scale(.92);opacity:1}100%{transform:scale(.55);opacity:0}}
+@keyframes cdGo{0%{transform:scale(.4);opacity:0}18%{transform:scale(1.28);opacity:1}40%{transform:scale(1)}100%{transform:scale(2.1);opacity:0}}
+.cd-ring{position:absolute;z-index:2;width:min(40vw,280px);aspect-ratio:1;border-radius:50%;border:7px solid var(--cream);opacity:0;box-shadow:0 0 0 3px rgba(28,37,54,.35);}
+.cd-ring.go{animation:cdRing 1s ease-out both;} .cd-ring.big{animation:cdRingBig .9s ease-out both;border-color:#f05a35;}
+@keyframes cdRing{0%{transform:scale(.55);opacity:.9}100%{transform:scale(2.3);opacity:0}}
+@keyframes cdRingBig{0%{transform:scale(.5);opacity:1}100%{transform:scale(5.5);opacity:0}}
+.cd-flash{position:absolute;inset:0;z-index:1;background:radial-gradient(circle at 50% 50%,rgba(255,255,255,.95),rgba(255,236,200,.5) 35%,rgba(255,255,255,0) 70%);opacity:0;}
+.cd-flash.go{animation:cdFlash .55s ease-out both;}
+@keyframes cdFlash{0%{opacity:.95}100%{opacity:0}}
+.cd-vig{position:absolute;inset:0;z-index:0;background:radial-gradient(ellipse at 50% 50%,rgba(20,26,40,0) 45%,rgba(20,26,40,.5) 100%);opacity:0;transition:opacity .5s;}
+.countdown.on .cd-vig{opacity:1;}
+.cd-bar{position:absolute;left:0;right:0;height:0;background:#0d1117;z-index:1;transition:height .6s cubic-bezier(.3,.7,.2,1);}
+.cd-bar.t{top:0;} .cd-bar.b{bottom:0;}
+.countdown.on .cd-bar{height:9vh;}
 .banner{position:absolute;left:50%;top:32%;transform:translate(-50%,-50%);font-family:var(--f-display);font-weight:900;font-size:40px;color:var(--navy);background:var(--cream);border:1px solid var(--line);border-radius:6px;padding:4px 18px;opacity:0;transition:opacity .25s;pointer-events:none;text-transform:uppercase;white-space:nowrap;}
 .banner.show{opacity:1;}
 #touch{position:absolute;inset:auto 0 0 0;height:190px;display:none;pointer-events:none;padding-bottom:env(safe-area-inset-bottom,0px);}

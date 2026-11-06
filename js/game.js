@@ -217,8 +217,20 @@
     resetCarToStart();
     DL.UI.raceStarted(race);
     DL.Audio.startEngine();
+    warmUp();
     loadGhosts(race);
   };
+
+  // compile every shader that can appear during a run (trail, skid marks, particles, ghosts) before GO, so nothing hitches on the first frame
+  function warmUp() {
+    try {
+      if (!skid) initSkids();
+      const tv = trail.mesh.visible, pc = partMesh.count, sc = skid.mesh.count;
+      trail.mesh.visible = true; partMesh.count = 1; skid.mesh.count = 1;
+      renderer.compile(scene, camera);
+      trail.mesh.visible = tv; partMesh.count = pc; skid.mesh.count = sc;
+    } catch (e) { /* warm-up is best effort */ }
+  }
 
   async function loadGhosts(r) {
     const specs = r.ghostSpecs.slice();
@@ -246,6 +258,7 @@
       const label = makeLabel(s.label || 'Ghost', s.mine);
       model.add(label);
       scene.add(model);
+      try { renderer.compile(scene, camera); } catch (e) {}
       // checkpoint split times for live deltas
       const pg = new DL.Progress(r.track);
       for (let i = 1; i < gh.n; i++) pg.update(gh.f[(i - 1) * 8], gh.f[(i - 1) * 8 + 2], gh.f[i * 8], gh.f[i * 8 + 2], i / gh.hz);
@@ -582,6 +595,20 @@
     camera.lookAt(c.x + Math.sin(c.yaw) * 1.5, c.y + 1, c.z + Math.cos(c.yaw) * 1.5);
     r.model.visible = true; setFov(60, 1);
   }
+  // countdown swoop: the camera starts high and wide, sweeps round the car and settles exactly on the normal chase view at GO
+  const icQ0 = new THREE.Quaternion(), icQ1 = new THREE.Quaternion(), icV = new THREE.Vector3();
+  function introCam(r) {
+    const k = DL.clamp(r.countdown / 3.2, 0, 1); if (k <= 0 || !CAMS[r.camMode]) return;
+    const e = k * k * (3 - 2 * k), c = r.view || r.car;
+    icQ0.copy(camera.quaternion);
+    icV.copy(camera.position).sub(tmpL.set(c.x, c.y, c.z));
+    const a = e * 2.2, ca = Math.cos(a), sa = Math.sin(a), x = icV.x * ca + icV.z * sa, z = -icV.x * sa + icV.z * ca;
+    camera.position.set(c.x + x * (1 + 0.55 * e), c.y + icV.y + 6.5 * e, c.z + z * (1 + 0.55 * e));
+    const gy = r.track.groundAt(camera.position.x, camera.position.z, gTmp, true).y + 1.4;
+    if (camera.position.y < gy) camera.position.y = gy;
+    camera.lookAt(c.x, c.y + 1.1, c.z); icQ1.copy(camera.quaternion);
+    camera.quaternion.slerpQuaternions(icQ0, icQ1, Math.min(1, e * 1.5));
+  }
   function placeCamera(snap, dt) {
     const r = race; if (!r) return;
     if (r.replay && r.camMode >= CAM_COUNT) { orbitCam(r); return; }
@@ -832,8 +859,8 @@
     if (!r.running && !r.finished) {
       r.countdown -= dt;
       const n = Math.ceil(r.countdown);
-      if (n < r.lastBeep && n >= 1 && n <= 3) { r.lastBeep = n; DL.Audio.beep(440, 0.15, 'triangle', 0.18); DL.UI.count(n); }
-      if (r.countdown <= 0) { r.running = true; DL.Audio.beep(880, 0.35, 'triangle', 0.22); DL.UI.count(0); }
+      if (n < r.lastBeep && n >= 1 && n <= 3) { r.lastBeep = n; DL.Audio.beep([0, 440, 523, 659][n], 0.16, 'triangle', 0.18); DL.UI.count(n); }
+      if (r.countdown <= 0) { r.running = true; DL.Audio.beep(880, 0.4, 'triangle', 0.22); DL.Audio.beep(1320, 0.35, 'sine', 0.12); DL.UI.count(0); }
       DL.Audio.updateEngine(0, input.throttle, 0, true);
     } else {
       if (r.finished) { input.throttle = 0; input.brake = 0.4; input.steer *= 0.9; }
@@ -868,6 +895,7 @@
     r.gapT = (r.gapT || 0) - dt;
     if (r.gapT <= 0) { r.gapT = 0.12; ghostGap(r, tg); }
     placeCamera(false, dt);
+    if (!r.running && !r.finished && !r.replay) introCam(r);
     carEffects(r, dt);
     DL.UI.hud(r, t);
   }
