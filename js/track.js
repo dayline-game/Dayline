@@ -1109,40 +1109,18 @@
 
     // ---- gates ----
     const gates = [];
-    const lampMats = [0, 1, 2].map(() => new THREE.MeshBasicMaterial({ color: 0x2a2f3a }));
-    group.userData.lamps = lampMats;
+    group.userData.lamps = [];
     const makeGate = (cp, kind) => {
       const g = new THREE.Group(), finish = kind === 'finish', start = kind === 'start';
-      const navy = flat(0x1f2a3d), cream = flat(0xf4ecdc), coral = flat(0xf05a35), dark = flat(0x151b27);
-      const px = HALF + 1.7, bw = px * 2 + 0.2;
-      // posts run well below the road so they never float on a sloping verge, with a plinth at road level
-      const post = new THREE.Mesh(new THREE.BoxGeometry(0.85, 10.2, 0.85), navy);
-      const plinth = new THREE.BoxGeometry(1.5, 0.5, 1.5), band = new THREE.BoxGeometry(0.95, 0.5, 0.95);
-      for (const sx of [-1, 1]) {
-        const p = post.clone(); p.position.set(sx * px, 2.5, 0); p.castShadow = true; g.add(p);
-        const pl = new THREE.Mesh(plinth, cream); pl.position.set(sx * px, 0.25, 0); pl.castShadow = true; g.add(pl);
-        const bd = new THREE.Mesh(band, coral); bd.position.set(sx * px, 1.0, 0); g.add(bd);
-      }
-      // top beam
-      const H = finish || start ? 2.2 : 1.5, by = finish || start ? 6.3 : 6.4;
-      const face = finish ? signTex('FINISH', true) : start ? signTex('START', false) : null;
-      const bm = face ? [navy, navy, navy, navy, new THREE.MeshLambertMaterial({ map: face }), new THREE.MeshLambertMaterial({ map: face })] : cream;
-      const banner = new THREE.Mesh(new THREE.BoxGeometry(bw, H, 0.5), bm);
-      banner.position.set(0, by, 0); banner.castShadow = true; g.add(banner);
-      const stripe = new THREE.Mesh(new THREE.BoxGeometry(bw + 0.1, 0.35, 0.55), flat(0xf05a35));
-      stripe.position.set(0, by - H / 2 - 0.1, 0); stripe.castShadow = true; g.add(stripe);
-      if (finish) {   // chequered flags on the posts
-        for (const sx of [-1, 1]) {
-          const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.08, 3, 5), cream); pole.position.set(sx * px, 8.6, 0); g.add(pole);
-          const flag = new THREE.Mesh(new THREE.BoxGeometry(1.5, 0.95, 0.05), new THREE.MeshLambertMaterial({ map: checkerTex(), side: THREE.DoubleSide })); flag.position.set(sx * px + sx * 0.8, 9.6, 0); g.add(flag);
-        }
-      }
-      if (start) {    // light bar: three lamps that count down with the 3-2-1
-        const bar = new THREE.Mesh(new THREE.BoxGeometry(5.2, 1.5, 0.5), dark); bar.position.set(0, by - H / 2 - 1.15, 0); g.add(bar);
-        [-1.6, 0, 1.6].forEach((x, k) => {
-          for (const zs of [0.29, -0.29]) { const lamp = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.5, 0.12, 12), lampMats[k]); lamp.rotation.x = Math.PI / 2; lamp.position.set(x, by - H / 2 - 1.15, zs); g.add(lamp); }
-        });
-      }
+      const navy = flat(0x1f2a3d), cream = flat(0xf4ecdc);
+      const px = HALF + 1.7;
+      // slim posts that run below the road so they never float on a sloping verge
+      const post = new THREE.BoxGeometry(0.5, 9.2, 0.5);
+      for (const sx of [-1, 1]) { const p = new THREE.Mesh(post, navy); p.position.set(sx * px, 2.1, 0); p.castShadow = true; g.add(p); }
+      const banner = new THREE.Mesh(new THREE.BoxGeometry(px * 2 + 0.5, 1.0, 0.3), finish || start ? new THREE.MeshLambertMaterial({ map: checkerTex() }) : cream);
+      banner.position.set(0, 6.4, 0); banner.castShadow = true; g.add(banner);
+      const stripe = new THREE.Mesh(new THREE.BoxGeometry(px * 2 + 0.5, 0.3, 0.34), flat(0xf05a35));
+      stripe.position.set(0, 5.75, 0); stripe.castShadow = true; g.add(stripe);
       g.position.set(cp.x, cp.y, cp.z);
       g.rotation.y = Math.atan2(cp.tx, cp.tz);
       g.userData.stripe = stripe; g.userData.banner = banner;
