@@ -595,20 +595,6 @@
     camera.lookAt(c.x + Math.sin(c.yaw) * 1.5, c.y + 1, c.z + Math.cos(c.yaw) * 1.5);
     r.model.visible = true; setFov(60, 1);
   }
-  // countdown swoop: the camera starts high and wide, sweeps round the car and settles exactly on the normal chase view at GO
-  const icQ0 = new THREE.Quaternion(), icQ1 = new THREE.Quaternion(), icV = new THREE.Vector3();
-  function introCam(r) {
-    const k = DL.clamp(r.countdown / 3.2, 0, 1); if (k <= 0 || !CAMS[r.camMode]) return;
-    const e = k * k * (3 - 2 * k), c = r.view || r.car;
-    icQ0.copy(camera.quaternion);
-    icV.copy(camera.position).sub(tmpL.set(c.x, c.y, c.z));
-    const a = e * 2.2, ca = Math.cos(a), sa = Math.sin(a), x = icV.x * ca + icV.z * sa, z = -icV.x * sa + icV.z * ca;
-    camera.position.set(c.x + x * (1 + 0.55 * e), c.y + icV.y + 6.5 * e, c.z + z * (1 + 0.55 * e));
-    const gy = r.track.groundAt(camera.position.x, camera.position.z, gTmp, true).y + 1.4;
-    if (camera.position.y < gy) camera.position.y = gy;
-    camera.lookAt(c.x, c.y + 1.1, c.z); icQ1.copy(camera.quaternion);
-    camera.quaternion.slerpQuaternions(icQ0, icQ1, Math.min(1, e * 1.5));
-  }
   function placeCamera(snap, dt) {
     const r = race; if (!r) return;
     if (r.replay && r.camMode >= CAM_COUNT) { orbitCam(r); return; }
@@ -895,7 +881,6 @@
     r.gapT = (r.gapT || 0) - dt;
     if (r.gapT <= 0) { r.gapT = 0.12; ghostGap(r, tg); }
     placeCamera(false, dt);
-    if (!r.running && !r.finished && !r.replay) introCam(r);
     carEffects(r, dt);
     DL.UI.hud(r, t);
   }
