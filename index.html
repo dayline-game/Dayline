@@ -1,3 +1,4 @@
+<meta charset="utf-8">
 <title>Dayline — a new 3D racing time-trial every day</title>
 <meta name="description" content="A new 3D time-trial every day, the same for everyone. Chase the leaderboard, race ghosts and paint your own car. Free, in your browser.">
 <meta name="theme-color" content="#1c2536">
@@ -345,6 +346,47 @@ input[type=range]{width:100%;accent-color:var(--coral);}
 .ed-bar .btn-sm{font-size:14px;padding:7px 8px;}
 #edCanvas{position:absolute;inset:0;width:100%;height:100%;display:block;touch-action:none;cursor:crosshair;}
 @media(max-width:760px){.ed-wrap{flex-direction:column-reverse}.ed-bar{width:auto;max-height:46%;border-width:1.5px 0 0 0}}
+
+/* v1.8 calmer menu */
+.dayrow{padding:10px 0;}
+.medals{display:flex;align-items:baseline;justify-content:space-between;gap:10px;padding:0 2px;}
+.medals b{font-family:var(--f-display);font-size:22px;font-weight:800;color:var(--navy);}
+.namebox{padding:8px 10px;gap:4px;}
+.namebox:not(.need) .lbl,.namebox:not(.need) .namehint{display:none;}
+.namebox.need .namehint{font-size:12px;}
+.menu-grid{gap:8px;}
+.menu-more{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;}
+.menu-more button{position:relative;display:flex;flex-direction:column;align-items:center;gap:4px;padding:9px 4px 8px;border-radius:10px;background:var(--cream-2);color:var(--navy);font-family:var(--f-display);font-weight:700;font-size:13px;letter-spacing:.04em;text-transform:uppercase;transition:background .15s,transform .08s;}
+.menu-more button:hover{background:var(--cream-3);}
+.menu-more button svg{width:22px;height:22px;}
+.menu-more .newpip{position:absolute;top:-6px;right:-3px;margin:0;font-size:10px;padding:2px 6px;font-style:normal;}
+.streak{padding-top:2px;}
+.streak b{font-size:18px;}
+.keys{font-size:11.5px;opacity:.85;}
+#menu .panel{gap:14px;}
+/* replay: key overlay */
+.rp-keys{position:absolute;left:max(16px,env(safe-area-inset-left,0px));bottom:calc(92px + env(safe-area-inset-bottom,0px));display:flex;flex-direction:column;gap:6px;pointer-events:none;}
+.kgrid{display:grid;grid-template-columns:repeat(3,44px);grid-template-rows:repeat(2,44px);gap:5px;}
+.kgrid b{display:flex;align-items:center;justify-content:center;border-radius:9px;background:rgba(243,234,215,.92);color:var(--navy);font-family:var(--f-display);font-size:24px;font-weight:800;border:1.5px solid var(--navy);box-shadow:0 3px 0 var(--navy);transition:transform .05s,background .05s;}
+.kgrid b.on{background:var(--coral);color:#fff;transform:translateY(3px);box-shadow:0 0 0 var(--navy);}
+.ksteer{position:relative;height:8px;border-radius:5px;background:rgba(243,234,215,.55);}
+.ksteer i{position:absolute;top:0;bottom:0;border-radius:5px;background:#f2c14e;left:50%;width:0;}
+.kspd{display:flex;align-items:baseline;gap:6px;color:var(--navy);text-shadow:0 1px 0 rgba(243,234,215,.85);}
+.kspd b{font-family:var(--f-display);font-size:40px;font-weight:900;line-height:1;}
+.kspd small{font-size:12px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;}
+.knote{font-size:10.5px;color:var(--navy);opacity:.7;font-weight:600;text-shadow:0 1px 0 rgba(243,234,215,.8);}
+@media (max-width:760px){.rp-keys{bottom:calc(128px + env(safe-area-inset-bottom,0px));} .kgrid{grid-template-columns:repeat(3,38px);grid-template-rows:repeat(2,38px);} .kgrid b{font-size:20px;} .menu-more button{font-size:12px;}}
+/* finish: sector splits + calmer result list */
+.splits-wrap{display:flex;flex-direction:column;gap:6px;}
+.splits{display:grid;gap:4px;}
+.sp{display:flex;flex-direction:column;align-items:center;gap:1px;padding:4px 2px;border-radius:7px;background:var(--cream-2);border:1px solid var(--line);min-width:0;}
+.sp small{font-size:10px;font-weight:700;color:var(--muted);}
+.sp b{font-size:13px;font-weight:700;color:var(--navy);}
+.sp em{font-style:normal;font-size:10.5px;font-weight:700;min-height:12px;}
+.sp.up{background:rgba(63,125,90,.14);border-color:rgba(63,125,90,.45);} .sp.up em{color:var(--good);}
+.sp.down{background:rgba(199,58,46,.1);border-color:rgba(199,58,46,.4);} .sp.down em{color:var(--bad);}
+.res-more summary{cursor:pointer;font-size:13px;color:var(--muted);font-weight:600;padding:6px 0;}
+.res-links{gap:8px;}
 </style>
 
 <canvas id="gl"></canvas>
@@ -383,15 +425,16 @@ input[type=range]{width:100%;accent-color:var(--coral);}
     <div class="menu-grid">
       <button class="btn btn-line" id="bGarage"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17V9l9-5 9 5v8M7 17v-5h10v5M3 17h18"/></svg>Garage</button>
       <button class="btn btn-line" id="bBoard"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 21h8M12 17v4M7 4h10v5a5 5 0 0 1-10 0zM7 6H4v2a3 3 0 0 0 3 3M17 6h3v2a3 3 0 0 1-3 3"/></svg>Leaderboard</button>
-      <button class="btn btn-line" id="bArchive"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="5" width="16" height="15" rx="2"/><path d="M4 10h16M9 3v4M15 3v4"/></svg>Past races</button>
-      <button class="btn btn-line" id="bShop"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 8h14l-1 12H6zM9 8a3 3 0 0 1 6 0"/></svg>Shop</button>
-      <button class="btn btn-line" id="bCommunity" style="grid-column:1/-1;border-color:var(--coral);color:var(--coral-dk)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.2"/><circle cx="17" cy="9.5" r="2.5"/><path d="M3 19c.6-3.4 3-5.2 6-5.2s5.4 1.8 6 5.2M16 14.2c2.6-.2 4.5 1.2 5 4.3"/></svg>Community tracks</button>
-      <button class="btn btn-line" id="bPatch" style="grid-column:1/-1"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h9l4 4v14H6zM14 3v5h5M9 13h7M9 17h5"/></svg>Patch notes <span class="newpip" id="patchPip" hidden>NEW</span></button>
+    </div>
+    <div class="menu-more">
+      <button id="bArchive"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5h16v15H4zM4 10h16M9 3v4M15 3v4"/></svg><span>Past races</span></button>
+      <button id="bShop"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 8h14l-1 12H6zM9 8a3 3 0 0 1 6 0"/></svg><span>Shop</span></button>
+      <button id="bCommunity"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM3 19c.6-3.4 3-5.2 6-5.2s5.4 1.8 6 5.2M17 10a2.5 2.5 0 1 0 0-5M16 14.2c2.6-.2 4.5 1.2 5 4.3"/></svg><span>Community</span></button>
+      <button id="bPatch"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h9l4 4v14H6zM14 3v5h5M9 13h7M9 17h5"/></svg><span>What’s new</span><i class="newpip" id="patchPip" hidden>NEW</i></button>
     </div>
     <div class="streak"><div><div class="lbl">Daily streak</div><b id="mStreak">0 days</b></div><div class="bars" id="mStreakBars"></div></div>
     <div class="keys">
-      <span><kbd>W</kbd><kbd>S</kbd> drive</span><span><kbd>A</kbd><kbd>D</kbd> steer</span><span><kbd>Space</kbd> handbrake</span>
-      <span><kbd>R</kbd> checkpoint</span><span><kbd>⌫</kbd> restart</span><span><kbd>C</kbd> camera</span><span><kbd>G</kbd> ghosts</span>
+      <span><kbd>W</kbd><kbd>S</kbd> drive</span><span><kbd>A</kbd><kbd>D</kbd> steer</span><span><kbd>Space</kbd> handbrake</span><span><kbd>⌫</kbd> restart</span><span><kbd>C</kbd> camera</span>
     </div>
     <div class="netline" id="mNet"><i></i><span>Connecting…</span></div>
   </div>
@@ -483,6 +526,12 @@ input[type=range]{width:100%;accent-color:var(--coral);}
 <!-- REPLAY -->
 <section id="replay" class="screen" hidden>
   <div class="rp-top"><div class="rp-chip"><span class="lbl">Replay</span><b id="rpName">Driver</b><span class="num" id="rpTime">0:00.000</span></div></div>
+  <div class="rp-keys" aria-hidden="true">
+    <div class="kgrid"><span></span><b id="kUp">↑</b><span></span><b id="kLeft">←</b><b id="kDown">↓</b><b id="kRight">→</b></div>
+    <div class="ksteer" id="kSteer"><i></i></div>
+    <div class="kspd"><b class="num" id="rpSpd">0</b><small id="rpSpdU">km/h</small></div>
+    <div class="knote">Inputs reconstructed from the replay</div>
+  </div>
   <div class="rp-bar panel">
     <button class="icon-btn" id="rpPlay" aria-label="Play or pause"><svg viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4" width="4" height="16" rx="1"/><rect x="14" y="4" width="4" height="16" rx="1"/></svg></button>
     <span class="num rp-t" id="rpNow">0:00.0</span>

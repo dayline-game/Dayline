@@ -71,11 +71,9 @@
     $('mDayNo').textContent = 'Daily No. ' + DL.dayNumber(d);
     $('mDate').textContent = DL.prettyDay(d);
     $('mBiome').textContent = t.B.name;
-    $('mLength').textContent = t.ramps.length + (t.ramps.length === 1 ? ' jump' : ' jumps') + (t.shortcut ? ' · shortcut' : '');
+    $('mLength').textContent = (t.length / 1000).toFixed(2) + ' km · ' + t.checkpoints.length + ' checkpoints';
     const best = Net.save.best[d];
-    $('mMedals').innerHTML = `<div class="medal-cell"><span class="lbl">Length</span><b class="num">${(t.length / 1000).toFixed(2)} km</b></div>
-      <div class="medal-cell"><span class="lbl">Checkpoints</span><b class="num">${t.checkpoints.length}</b></div>
-      <div class="medal-cell" style="background:var(--navy)"><span class="lbl" style="color:var(--cream-3)">Your best</span><b class="num" style="color:var(--cream)">${best ? DL.fmtTime(best).slice(1, 8) : 'No time'}</b></div>`;
+    $('mMedals').innerHTML = `<span class="lbl">Your best today</span><b class="num">${best ? DL.fmtTime(best).slice(1, 8) : 'No time yet'}</b>`;
     const st = streakNow();
     $('mStreak').textContent = st + (st === 1 ? ' day' : ' days') + (Net.save.lastDay === d ? '' : st ? ' · race today to keep it' : '');
     $('mStreakBars').innerHTML = Array.from({ length: 7 }, (_, i) => `<i class="${i < Math.min(st, 7) ? 'on' : ''}"></i>`).join('');
@@ -258,13 +256,27 @@
     m.querySelector('#pQuit').onclick = () => leaveRace();
   };
 
+  // per-sector times vs your previous best (green = faster, red = slower)
+  function sectorSplits(r, t) {
+    const cp = (r.splits || []).slice(); if (!cp.length) return { html: '', squares: '' };
+    const pb = r.pbCp && r.pbCp.length >= cp.length ? r.pbCp : null;
+    const cells = [], sq = [];
+    cp.forEach((c, i) => {
+      const sec = c - (i ? cp[i - 1] : 0), pbs = pb ? pb[i] - (i ? pb[i - 1] : 0) : null, d = pbs == null ? null : sec - pbs;
+      const cls = d == null ? '' : d <= 0.0005 ? 'up' : 'down';
+      sq.push(d == null ? '🟦' : d <= 0.0005 ? '🟩' : '🟥');
+      cells.push(`<div class="sp ${cls}"><small>${i + 1}</small><b class="num">${sec.toFixed(1)}</b><em class="num">${d == null ? '' : (d <= 0 ? '' : '+') + d.toFixed(2)}</em></div>`);
+    });
+    return { html: `<div class="splits-wrap"><div class="lbl">Sector times${pb ? ' vs your best' : ''}</div><div class="splits" style="grid-template-columns:repeat(${cells.length},minmax(0,1fr))">${cells.join('')}</div></div>`, squares: sq.join('') };
+  }
   UI.finished = function (r, t, res, valid) {
     UI.checkpoint(r.track.checkpoints.length, r.track.checkpoints.length, null);
     const day = r.track.day, isToday = day === today();
     const prev = res ? res.prevBest : Net.save.best[day];
     let cmp = '';
     if (prev) { const d = t - prev; cmp = `<span class="num" style="color:${d <= 0 ? 'var(--good)' : 'var(--bad)'}">${DL.fmtDelta(d)}</span>`; }
-    const coins = res ? res.coins.map(c => `<div class="res-row"><span>${esc(c[0])}</span><b class="num">+${c[1]}</b></div>`).join('') : '';
+    const coins = res && res.coins.length ? `<details class="res-more"><summary>Coin breakdown</summary>${res.coins.map(c => `<div class="res-row"><span>${esc(c[0])}</span><b class="num">+${c[1]}</b></div>`).join('')}</details>` : '';
+    const sp = sectorSplits(r, t);
     const m = modal(`
       <div class="lbl">${isToday ? 'Daily No. ' + DL.dayNumber(day) : 'Archive · ' + DL.prettyDay(day)} · ${esc(r.track.B.name)}</div>
       <h2>${!valid ? 'Lap time deleted' : res && res.isPB && prev ? 'New personal best' : 'Finished'}</h2>
@@ -272,6 +284,7 @@
       <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
         ${r.recoveries ? `<span class="tag">${r.recoveries} recover${r.recoveries > 1 ? 'ies' : 'y'}</span>` : '<span class="tag">Clean run</span>'}
       </div>
+      ${valid ? sp.html : ''}
       ${!valid ? '<p class="hint" style="color:var(--bad);font-weight:600">Don’t cheat. That run failed the plausibility check (it skipped part of the route or moved impossibly), so the time was deleted.</p>' : ''}
       <div>
         <div class="res-row"><span>Previous best</span><b class="num">${prev ? DL.fmtTime(prev) : '—'} ${cmp}</b></div>
@@ -280,7 +293,16 @@
         ${res && res.total ? `<div class="res-row" style="border:0"><span class="lbl">Coins earned</span><b class="price num" style="font-size:26px"><span class="coin"></span>+${res.total}</b></div>` : ''}
       </div>
       <div class="btn-row"><button class="btn btn-go" id="rRetry" style="font-size:24px">Retry</button><button class="btn btn-line" id="rMenu">Menu</button></div>
-      <button class="btn btn-line btn-sm" id="rBoard">View leaderboard</button>`, { sticky: true });
+      <div class="btn-row res-links">${valid ? '<button class="btn btn-line btn-sm" id="rShare">Copy result</button>' : ''}<button class="btn btn-line btn-sm" id="rBoard">Leaderboard</button></div>`, { sticky: true });
+    const shareBtn = m.querySelector('#rShare');
+    if (shareBtn) shareBtn.onclick = () => {
+      const pos = ($('rPos') || {}).textContent || '';
+      const place = /^#\d+ of \d+/.test(pos) ? ' · ' + pos.replace(' of ', '/').replace(/^#/, 'rank ') : '';
+      const txt = `Dayline No. ${DL.dayNumber(day)} · ${r.track.B.name}\n⏱ ${DL.fmtTime(t)}${place}\n${sp.squares}\n${location.origin.includes('github.io') ? location.origin + location.pathname : 'https://dayline-game.github.io/Dayline/'}`;
+      const done = () => toast('Result copied. Paste it anywhere');
+      if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(txt).then(done, () => window.prompt('Copy your result', txt));
+      else window.prompt('Copy your result', txt);
+    };
     m.querySelector('#rRetry').onclick = () => Game.restart();
     m.querySelector('#rMenu').onclick = () => leaveRace();
     m.querySelector('#rBoard').onclick = () => { board.day = day; board.tab = 'daily'; Game.loadDay(today()); show('board'); };
@@ -684,6 +706,14 @@
     $('rpEnd').textContent = fmtS(r.dur); $('rpRate').textContent = '1×'; $('rpPlay').innerHTML = PAUSE_SVG;
   };
   UI.replayHud = function (r, t) {
+    const k = r.keys;
+    if (k) {
+      $('kUp').classList.toggle('on', k.gas); $('kDown').classList.toggle('on', k.brake);
+      $('kLeft').classList.toggle('on', k.left); $('kRight').classList.toggle('on', k.right);
+      { const b = $('kSteer').firstElementChild; b.style.left = (50 + Math.min(0, k.st) * 50) + '%'; b.style.width = (Math.abs(k.st) * 50) + '%'; }
+      $('rpSpd').textContent = Math.round((k.v || 0) * (Game.settings.units === 'mph' ? 2.237 : 3.6));
+      $('rpSpdU').textContent = Game.settings.units === 'mph' ? 'mph' : 'km/h';
+    }
     $('rpNow').textContent = fmtS(t);
     if (!seeking) $('rpSeek').value = Math.round(t / r.dur * 1000);
     $('rpPlay').innerHTML = r.paused ? PLAY_SVG : PAUSE_SVG;

@@ -159,6 +159,107 @@
     return out;
   }
 
+
+  // ---------- v1.8: wheel arches, glass and interior ----------
+  const PROF = {};
+  // Lower-body outline with proper wheel arches cut into the bottom edge and a fender bump wherever
+  // the body line would otherwise sit below the tyre top (that is what made wheels poke through).
+  function carProfile(spec, knobby) {
+    const key = spec.name + (knobby ? 'K' : '');
+    if (PROF[key]) return PROF[key];
+    const P = spec.lower.map(p => p.slice());
+    const k = knobby ? 1.1 : 1, wr = spec.wr * k, cy = wr, R = wr + 0.07, need = cy + R + 0.07, ramp = 0.4, pad = R + 0.04;
+    let chain = P.slice(2);
+    const spans = spec.wz.map(z0 => [z0 - pad, z0 + pad]);
+    const bump = z => { let m = 0; for (const [lo, hi] of spans) { const d = z < lo ? lo - z : z > hi ? z - hi : 0; m = Math.max(m, need * (1 - Math.min(1, d / ramp))); } return m; };
+    const H = z => { for (let i = 0; i < chain.length - 1; i++) { const a = chain[i], b = chain[i + 1]; if (z <= a[0] + 1e-6 && z >= b[0] - 1e-6) { const dz = a[0] - b[0], t = dz < 1e-6 ? 0 : (a[0] - z) / dz; return a[1] + (b[1] - a[1]) * t; } } return 0; };
+    const extra = []; spans.forEach(([lo, hi]) => extra.push(hi + ramp, hi + ramp / 2, hi, lo, lo - ramp / 2, lo - ramp));
+    const out = [];
+    for (let i = 0; i < chain.length; i++) {
+      const a = chain[i]; out.push([a[0], Math.max(a[1], bump(a[0]))]);
+      const b = chain[i + 1]; if (!b) break;
+      extra.filter(z => z < a[0] - 0.02 && z > b[0] + 0.02).sort((x, y) => y - x).forEach(z => out.push([z, Math.max(H(z), bump(z))]));
+    }
+    const yb = P[0][1], notches = [];
+    spec.wz.slice().sort((a, b) => a - b).forEach(z0 => {
+      const dy = yb - cy, aR = Math.asin(DL.clamp(dy / R, -1, 1)), aL = Math.PI - aR, N = 8;
+      for (let i = 0; i <= N; i++) { const a = aL + (aR - aL) * i / N; notches.push([z0 + R * Math.cos(a), cy + R * Math.sin(a)]); }
+    });
+    PROF[key] = [P[0], ...notches, P[1], ...out];
+    PROF[key].arch = { cy, R };
+    return PROF[key];
+  }
+  function tint(geo, color) {
+    const c = new THREE.Color(color), n = geo.attributes.position.count, a = new Float32Array(n * 3);
+    for (let i = 0; i < n; i++) { a[i * 3] = c.r; a[i * 3 + 1] = c.g; a[i * 3 + 2] = c.b; }
+    geo.setAttribute('color', new THREE.BufferAttribute(a, 3)); return geo;
+  }
+  function boxG(w, h, d, x, y, z, rx, color) {
+    let g = new THREE.BoxGeometry(w, h, d); if (rx) g.rotateX(rx); g.translate(x, y, z);
+    const n = g.toNonIndexed(); g.dispose(); return tint(n, color);
+  }
+  function mergeColored(list) {
+    let total = 0; list.forEach(g => total += g.attributes.position.count);
+    const pos = new Float32Array(total * 3), col = new Float32Array(total * 3); let o = 0;
+    list.forEach(g => { pos.set(g.attributes.position.array, o * 3); col.set(g.attributes.color.array, o * 3); o += g.attributes.position.count; });
+    const out = new THREE.BufferGeometry(); out.setAttribute('position', new THREE.BufferAttribute(pos, 3)); out.setAttribute('color', new THREE.BufferAttribute(col, 3)); out.computeVertexNormals();
+    return out;
+  }
+  // seats, dash, wheel, floor + wheel-well liners, merged into one vertex-coloured mesh
+  function interiorGeo(spec, roofGeo, prof, knobby) {
+    const c = spec.cabin, halfW = spec.W * spec.cw / 2, parts = [];
+    const SEAT = 0x25324a, DASH = 0x2d3a52, FLOOR = 0x171c26, TRIM = 0xf3ead7, LINER = 0x0f1218;
+    const floorY = Math.min(...c.map(p => p[1])), roofY = Math.max(...c.map(p => p[1]));
+    const z0 = c[0][0], zr = c[c.length - 1][0], Lc = z0 - zr, sc = DL.clamp((roofY - floorY) / 0.72, 0.42, 1);
+    const wy = floorY + 0.28 * sc, w0 = c[0], w1 = c[1];
+    const zFront = w0[0] + (wy - w0[1]) * (w1[0] - w0[0]) / ((w1[1] - w0[1]) || 1) - 0.05;
+    parts.push(boxG(halfW * 2 - 0.12, 0.04, Lc - 0.25, 0, floorY + 0.03, (z0 + zr) / 2, 0, FLOOR));
+    parts.push(boxG(halfW * 2 - 0.12, 0.3 * sc, 0.5, 0, floorY + 0.03 + 0.15 * sc, zFront - 0.25, 0, DASH));
+    parts.push(boxG(halfW * 2 - 0.12, 0.06, 0.12, 0, floorY + 0.03 + 0.3 * sc, zFront - 0.04, 0, 0x1a2130));
+    const seatZ = zFront - 1.0;
+    // low bucket seats only (no headrests), so the cabin never reads as passengers
+    [-1, 1].forEach(s => {
+      const x = s * halfW * 0.48, sw = halfW * 0.7;
+      parts.push(boxG(sw, 0.14 * sc, 0.55, x, floorY + 0.09 * sc, seatZ, 0, SEAT));
+      parts.push(boxG(sw, 0.3 * sc, 0.1, x, floorY + 0.22 * sc, seatZ - 0.3, -0.25, SEAT));
+    });
+    const rz = zr + 0.6;
+    if (seatZ - 0.7 - rz > 0.55) {
+      [-1, 1].forEach(s => { const x = s * halfW * 0.48, sw = halfW * 0.7; parts.push(boxG(sw, 0.14 * sc, 0.5, x, floorY + 0.09 * sc, rz + 0.1, 0, SEAT)); parts.push(boxG(sw, 0.28 * sc, 0.1, x, floorY + 0.2 * sc, rz - 0.18, -0.25, SEAT)); });
+    }
+    const swz = zFront - 0.4, swx = halfW * 0.48;
+    const ring = new THREE.TorusGeometry(0.15 * Math.min(1, sc + 0.3), 0.032, 5, 10); ring.rotateX(Math.PI / 2 - 0.9); ring.translate(swx, floorY + 0.03 + 0.34 * sc, swz);
+    const rn = ring.toNonIndexed(); ring.dispose(); parts.push(tint(rn, 0x0b0d12));
+    parts.push(boxG(0.05, 0.22 * sc, 0.05, swx, floorY + 0.03 + 0.2 * sc, swz + 0.1, 0.5, 0x0b0d12));
+    // headliner: roof sheet seen from underneath
+    if (roofGeo) {
+      const p = roofGeo.attributes.position.array, n = p.length / 9, out = new Float32Array(p.length);
+      for (let t = 0; t < n; t++) { const o = t * 9; for (let q = 0; q < 3; q++) { const src = q === 1 ? 2 : q === 2 ? 1 : q; out[o + q * 3] = p[o + src * 3]; out[o + q * 3 + 1] = p[o + src * 3 + 1] - 0.07; out[o + q * 3 + 2] = p[o + src * 3 + 2]; } }
+      const hg = new THREE.BufferGeometry(); hg.setAttribute('position', new THREE.BufferAttribute(out, 3)); parts.push(tint(hg, 0xcdbf9f));
+    }
+    // wheel-well liners: close off the arches so you never see through the car
+    const { cy, R } = prof.arch, k = knobby ? 1.1 : 1, wxc = (spec.W / 2 - 0.05) * spec.wx / 0.9, lw = Math.max(0.2, wxc - 0.18 * k - 0.02);
+    spec.wz.forEach(z => parts.push(boxG(lw * 2, cy + R - spec.lower[0][1] - 0.01, R * 1.9, 0, spec.lower[0][1] + (cy + R - spec.lower[0][1]) / 2, z, 0, LINER)));
+    return mergeColored(parts);
+  }
+  // window frame: pillars and rails following the cabin outline, in body colour
+  function frameGeo(spec) {
+    const c = spec.cabin, halfW = spec.W * spec.cw / 2, parts = [], col = 0xffffff;
+    const bar = (a, b, th, dw, x) => {
+      const dz = b[0] - a[0], dy = b[1] - a[1], L = Math.hypot(dz, dy); if (L < 0.05) return;
+      parts.push(boxG(dw, th, L + 0.04, x, (a[1] + b[1]) / 2, (a[0] + b[0]) / 2, -Math.atan2(dy, dz), col));
+    };
+    for (const s of [-1, 1]) {
+      for (let i = 0; i < c.length - 1; i++) bar(c[i], c[i + 1], 0.1, 0.1, s * (halfW - 0.01));
+      bar(c[c.length - 1], c[0], 0.08, 0.1, s * (halfW - 0.01));
+      if (c.length === 4 && c[0][0] - c[3][0] > 2.4) { const zb = c[1][0] - (c[1][0] - c[2][0]) * 0.55 + (c[2][0] - c[3][0]) * 0.0; bar([zb, c[0][1] + 0.02], [zb, c[1][1]], 0.1, 0.1, s * (halfW - 0.01)); }
+    }
+    bar([c[1][0], c[1][1]], [c[1][0], c[1][1] - 0.001], 0.1, 0.1, 0);
+    parts.push(boxG(halfW * 2, 0.1, 0.12, 0, c[1][1] - 0.01, c[1][0], 0, col));
+    parts.push(boxG(halfW * 2, 0.1, 0.12, 0, c[c.length - 2][1] - 0.01, c[c.length - 2][0], 0, col));
+    return mergeColored(parts);
+  }
+
   const shared = {};
   function sharedMat(key, make) { return shared[key] || (shared[key] = make()); }
 
@@ -186,7 +287,7 @@
 
   // Signature parts so each car reads as a different machine, not just a different outline.
   function addFeatures(F) {
-    const { body, spec, bodyMat, extraMat, headMat, tailMat, glassMat, frontZ, rearZ, roofY, lightY, deckY, ghost } = F;
+    const { body, spec, bodyMat, extraMat, headMat, tailMat, glassMat, glassSolid, frontZ, rearZ, roofY, lightY, deckY, ghost } = F;
     const M = (k, mk) => ghost ? glassMat : sharedMat(k, mk);
     const chrome = M('chrome', () => new THREE.MeshStandardMaterial({ color: 0xdfe4ea, roughness: 0.25, metalness: 0.8, flatShading: true }));
     const dark = M('dark2', () => new THREE.MeshLambertMaterial({ color: 0x14181f, flatShading: true }));
@@ -255,7 +356,7 @@
       const top = new THREE.Mesh(new THREE.CylinderGeometry(W * 0.49, W * 0.49, 3.5, 10, 1, false, Math.PI / 2, Math.PI), crust);
       top.scale.set(1, 1, 0.45); top.rotation.x = Math.PI / 2; top.position.set(0, 2.06, -0.1); top.castShadow = !ghost; body.add(top);
       bx(W * 0.82, 0.07, 3.3, 0, 2.06, -0.1, crust, 0, 0);
-      both(s => { cy(0.3, 0.06, s * (W * 0.95 / 2 + 0.03), 1.8, -0.6, glassMat, 'x', 12); cy(0.34, 0.04, s * (W * 0.95 / 2 + 0.02), 1.8, -0.6, chrome, 'x', 12); cy(0.3, 0.06, s * (W * 0.95 / 2 + 0.03), 1.8, 0.4, glassMat, 'x', 12); cy(0.34, 0.04, s * (W * 0.95 / 2 + 0.02), 1.8, 0.4, chrome, 'x', 12); });
+      both(s => { cy(0.3, 0.06, s * (W * 0.95 / 2 + 0.03), 1.8, -0.6, glassSolid, 'x', 12); cy(0.34, 0.04, s * (W * 0.95 / 2 + 0.02), 1.8, -0.6, chrome, 'x', 12); cy(0.3, 0.06, s * (W * 0.95 / 2 + 0.03), 1.8, 0.4, glassSolid, 'x', 12); cy(0.34, 0.04, s * (W * 0.95 / 2 + 0.02), 1.8, 0.4, chrome, 'x', 12); });
       cy(0.09, 0.8, W * 0.3, 2.45, -1.5, dark, 'y', 8); cy(0.14, 0.06, W * 0.3, 2.88, -1.5, dark, 'y', 8);   // chimney
       bx(W * 0.7, 0.35, 0.08, 0, 0.8, frontZ + 0.04, dark); bx(W * 1.0, 0.1, 0.1, 0, 0.45, frontZ + 0.05, cream);
       both(s => bx(0.06, 0.06, 0.4, s * (W / 2 + 0.02), 1.05, 1.0, chrome));                        // door handles
@@ -270,12 +371,14 @@
     const body = new THREE.Group();          // pitch/roll
     root.add(body);
 
-    const lower = extrudeProfile(spec.lower, spec.W);
+    const knob = equip.wheels === 'knobby';
+    const prof = carProfile(spec, knob);
+    const lower = extrudeProfile(prof, spec.W);
     const cab = extrudeProfile(spec.cabin, spec.W * spec.cw);
     const split = splitCabin(cab, spec.paintCabin);
     // bounding box for projection
     let minY = 1e9, maxY = -1e9, minZ = 1e9, maxZ = -1e9;
-    spec.lower.forEach(p => { minZ = Math.min(minZ, p[0]); maxZ = Math.max(maxZ, p[0]); minY = Math.min(minY, p[1]); maxY = Math.max(maxY, p[1]); });
+    prof.forEach(p => { minZ = Math.min(minZ, p[0]); maxZ = Math.max(maxZ, p[0]); minY = Math.min(minY, p[1]); maxY = Math.max(maxY, p[1]); });
     if (spec.paintCabin) spec.cabin.forEach(p => { maxY = Math.max(maxY, p[1]); });
     const bb = { minX: -spec.W / 2 - 0.05, maxX: spec.W / 2 + 0.05, minY, maxY, minZ: minZ - 0.05, maxZ: maxZ + 0.05 };
     const bodyGeo = mergeGeos([lower, split.roof]);
@@ -293,17 +396,28 @@
     const bodyMesh = new THREE.Mesh(bodyGeo, bodyMat);
     bodyMesh.castShadow = !opts.ghost; bodyMesh.receiveShadow = !opts.ghost;
     body.add(bodyMesh);
-    const glassMat = opts.ghost ? new THREE.MeshBasicMaterial({ color: 0x1f2a3d, transparent: true, opacity: 0.3, depthWrite: false })
-      : sharedMat('glass', () => new THREE.MeshStandardMaterial({ color: 0x232c3b, roughness: 0.15, metalness: 0.4, flatShading: true }));
-    const glass = new THREE.Mesh(split.glass, glassMat); glass.castShadow = !opts.ghost; body.add(glass);
+    const glassSolid = opts.ghost ? new THREE.MeshBasicMaterial({ color: 0x1f2a3d, transparent: true, opacity: 0.3, depthWrite: false })
+      : sharedMat('glassSolid', () => new THREE.MeshStandardMaterial({ color: 0x232c3b, roughness: 0.15, metalness: 0.4, flatShading: true }));
+    const glassMat = opts.ghost ? glassSolid
+      : sharedMat('glass18', () => new THREE.MeshStandardMaterial({ color: 0x2b3d58, roughness: 0.08, metalness: 0.45, flatShading: true, transparent: true, opacity: 0.4, depthWrite: false }));
+    const glass = new THREE.Mesh(split.glass, glassMat); glass.castShadow = false; glass.renderOrder = 3; body.add(glass);
     const extraMat = opts.ghost ? glassMat : sharedMat('trim', () => new THREE.MeshLambertMaterial({ color: 0x1f2a3d, flatShading: true }));
+    let frameMat = null;
+    if (!opts.ghost) {
+      const intMesh = new THREE.Mesh(interiorGeo(spec, spec.paintCabin ? null : split.roof, prof, knob), sharedMat('interior', () => new THREE.MeshLambertMaterial({ vertexColors: true, flatShading: true })));
+      body.add(intMesh);
+      if (!spec.paintCabin) {
+        frameMat = new THREE.MeshStandardMaterial({ color: new THREE.Color(DL.PALETTE[opts.base == null ? DL.DEFAULT_BASE : opts.base]), flatShading: true, roughness: fin.roughness, metalness: fin.metalness });
+        const fr = new THREE.Mesh(frameGeo(spec), frameMat); fr.castShadow = true; body.add(fr);
+      }
+    }
 
     // side windows for panel-sided bodies
     if (spec.windows) {
       const zs = spec.cabin.map(p => p[0]), ys = spec.cabin.map(p => p[1]);
       const z1 = Math.max(...zs) - 0.5, z0 = Math.min(...zs) + 0.3, y0 = Math.min(...ys) + 0.25, y1 = Math.max(...ys) - 0.18;
       [-1, 1].forEach(s => {
-        const w = new THREE.Mesh(new THREE.BoxGeometry(0.04, y1 - y0, (z1 - z0) * 0.5), glassMat);
+        const w = new THREE.Mesh(new THREE.BoxGeometry(0.04, y1 - y0, (z1 - z0) * 0.5), glassSolid);
         w.position.set(s * (spec.W * spec.cw / 2 + 0.06), (y0 + y1) / 2, z1 - (z1 - z0) * 0.25); body.add(w);
       });
     }
@@ -352,7 +466,7 @@
       }
     }
 
-    addFeatures({ body, spec, bodyMat, extraMat, headMat, tailMat, glassMat, frontZ, rearZ, roofY, lightY, deckY, ghost: !!opts.ghost });
+    addFeatures({ body, spec, bodyMat, extraMat, headMat, tailMat, glassMat, glassSolid, frontZ, rearZ, roofY, lightY, deckY, ghost: !!opts.ghost });
 
     // wheels
     const wheels = [];
@@ -372,7 +486,7 @@
       spec, equip, body, bodyMesh, wheels, tailMat, canvas, tex, bodyMat,
       exhaust: new THREE.Vector3(spec.W * 0.28, spec.lower[0][1] + 0.12, rearZ - 0.1),
       rearZ, frontZ, roofY,
-      setLivery(liv, base) { DL.drawLiveryCanvas(canvas, liv, base); tex.needsUpdate = true; },
+      setLivery(liv, base) { DL.drawLiveryCanvas(canvas, liv, base); tex.needsUpdate = true; if (frameMat) frameMat.color.set(DL.PALETTE[base == null ? DL.DEFAULT_BASE : base]); },
       dispose() { root.traverse(o => { if (o.geometry) o.geometry.dispose(); }); tex.dispose(); bodyMat.dispose(); }
     };
     return root;

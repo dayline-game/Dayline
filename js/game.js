@@ -341,7 +341,12 @@
   Game.pause = function (on) { if (!race || race.finished) return; race.paused = on; DL.UI.paused(on); if (on) DL.Audio.updateEngine(0, 0, 0, false); };
   Game.togglePause = () => Game.pause(!(race && race.paused));
   Game.toggleGhosts = function () { if (!race) return; race.ghostsOn = !race.ghostsOn; race.ghosts.forEach(g => g.model.visible = race.ghostsOn); DL.UI.ghostsChanged(race); };
-  Game.cycleCamera = function () { if (!race) return; if (race.replay) race.snap = true; race.camMode = (race.camMode + 1) % CAM_COUNT; settings.cam = race.camMode; DL.store.set('settings', settings); placeCamera(true); };
+  Game.cycleCamera = function () {
+    if (!race) return;
+    if (race.replay) { race.snap = true; race.camMode = (race.camMode + 1) % (CAM_COUNT + 1); settings.rcam = race.camMode; }
+    else { race.camMode = (race.camMode + 1) % CAM_COUNT; settings.cam = race.camMode; }
+    DL.store.set('settings', settings); placeCamera(true);
+  };
   Game.race = () => race;
 
   // ---------------- replay of a recorded run ----------------
@@ -357,12 +362,12 @@
     race = {
       replay: true, track, car: c, model, gh, ghosts: [{ model, gh, spec }], ghostsOn: true, steps: 0,
       rt: 0, dur: (gh.n - 1) / gh.hz, rate: 1, paused: false, hold: 0, spin: 0, snap: true,
-      camYaw: 0, shake: 0, camMode: settings.cam, trailT: 0, prev: null
+      camYaw: 0, shake: 0, camMode: settings.rcam == null ? CAM_COUNT : settings.rcam % (CAM_COUNT + 1), trailT: 0, prev: null, keys: { gas: false, brake: false, left: false, right: false, st: 0 }
     };
     trail.points.length = 0; clearSkids(); trail.mesh.visible = false;
     return true;
   };
-  const rs0 = new Float32Array(8), rs1 = new Float32Array(8), rgT = {};
+  const rs0 = new Float32Array(8), rs1 = new Float32Array(8), rk0 = new Float32Array(8), rk1 = new Float32Array(8), rgT = {};
   function updateReplay(dt) {
     const r = race, c = r.car;
     if (!r.paused) {
@@ -384,6 +389,12 @@
     c.grounded = y - r.track.groundAt(x, z, rgT, true).y < 0.5;
     if (!r.paused) r.spin += c.vF * dt * r.rate / 0.34;
     c.wheelSpin = r.spin;
+    // keys on screen: steering and brake are recorded, the gas pedal is inferred from the speed trend
+    const spdAt = tt => { const a = Math.max(0, tt - 0.1), b = Math.min(r.dur, tt + 0.1); DL.sampleGhost(r.gh, a, rk0); DL.sampleGhost(r.gh, b, rk1); return Math.hypot(rk1[0] - rk0[0], rk1[2] - rk0[2]) / Math.max(0.02, b - a); };
+    const vN = spdAt(t), acc = (spdAt(Math.min(r.dur, t + 0.25)) - spdAt(Math.max(0, t - 0.25))) / 0.5;
+    DL.sampleGhost(r.gh, t, rs1);
+    const brk = rs1[7] > 0.5 || acc < -9, stv = DL.clamp(rs1[6] / 0.82, -1, 1), live = t < r.dur - 0.2;
+    r.keys = { gas: live && !brk && (acc > -1.2 || vN > 48), brake: live && brk, left: stv < -0.2, right: stv > 0.2, st: stv, v: vN };
     DL.poseCar(r.model, x, y, z, c.yaw, c.pitch, c.roll, c.steerVis, r.spin, rs1[7] > 0.5);
     r.model.updateMatrixWorld();
     const snap = r.snap; r.snap = false;
@@ -436,7 +447,7 @@
   }
 
   function onFinish(r, t) {
-    r.finished = true;
+    r.finished = true; r.splits = r.prog.cpTimes.slice();
     record();
     logAttempt(r, true, t);
     DL.Audio.chime();
@@ -548,8 +559,25 @@
   function setFov(f, dt) {
     if (Math.abs(camera.fov - f) > 0.05) { camera.fov += (f - camera.fov) * Math.min(1, dt * 4); camera.updateProjectionMatrix(); }
   }
+  // replay-only orbiting shots: a new angle every few seconds, always circling the car
+  const ORBIT_SHOTS = [[-0.5, 0.55, 12, 3.2], [1.4, -0.6, 15, 6], [Math.PI, 0.5, 11, 2.2], [0.9, 0.7, 20, 11], [-1.5, -0.55, 13, 2.6], [2.3, 0.6, 16, 8], [0.2, -0.5, 10, 2.0], [-2.4, 0.65, 18, 9]];
+  const ok0 = new Float32Array(8);
+  function orbitCam(r) {
+    const SEG = 4.5, t = DL.clamp(r.rt, 0, r.dur), si = Math.floor(t / SEG), lt = t - si * SEG, [a0, w, R, up] = ORBIT_SHOTS[si % ORBIT_SHOTS.length];
+    let sx = 0, sz = 0, px = 0, py = 0, pz = 0;
+    for (let k = 0; k <= 6; k++) { DL.sampleGhost(r.gh, Math.max(0, t - 0.9 * k / 6), ok0); sx += Math.sin(ok0[3]); sz += Math.cos(ok0[3]); if (k <= 4) { px += ok0[0]; py += ok0[1]; pz += ok0[2]; } }
+    const yaw = Math.atan2(sx, sz), a = yaw + a0 + w * lt, c = r.car;
+    px /= 5; py /= 5; pz /= 5;
+    tmpV.set(px + Math.sin(a) * R, py + up + Math.sin(lt * 1.2) * 0.4, pz + Math.cos(a) * R);
+    const gmax = r.track.groundAt(tmpV.x, tmpV.z, gTmp, true).y + 1.3;
+    if (tmpV.y < gmax) tmpV.y = gmax;
+    camera.position.copy(tmpV);
+    camera.lookAt(c.x + Math.sin(c.yaw) * 1.5, c.y + 1, c.z + Math.cos(c.yaw) * 1.5);
+    r.model.visible = true; setFov(60, 1);
+  }
   function placeCamera(snap, dt) {
     const r = race; if (!r) return;
+    if (r.replay && r.camMode >= CAM_COUNT) { orbitCam(r); return; }
     const c = r.view || r.car, m = CAMS[r.camMode];
     dt = dt || 1 / 60;
     if (!m) { // bonnet
