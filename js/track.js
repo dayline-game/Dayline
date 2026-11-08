@@ -8,7 +8,8 @@
   DL.SURF = SURF; DL.ROAD_HALF = HALF;
   // dailies from this day on get mud / snow / sand stretches on the road; earlier days stay exactly as they were raced
   DL.PATCH_FROM = '20261105';
-  DL.TRACK_VER = 6;   // bump whenever track generation changes, then re-run `npm run digests`
+  DL.SHORT_FROM = '20261109';   // daily maps from this day on are short (~20-50 s laps) so reels need no speed-up
+  DL.TRACK_VER = 7;   // bump whenever track generation changes, then re-run `npm run digests`
 
   function Track(day, custom) {
     this.day = day; this.custom = custom || null;
@@ -25,7 +26,7 @@
     else for (let attempt = 0; attempt < 6; attempt++) {
       this._genRnd = DL.mulberry32(this.seed + attempt * 7919);
       this._generateCenterline();
-      if (this.length > 1900) break;
+      if (this.length > (this.day >= DL.SHORT_FROM ? 800 : 1900)) break;
     }
     this._buildGrid();
     this._seaSetup();
@@ -76,7 +77,7 @@
     };
     let x = 0, z = 0, hd = 0;
     add(x, z);
-    const target = 2000 + rnd() * 700;
+    const target = this.day >= DL.SHORT_FROM ? 900 + rnd() * 1350 : 2000 + rnd() * 700;
     let len = 0;
     const tryPath = (cmds) => {
       // cmds: array of [lengthMetres, curvature(1/R signed)]
