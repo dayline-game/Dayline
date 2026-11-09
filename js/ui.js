@@ -282,10 +282,10 @@
     });
     return { html: `<div class="splits-wrap"><div class="lbl">Sector times${pb ? ' vs your best' : ''}</div><div class="splits" style="grid-template-columns:repeat(${cells.length},minmax(0,1fr))">${cells.join('')}</div></div>`, squares: sq.join('') };
   }
-  UI.roomFinished = function (r, t, valid) {
+  UI.roomFinished = function (r, t, valid, res) {
     UI.checkpoint(r.track.checkpoints.length, r.track.checkpoints.length, null);
     closeModal();
-    toast(valid ? 'Finished <b class="num">' + DL.fmtTime(t) + '</b>' : 'Lap not counted', 1800);
+    toast(valid ? (res && res.isPB ? 'New personal best ' : 'Finished ') + '<b class="num">' + DL.fmtTime(t) + '</b>' : 'Lap not counted', 1800);
   };
   UI.finished = function (r, t, res, valid) {
     UI.checkpoint(r.track.checkpoints.length, r.track.checkpoints.length, null);

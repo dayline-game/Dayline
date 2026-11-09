@@ -532,8 +532,10 @@
     const valid = DL.validateRun(r.track, gh, t);
     const beatGhost = r.ghosts.some(g => !g.spec.mine && g.time > t) || r.ghosts.some(g => g.spec.mine && g.time > t + 0.001);
     if (r.room) {
-      if (valid && !r.track.custom) { try { DL.Net.submitRun(r.track, t, enc, { recoveries: r.recoveries, airMax: r.airMax, beatGhost: false }); } catch (e) {} }
-      DL.UI.roomFinished(r, t, valid); DL.Rooms.finished(r, t, valid); return;
+      // room laps feed the normal leaderboard of that map (daily or community), exactly like a solo run
+      let res = null;
+      if (valid) { try { res = DL.Net.submitRun(r.track, t, enc, r.track.custom ? {} : { recoveries: r.recoveries, airMax: r.airMax, beatGhost: false }); } catch (e) { console.warn(e); } }
+      DL.UI.roomFinished(r, t, valid, res); DL.Rooms.finished(r, t, valid); return;
     }
     if (r.track.custom) {
       if (r.test) { DL.UI.testFinished(r, t, valid, enc); return; }
