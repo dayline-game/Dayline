@@ -78,7 +78,7 @@
     const eb = $('cmEmpty'); if (eb) eb.onclick = () => UI.openEditor(null);
     rows.forEach(r => grid.appendChild(card(r)));
     const want = cm.focus || (cm.sel && cm.sel.id); cm.focus = null;
-    const hit = want && rows.find(r => r.id === want);
+    const hit = want && (rows.find(r => r.id === want) || (cm.link && cm.link.id === want ? cm.link : null));
     if (hit) selectTrack(hit, true); else if (cm.sel && !hit) closeSide();
   };
 
@@ -101,6 +101,14 @@
   }
 
   function closeSide() { cm.sel = null; $('cmSide').hidden = true; document.querySelectorAll('.cm-card.on').forEach(c => c.classList.remove('on')); }
+  // open a shared link (?t=<id>) straight on that track
+  UI.openTrackLink = async function (id) {
+    try {
+      const t = await Net.ctGet(id);
+      if (!t) { toast('That track link is no longer valid'); return; }
+      cm.link = t; cm.focus = t.id; cm.tab = 'new'; reg(t); show('community');
+    } catch (e) { toast('Could not open that track link'); }
+  };
   let bgTimer = 0;
   async function selectTrack(r, keep) {
     cm.sel = r; reg(r);
@@ -111,7 +119,7 @@
     side.innerHTML = `<button class="icon-btn cm-x" id="cmClose" aria-label="Close"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
       <div class="hd"><div class="lbl">Track by ${esc(by)}</div><h3></h3>
       <div class="chips"><span class="tag">${esc((DL.BIOMES[r.biome] || {}).name || r.biome)}</span><span class="tag">${fmtLen(r.length)}</span><span class="tag" id="cmN">${r.n} driver${r.n === 1 ? '' : 's'}</span></div></div>
-      <div class="acts"><button class="btn btn-go" id="cmPlay">Play <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M7 4l12 8-12 8z"/></svg></button>${mineT ? '<button class="btn btn-line btn-sm" id="cmDel">Delete</button>' : ''}</div>
+      <div class="acts"><button class="btn btn-go" id="cmPlay">Play <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M7 4l12 8-12 8z"/></svg></button><button class="btn btn-line btn-sm" id="cmLink">Copy link</button>${mineT ? '<button class="btn btn-line btn-sm" id="cmDel">Delete</button>' : ''}</div>
       <div class="lbl" style="padding:2px 16px 6px;display:flex;justify-content:space-between"><span>Fastest times</span><span id="cmSel"></span></div>
       <div class="tl" id="cmTimes"><div class="empty"><p>Loading times…</p></div></div>`;
     side.insertBefore(thumbImg(r, 480, 300, 'th-big'), side.firstChild);
@@ -121,6 +129,7 @@
     const upd = () => { const n = Object.keys(sel).length; $('cmSel').textContent = n ? n + ' ghost' + (n > 1 ? 's' : '') + ' selected' : 'Pick up to 3 ghosts'; };
     upd();
     $('cmPlay').onclick = async () => { const c = await ensureExt(r.id); X.startRace(r.id, Object.values(sel), c, { leave: 'community' }); };
+    $('cmLink').onclick = async () => { const u = DL.Share ? DL.Share.trackLink(r.id) : location.href; try { await navigator.clipboard.writeText(u); toast('<b>Link copied</b>. Anyone can race this track'); } catch (e) { window.prompt('Copy this link', u); } };
     const db = $('cmDel');
     if (db) db.onclick = async () => {
       if (!db.dataset.sure) { db.dataset.sure = 1; db.textContent = 'Tap again to delete'; setTimeout(() => { db.dataset.sure = ''; db.textContent = 'Delete'; }, 3000); return; }

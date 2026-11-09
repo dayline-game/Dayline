@@ -475,7 +475,7 @@
     record();
     logAttempt(r, true, t);
     DL.Audio.chime();
-    const enc = DL.encodeGhost(r.frames);
+    const enc = DL.encodeGhost(r.frames); r.enc = enc;
     const gh = DL.decodeGhost(enc);
     const valid = DL.validateRun(r.track, gh, t);
     const beatGhost = r.ghosts.some(g => !g.spec.mine && g.time > t) || r.ghosts.some(g => g.spec.mine && g.time > t + 0.001);
@@ -804,6 +804,7 @@
       setOffset(camera, 'none');
       sun.position.set(race.car.x + 60, race.car.y + 110, race.car.z + 40); sun.target.position.set(race.car.x, race.car.y, race.car.z);
       renderer.render(scene, camera);
+      if (Game.onReplayFrame) Game.onReplayFrame(renderer.domElement);
     } else if (mode === 'garage' || mode === 'shop') {
       if (orbit.auto) orbit.theta += dt * 0.18;
       const cy = 0.9;

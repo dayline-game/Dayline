@@ -305,7 +305,11 @@
         ${res && res.total ? `<div class="res-row" style="border:0"><span class="lbl">Coins earned</span><b class="price num" style="font-size:26px"><span class="coin"></span>+${res.total}</b></div>` : ''}
       </div>
       <div class="btn-row"><button class="btn btn-go" id="rRetry" style="font-size:24px">Retry</button><button class="btn btn-line" id="rMenu">Menu</button></div>
-      <div class="btn-row res-links">${valid ? '<button class="btn btn-line btn-sm" id="rShare">Copy result</button>' : ''}<button class="btn btn-line btn-sm" id="rBoard">Leaderboard</button></div>`, { sticky: true });
+      <div class="btn-row res-links">${valid ? '<button class="btn btn-line btn-sm" id="rShare">Copy result</button><button class="btn btn-line btn-sm" id="rCard">Result card</button>' : ''}<button class="btn btn-line btn-sm" id="rBoard">Leaderboard</button></div>
+      ${valid ? '<button class="btn btn-coral btn-sm" id="rClip">Save a clip of this run</button>' : ''}`, { sticky: true });
+    const cardInfo = () => { const pos = ($('rPos') || {}).textContent || ''; return { title: 'No. ' + DL.dayNumber(day), pos: /^#\d+ of/.test(pos) ? 'Rank ' + pos.replace(' of ', ' / ').replace('#', '') : '', streak: streakNow(), squares: sp.squares }; };
+    const cardBtn = m.querySelector('#rCard'); if (cardBtn) cardBtn.onclick = () => DL.Share && DL.Share.shareCard(r, t, cardInfo());
+    const clipBtn = m.querySelector('#rClip'); if (clipBtn) clipBtn.onclick = () => DL.Share && DL.Share.clip(r, t, {});
     const shareBtn = m.querySelector('#rShare');
     if (shareBtn) shareBtn.onclick = () => {
       const pos = ($('rPos') || {}).textContent || '';
@@ -1086,7 +1090,7 @@
         if (lastCar && k !== lastCar && screen !== 'hud') { Game.refreshPlayerCar(); if (screen === 'menu') renderMenu(); }
         lastCar = k;
       });
-      Net.connect().then(() => { if (screen === 'menu') renderMenu(); });
+      Net.connect().then(() => { if (screen === 'menu') renderMenu(); const tl = new URLSearchParams(location.search).get('t'); if (tl && UI.openTrackLink) { UI.openTrackLink(tl); history.replaceState(null, '', location.pathname); } });
     }, 30);
   }
   boot();
