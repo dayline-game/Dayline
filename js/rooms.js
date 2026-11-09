@@ -76,7 +76,7 @@
     poll();
   }
   function drop(msg) { stop(); if (msg) toast(msg); if ($('room') && !$('room').hidden) show('menu'); }
-  function stop() { clearTimeout(pollT); clearInterval(tickT); R.room = null; R.racing = false; }
+  function stop() { clearTimeout(pollT); loopId++; R.room = null; R.racing = false; }
 
   async function drive() {
     const rm = R.room; if (!rm || R.racing) return;
@@ -85,24 +85,36 @@
     R.racing = true; R.day = rm.day;
     clearTimeout(pollT);
     X.startRace(rm.day, [], custom, { leave: 'room', room: { code: rm.code } });
-    clearInterval(tickT);
-    tickT = setInterval(tick, 250);
+    tickLoop(++loopId);
   }
   R.drive = drive;
 
-  async function tick() {
-    const s = Game.roomState && Game.roomState();
-    if (!R.room || !R.racing) { clearInterval(tickT); return; }
-    try {
-      const r = await api('POST', '/' + R.room.code + '/tick', { s: s || [0, 0, 0, 0, 0, 0, 0, 0] });
-      if (!r.j.ok) return;
-      absorb(r.j.room); hudBoard();
-      if (R.room.day !== R.day) { R.racing = false; clearInterval(tickT); drive(); return; }
-      Game.roomOthers(r.j.others || [], uid => {
-        const p = R.room.players.find(x => x.uid === uid);
-        return p ? { uid, label: p.tag, car: p.car, l: p.l, b: p.b, equip: p.equip } : null;
-      });
-    } catch (e) { }
+  // sequential tick loop: one request in flight at a time, newest samples batched, light replies most of the time
+  let loopId = 0;
+  async function tickLoop(id) {
+    let n = 0, sentTs = 0;
+    while (R.racing && id === loopId && R.room) {
+      const t0 = performance.now();
+      const batch = Game.roomSamples ? Game.roomSamples(sentTs) : [], s = Game.roomState && Game.roomState();
+      if (s) {
+        const full = (n++ % 5) === 0;
+        try {
+          const r = await api('POST', '/' + R.room.code + '/tick', { s, b: batch, full });
+          if (!R.racing || id !== loopId) return;
+          if (r.j.ok) {
+            sentTs = batch.length ? batch[batch.length - 1][0] : sentTs;
+            if (r.j.room) { absorb(r.j.room); hudBoard(); if (R.room.day !== R.day) { R.racing = false; drive(); return; } }
+            const now = performance.now();
+            Game.roomOthers(r.j.others || [], uid => {
+              const p = R.room && R.room.players.find(x => x.uid === uid);
+              return p ? { uid, label: p.tag, car: p.car, l: p.l, b: p.b, equip: p.equip } : null;
+            }, now);
+          }
+        } catch (e) { }
+      }
+      const wait = 140 - (performance.now() - t0);
+      await new Promise(res => setTimeout(res, Math.max(20, wait)));
+    }
   }
 
   // called by Game when the player's room race ends
@@ -115,7 +127,7 @@
     setTimeout(() => { if (R.racing && Game.inRoom() && Game.raceNow() === r) Game.restart(); }, 2200);
   };
   // quitting mid-race goes back to the lobby
-  R.quitRace = function () { R.racing = false; clearInterval(tickT); poll(true); };
+  R.quitRace = function () { R.racing = false; loopId++; poll(true); };
 
   // small live standings while driving
   function hudBoard() {

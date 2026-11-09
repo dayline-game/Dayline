@@ -957,6 +957,7 @@
     } else { vw.x = c.x; vw.y = c.y; vw.z = c.z; vw.yaw = c.yaw; vw.pitch = c.pitch; vw.roll = c.roll; vw.steerVis = c.steerVis; vw.wheelSpin = c.wheelSpin; }
     DL.poseCar(r.model, vw.x, vw.y, vw.z, vw.yaw, vw.pitch, vw.roll, vw.steerVis, vw.wheelSpin, input.brake > 0);
     r.model.updateMatrixWorld();
+    if (r.room) sampleRoom(r, vw);
     const t = r.steps * DT, tg = t + (run && !r.finished ? al * DT : 0);
     if (r.live) poseLive(r, dt);
     for (const g of r.ghosts) {
@@ -975,47 +976,71 @@
 
 
   // ---------------- live room opponents ----------------
-  Game.raceNow = () => race;
+  // Each driver samples their own car 20x/s with a timestamp and ships the recent samples in batches; every client plays the others back
+  // ~0.3 s behind real time, interpolating between samples, so movement stays smooth whatever the network jitter.
+  const LIVE_DELAY = 320;
   Game.inRoom = () => !!(race && race.room);
-  Game.roomState = function () {
-    const r = race; if (!r || !r.room) return null;
-    const c = r.car, rd = v => Math.round(v * 100) / 100;
-    return [rd(c.x), rd(c.y), rd(c.z), rd(c.yaw * 100) / 100, rd(c.pitch), rd(c.roll), rd(c.steerVis), input.brake > 0 ? 1 : 0];
-  };
-  Game.roomOthers = function (others, specOf) {
+  Game.raceNow = () => race;
+  function sampleRoom(r, v) {
+    const now = performance.now();
+    if (now - (r.lastSamp || 0) < 50) return;
+    r.lastSamp = now;
+    const a = r.samples || (r.samples = []);
+    const q = n => Math.round(n * 100) / 100;
+    a.push([Math.round(now), q(v.x), q(v.y), q(v.z), q(v.yaw), q(v.pitch), q(v.roll), q(v.steerVis), input.brake > 0 ? 1 : 0]);
+    if (a.length > 60) a.splice(0, a.length - 60);
+  }
+  Game.roomSamples = function (since) { const r = race; return r && r.samples ? r.samples.filter(x => x[0] > since) : []; };
+  Game.roomState = function () { const r = race; if (!r || !r.room || !r.samples || !r.samples.length) return null; return r.samples[r.samples.length - 1].slice(1); };
+  Game.roomOthers = function (others, specOf, now0) {
     const r = race; if (!r || !r.live) return;
-    const now = performance.now(), seen = {};
+    const now = now0 || performance.now(), seen = {};
     for (const o of others) {
-      if (o.uid === DL.Net.uid || !o.s || o.s.length < 8) continue;
+      if (o.uid === DL.Net.uid) continue;
+      const list = (o.b && o.b.length ? o.b : (o.s ? [[0].concat(o.s)] : [])); if (!list.length) continue;
       seen[o.uid] = 1;
       let g = r.live[o.uid];
       if (!g) {
         const sp = specOf(o.uid); if (!sp) continue;
         const model = DL.buildCar({ car: sp.car, livery: sp.l ? DL.decodeLivery(sp.l) : DL.defaultLivery(), base: sp.b, equip: sp.equip, ghost: true });
         const label = makeLabel(sp.label || 'Driver', false); model.add(label); scene.add(model);
-        g = r.live[o.uid] = { model, label, p: o.s.slice(), v: [0, 0, 0], t: now, spin: 0 };
-      } else {
-        const dtm = Math.max(0.05, (now - g.t) / 1000);
-        g.v = [(o.s[0] - g.tg[0]) / dtm, (o.s[1] - g.tg[1]) / dtm, (o.s[2] - g.tg[2]) / dtm];
+        g = r.live[o.uid] = { model, label, buf: [], off: null, last: 0, seen: now, spin: 0 };
       }
-      g.tg = o.s.slice(); g.t = now;
+      // map the sender's clock onto ours: the newest sample is about (age) old when it reaches us
+      const newest = list[list.length - 1][0], cur = now - (o.age || 0) - newest;
+      g.off = g.off == null ? cur : (cur < g.off ? cur : g.off + (cur - g.off) * 0.05);
+      for (const x of list) { if (x[0] <= g.last) continue; g.last = x[0]; g.buf.push({ ts: x[0] + g.off, p: x.slice(1) }); }
+      g.seen = now;
     }
-    for (const uid in r.live) if (!seen[uid]) { const g = r.live[uid]; if (now - g.t > 4000) { scene.remove(g.model); g.model.userData.dispose(); delete r.live[uid]; } }
+    for (const uid in r.live) if (!seen[uid]) { const g = r.live[uid]; if (now - g.seen > 4000) { scene.remove(g.model); g.model.userData.dispose(); delete r.live[uid]; } }
   };
   function poseLive(r, dt) {
-    const now = performance.now();
+    const now = performance.now(), rt = now - LIVE_DELAY;
     for (const uid in r.live) {
-      const g = r.live[uid]; if (!g.tg) continue;
-      const age = Math.min(0.6, (now - g.t) / 1000), k = Math.min(1, dt * 9);
-      for (let i = 0; i < 3; i++) g.p[i] += (g.tg[i] + g.v[i] * age - g.p[i]) * k;
-      let dy = g.tg[3] - g.p[3]; while (dy > Math.PI) dy -= 2 * Math.PI; while (dy < -Math.PI) dy += 2 * Math.PI;
-      g.p[3] += dy * k; for (let i = 4; i < 7; i++) g.p[i] += (g.tg[i] - g.p[i]) * k;
-      g.spin += Math.hypot(g.v[0], g.v[2]) * dt * 2.6;
-      DL.poseCar(g.model, g.p[0], g.p[1], g.p[2], g.p[3], g.p[4], g.p[5], g.p[6], g.spin, g.tg[7] > 0.5);
-      const dd = Math.hypot(g.p[0] - camera.position.x, g.p[1] + 1.5 - camera.position.y, g.p[2] - camera.position.z);
+      const g = r.live[uid], B = g.buf; if (!B.length) { g.model.visible = false; continue; }
+      while (B.length > 3 && B[1].ts < rt - 600) B.shift();
+      let i = 0; while (i < B.length - 1 && B[i + 1].ts <= rt) i++;
+      let p;
+      const A = B[i], C = B[i + 1];
+      if (C && rt >= A.ts) {
+        const k = clamp01((rt - A.ts) / Math.max(1, C.ts - A.ts)); p = A.p.slice();
+        for (let j = 0; j < 3; j++) p[j] = A.p[j] + (C.p[j] - A.p[j]) * k;
+        let dy = C.p[3] - A.p[3]; while (dy > Math.PI) dy -= 2 * Math.PI; while (dy < -Math.PI) dy += 2 * Math.PI; p[3] = A.p[3] + dy * k;
+        for (let j = 4; j < 7; j++) p[j] = A.p[j] + (C.p[j] - A.p[j]) * k;
+        p[7] = C.p[7];
+      } else if (!C && B.length > 1 && rt > A.ts) {
+        // past the newest sample: keep gliding on the last velocity for a moment
+        const P = B[B.length - 2], dtm = Math.max(1, A.ts - P.ts), e = Math.min(250, rt - A.ts); p = A.p.slice();
+        for (let j = 0; j < 3; j++) p[j] = A.p[j] + (A.p[j] - P.p[j]) / dtm * e;
+      } else p = A.p.slice();
+      const sp = g.prev ? Math.hypot(p[0] - g.prev[0], p[2] - g.prev[2]) : 0; g.prev = p;
+      g.spin += sp * 2.6; g.model.visible = true;
+      DL.poseCar(g.model, p[0], p[1], p[2], p[3], p[4], p[5], p[6], g.spin, p[7] > 0.5);
+      const dd = Math.hypot(p[0] - camera.position.x, p[1] + 1.5 - camera.position.y, p[2] - camera.position.z);
       g.label.material.opacity = DL.clamp((dd - 6) / 8, 0, 0.9);
     }
   }
+  const clamp01 = v => v < 0 ? 0 : v > 1 ? 1 : v;
 
   Game.input = input;
 })(window.DL);
