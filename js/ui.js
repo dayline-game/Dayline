@@ -640,9 +640,15 @@
     };
     const list = h('<div class="designs"></div>');
     s.designs.forEach((d, i) => {
-      const r = h(`<div class="design-row"><div></div><div><div class="nm" style="font-family:var(--f-display);font-weight:800;font-size:19px;text-transform:uppercase;color:var(--navy)">${esc(d.name)}</div><div class="hint">Works on every car</div></div><div style="display:flex;gap:5px"><button class="btn btn-navy btn-sm">Apply</button><button class="btn btn-line btn-sm" aria-label="Delete design">✕</button></div></div>`);
+      const r = h(`<div class="design-row"><div></div><div><div class="nm" style="font-family:var(--f-display);font-weight:800;font-size:19px;text-transform:uppercase;color:var(--navy)">${esc(d.name)}</div><div class="hint">Works on every car</div></div><div style="display:flex;gap:5px"><button class="btn btn-navy btn-sm">Apply</button><button class="btn btn-line btn-sm" data-k="share">Share</button><button class="btn btn-line btn-sm" aria-label="Delete design">✕</button></div></div>`);
       r.firstElementChild.appendChild(liveryThumb(d.l, d.b));
-      const [ap, del] = r.querySelectorAll('button');
+      const [ap, shr, del] = r.querySelectorAll('button');
+      shr.onclick = async () => {
+        if (Net.mode !== 'online') { toast('Sign in to share liveries'); return; }
+        shr.disabled = true; const res = await Net.shareLivery({ name: d.name, car: s.car, l: d.l, b: d.b }); shr.disabled = false;
+        if (!res.ok) { toast(esc(res.error || 'Could not share')); return; }
+        const u = DL.Share.base() + '?l=' + res.id; try { await navigator.clipboard.writeText(u); toast('<b>Link copied</b>. Anyone can add this paint'); } catch (e) { window.prompt('Copy this link', u); }
+      };
       ap.onclick = () => { s.paint[s.car] = { l: d.l, b: d.b }; Net.persist(); Net.pushProfile(); Game.refreshPlayerCar(); ed = null; toast('<b>Livery applied</b>'); };
       del.onclick = () => { if (del.dataset.c) { s.designs.splice(i, 1); Net.persist(); renderGarage(); } else { del.dataset.c = 1; del.textContent = 'Delete?'; } };
       list.appendChild(r);
@@ -761,11 +767,11 @@
   async function renderBoard() {
     board.day = board.day || today();
     [...$('bTabs').children].forEach(t => t.classList.toggle('on', t.dataset.tab === board.tab));
-    $('bTools').hidden = board.tab === 'all';
+    $('bTools').hidden = board.tab === 'all' || board.tab === 'weekly';
     $('bDay').textContent = (board.day === today() ? 'Today · ' : '') + DL.prettyDay(board.day) + ' · No. ' + DL.dayNumber(board.day);
     $('bSub').textContent = board.tab === 'all' ? 'Tracks finished across every daily' : DL.biomeOf(board.day).name;
     $('bRaceGhosts').textContent = board.day === today() ? 'Race today’s track' : 'Race this archive track';
-    $('bRaceGhosts').hidden = board.tab === 'all';
+    $('bRaceGhosts').hidden = board.tab === 'all' || board.tab === 'weekly';
     renderNet();
     const tbl = $('bTable');
     const selN = Object.keys(board.sel[board.day] || {}).length;
@@ -793,10 +799,25 @@
         tbl.appendChild(t);
         return;
       }
+      if (board.tab === 'weekly') {
+        const w = await Net.boardWeekly(); if (board.token !== tok) return;
+        $('bSub').textContent = 'Weekly cup · ' + DL.prettyDay(w.start) + ' to ' + DL.prettyDay(w.end);
+        $('bDay').textContent = w.daysLeft ? w.daysLeft + ' day' + (w.daysLeft > 1 ? 's' : '') + ' left' : 'Final day';
+        $('bInfo').textContent = 'Top 10 each day score ' + w.pts.join(', ');
+        $('bTools').hidden = false; document.querySelector('.daypick').style.visibility = 'hidden';
+        const names = await Net.names(w.rows.map(r => r.uid)); if (board.token !== tok) return;
+        if (!w.rows.length) { tbl.innerHTML = '<div class="empty"><h3>The cup has not started</h3><p>Finish today’s daily to take the first points.</p></div>'; return; }
+        tbl.innerHTML = '';
+        const t = h(`<table><thead><tr><th>#</th><th>Driver</th><th>Points</th><th class="hide-sm">Days scored</th></tr></thead><tbody></tbody></table>`);
+        w.rows.forEach((r, i) => { const tr = h(`<tr class="${r.uid === Net.uid ? 'me' : ''}"><td class="rk">${i + 1}</td><td></td><td class="tm">${r.score}</td><td class="hide-sm num">${r.rankedDays}</td></tr>`); tr.children[1].appendChild(whoCell(r, names)); t.tBodies[0].appendChild(tr); });
+        tbl.appendChild(t); return;
+      }
+      document.querySelector('.daypick').style.visibility = '';
       const tr = trackFor(board.day);
-      let rows = (await Net.boardDaily(board.day)).filter(r => r.time >= tr.minTime);
+      let rows = board.tab === 'friends' && Net.mode === 'online' && Net.api ? await Net.boardFriends(board.day) : (await Net.boardDaily(board.day));
+      rows = rows.filter(r => r.time >= tr.minTime);
       if (board.token !== tok) return;
-      if (board.tab === 'friends') { const fr = Net.save.friends || []; rows = rows.filter(r => r.uid === Net.uid || fr.includes(r.uid)); }
+      if (board.tab === 'friends' && !(Net.mode === 'online' && Net.api)) { const fr = Net.save.friends || []; rows = rows.filter(r => r.uid === Net.uid || fr.includes(r.uid)); }
       const names = await Net.names(rows.map(r => r.uid));
       if (board.token !== tok) return;
       if (!rows.length) {
@@ -1036,9 +1057,15 @@
       <div class="toggle-row"><label for="sUnits">Speed units</label><select id="sUnits"><option value="kmh">km/h</option><option value="mph">mph</option></select></div>
       <div class="toggle-row"><label for="sTouch">Touch controls</label><select id="sTouch"><option value="auto">Automatic</option><option value="on">Always</option><option value="off">Never</option></select></div>
       <div id="acctBox"></div>
+      <div class="field" id="invBox"></div>
       <p class="hint">${esc(Net.status)}. Gamepads work too: right trigger accelerates, left trigger brakes, X or RB handbrake, Y recovers.</p>
       <button class="btn btn-navy" id="sDone">${fromPause === true ? 'Back to pause' : 'Done'}</button>`);
     renderAccount(m.querySelector('#acctBox'));
+    if (Net.mode === 'online' && Net.uid) {
+      const ib = m.querySelector('#invBox'); ib.innerHTML = `<span class="lbl">Invite friends</span><p class="hint">You both get coins: ${REF_WELCOME} for them, ${REF_BONUS} for you once they set a time.</p><button class="btn btn-line btn-sm" id="invCopy">Copy invite link</button> <span class="hint" id="invStat"></span>`;
+      ib.querySelector('#invCopy').onclick = async () => { const u = UI.inviteLink(); try { await navigator.clipboard.writeText(u); toast('<b>Invite link copied</b>'); } catch (e) { window.prompt('Copy this link', u); } };
+      Net.referral().then(r => { if (r && ib.isConnected) ib.querySelector('#invStat').textContent = r.total ? r.total + ' friend' + (r.total > 1 ? 's' : '') + ' joined' : ''; });
+    }
     m.querySelector('#sCam').value = s.cam; m.querySelector('#sUnits').value = s.units; m.querySelector('#sTouch').value = s.touch;
     m.querySelector('#sVol').oninput = e => { s.vol = +e.target.value; Game.applySettings(); };
     const tog = (id, k, after) => { const b = m.querySelector(id); b.onclick = () => { s[k] = !s[k]; b.classList.toggle('on', s[k]); b.textContent = s[k] ? 'On' : 'Off'; Game.applySettings(); if (after) after(); }; };
@@ -1094,8 +1121,39 @@
         if (lastCar && k !== lastCar && screen !== 'hud') { Game.refreshPlayerCar(); if (screen === 'menu') renderMenu(); }
         lastCar = k;
       });
-      Net.connect().then(() => { if (screen === 'menu') renderMenu(); const tl = new URLSearchParams(location.search).get('t'); if (tl && UI.openTrackLink) { UI.openTrackLink(tl); history.replaceState(null, '', location.pathname); } });
+      Net.connect().then(() => { if (screen === 'menu') renderMenu(); const tl = new URLSearchParams(location.search).get('t'); if (tl && UI.openTrackLink) { UI.openTrackLink(tl); history.replaceState(null, '', location.pathname); } UI.afterConnect(); });
     }, 30);
   }
+  // ---------------- invites + shared liveries ----------------
+  const REF_BONUS = 150, REF_WELCOME = 100;
+  UI.afterConnect = async function () {
+    const q = new URLSearchParams(location.search);
+    const ref = q.get('ref'), lv = q.get('l');
+    if (ref) { DL.store.set('pendingRef', ref); }
+    if (ref || lv) history.replaceState(null, '', location.pathname);
+    if (lv) {
+      const L = await Net.getLivery(lv);
+      if (!L) toast('That livery link is no longer valid');
+      else {
+        const m = modal(`<div class="lbl">Shared livery</div><h2></h2><div id="lvThumb" style="display:flex;justify-content:center;padding:6px 0"></div><p class="hint">Made by ${esc(L.by || 'a driver')}. Save it to your designs, or put it on your car now.</p><div class="btn-row"><button class="btn btn-go" id="lvApply">Wear it</button><button class="btn btn-line" id="lvSave">Save to designs</button><button class="btn btn-line" id="lvNo">Close</button></div>`);
+        m.querySelector('h2').textContent = L.name;
+        try { m.querySelector('#lvThumb').appendChild(liveryThumb(L.l, L.b)); } catch (e) { }
+        const sv = Net.save;
+        m.querySelector('#lvApply').onclick = () => { sv.paint[sv.car] = { l: L.l, b: L.b }; Net.persist(); Net.pushProfile(); Game.refreshPlayerCar(); closeModal(); toast('<b>Livery applied</b>'); };
+        m.querySelector('#lvSave').onclick = () => { if (sv.designs.length >= 10) { toast('Delete a design first, 10 is the limit'); return; } sv.designs.push({ name: L.name.slice(0, 24), l: L.l, b: L.b }); Net.persist(); closeModal(); toast('<b>Saved to your designs</b>'); };
+        m.querySelector('#lvNo').onclick = closeModal;
+      }
+    }
+    if (Net.mode !== 'online') return;
+    const pend = DL.store.get('pendingRef', null);
+    if (pend) {
+      DL.store.set('pendingRef', null);
+      const r = await Net.redeemInvite(pend);
+      if (r.ok) { Net.save.coins += REF_WELCOME; Net.persist(); toast(`<b>Invite accepted</b>. +${REF_WELCOME} coins`); }
+    }
+    const n = await Net.claimInvites();
+    if (n > 0) { Net.save.coins += n * REF_BONUS; Net.persist(); if (screen === 'menu') renderMenu(); toast(`<b>${n} friend${n > 1 ? 's' : ''} joined</b>. +${n * REF_BONUS} coins`); }
+  };
+  UI.inviteLink = () => DL.Share.base() + '?ref=' + Net.uid;
   boot();
 })(window.DL);

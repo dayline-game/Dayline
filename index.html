@@ -328,6 +328,7 @@ input[type=range]{width:100%;accent-color:var(--coral);}
 .cm-grid{flex:1;overflow:auto;padding:14px 16px 18px;display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:12px;align-content:start;min-height:0;}
 .cm-card{display:flex;flex-direction:column;text-align:left;border:1.5px solid var(--line);border-radius:12px;overflow:hidden;background:rgba(255,255,255,.4);transition:transform .14s,box-shadow .14s,border-color .14s;}
 .cm-card:hover{transform:translateY(-3px);box-shadow:0 16px 26px -18px rgba(17,21,29,.7);border-color:var(--navy);}
+.cm-cotw{background:linear-gradient(90deg,rgba(217,164,65,.22),rgba(255,255,255,.4));border-color:var(--gold);flex-direction:row;} #cmLike.on{border-color:var(--coral);color:var(--coral);}
 .cm-card.on{border-color:var(--coral);box-shadow:0 0 0 2px var(--coral);}
 .cm-card canvas,.cm-card img.th{display:block;width:100%;aspect-ratio:16/10;background:#cdd6de;}
 .cm-card .bd{padding:9px 11px 11px;display:flex;flex-direction:column;gap:3px;min-width:0;}
@@ -495,7 +496,7 @@ body.cb .sp.up em::before{content:'▼ ';} body.cb .sp.down em::before{content:'
   <div class="panel sheet">
     <div class="side-head"><div><div class="lbl" id="bSub">Daily board</div><h2>Leaderboard</h2></div></div>
     <div class="tabs" id="bTabs">
-      <button class="tab on" data-tab="daily">Daily</button><button class="tab" data-tab="friends">Friends</button><button class="tab" data-tab="all">All-time</button>
+      <button class="tab on" data-tab="daily">Daily</button><button class="tab" data-tab="friends">Friends</button><button class="tab" data-tab="weekly">Weekly cup</button><button class="tab" data-tab="all">All-time</button>
     </div>
     <div class="board-tools" id="bTools">
       <div class="daypick"><button class="btn btn-line btn-sm" id="bPrev" aria-label="Previous day">‹</button><span id="bDay" class="num">—</span><button class="btn btn-line btn-sm" id="bNext" aria-label="Next day">›</button></div>
@@ -520,7 +521,7 @@ body.cb .sp.up em::before{content:'▼ ';} body.cb .sp.down em::before{content:'
   <button class="btn btn-line btn-sm backbtn" data-back style="background:var(--cream)">← Menu</button>
   <div class="panel cm-main">
     <div class="side-head"><div><div class="lbl">Tracks made by drivers</div><h2>Community</h2></div><button class="btn btn-coral" id="cmCreate">+ Create a track</button></div>
-    <div class="tabs" id="cmTabs"><button class="tab on" data-tab="new">New</button><button class="tab" data-tab="top">Popular</button><button class="tab" data-tab="short">Shortest</button><button class="tab" data-tab="mine">Mine</button></div>
+    <div class="tabs" id="cmTabs"><button class="tab on" data-tab="new">New</button><button class="tab" data-tab="trending">Trending</button><button class="tab" data-tab="liked">Most liked</button><button class="tab" data-tab="top">Most played</button><button class="tab" data-tab="short">Shortest</button><button class="tab" data-tab="mine">Mine</button></div>
     <div class="cm-grid" id="cmGrid"></div>
   </div>
   <aside class="panel cm-side" id="cmSide" hidden></aside>
@@ -605,14 +606,14 @@ body.cb .sp.up em::before{content:'▼ ';} body.cb .sp.down em::before{content:'
 <div id="toasts"></div>
 
 <script src="https://cdn.jsdelivr.net/npm/three@0.158.0/build/three.min.js"></script>
-<script src="config.js?v=20261109o"></script>
-<script src="js/core.js?v=20261109o"></script>
-<script src="js/track.js?v=20261109o"></script>
-<script src="js/physics.js?v=20261109o"></script>
-<script src="js/vehicles.js?v=20261109o"></script>
-<script src="js/net.js?v=20261109o"></script>
-<script src="js/auth.js?v=20261109o"></script>
-<script src="js/game.js?v=20261109o"></script>
-<script src="js/ui.js?v=20261109o"></script>
-<script src="js/community.js?v=20261109o"></script>
-<script src="js/share.js?v=20261109o"></script>
+<script src="config.js?v=20261109r"></script>
+<script src="js/core.js?v=20261109r"></script>
+<script src="js/track.js?v=20261109r"></script>
+<script src="js/physics.js?v=20261109r"></script>
+<script src="js/vehicles.js?v=20261109r"></script>
+<script src="js/net.js?v=20261109r"></script>
+<script src="js/auth.js?v=20261109r"></script>
+<script src="js/game.js?v=20261109r"></script>
+<script src="js/ui.js?v=20261109r"></script>
+<script src="js/community.js?v=20261109r"></script>
+<script src="js/share.js?v=20261109r"></script>

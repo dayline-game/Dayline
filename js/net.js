@@ -377,6 +377,28 @@
       return res;
     },
 
+    // ---------- social: likes, creator of the week, friends board, weekly cup, referrals, shared liveries ----------
+    async ctLike(id) {
+      const r = await this._fetch('POST', '/api/ctrack/' + id + '/like'); this._cc = null;
+      if (!r.j.ok) return { ok: false, error: r.j.error || 'Could not like that' };
+      const set = this._likes || (this._likes = new Set()); r.j.liked ? set.add(id) : set.delete(id);
+      return r.j;
+    },
+    async myLikes() {
+      if (this._likes) return this._likes;
+      if (!this.api || this.mode !== 'online') return new Set();
+      try { const r = await this._fetch('GET', '/api/likes'); this._likes = new Set(r.j.ok ? r.j.ids : []); } catch (e) { this._likes = new Set(); }
+      return this._likes;
+    },
+    async cotw() { if (!this.api) return null; try { const r = await this._fetch('GET', '/api/cotw'); return r.j.ok ? r.j : null; } catch (e) { return null; } },
+    async boardFriends(day) { if (!this.api || this.mode !== 'online') return []; const r = await this._fetch('GET', '/api/board/friends?day=' + day); if (!r.j.ok) throw new Error('board'); return r.j.rows; },
+    async boardWeekly() { if (!this.api) return null; const r = await this._fetch('GET', '/api/board/weekly'); if (!r.j.ok) throw new Error('board'); return r.j; },
+    async referral() { if (!this.api || this.mode !== 'online') return null; try { const r = await this._fetch('GET', '/api/referral'); return r.j.ok ? r.j : null; } catch (e) { return null; } },
+    async redeemInvite(code) { try { const r = await this._fetch('POST', '/api/referral/redeem', { code }); return r.j; } catch (e) { return { ok: false, error: 'Could not reach the server' }; } },
+    async claimInvites() { try { const r = await this._fetch('POST', '/api/referral/claim'); return r.j.ok ? r.j.count : 0; } catch (e) { return 0; } },
+    async shareLivery(p) { try { const r = await this._fetch('POST', '/api/livery', p); return r.j; } catch (e) { return { ok: false, error: 'Could not reach the server' }; } },
+    async getLivery(id) { if (!this.api) return null; try { const r = await this._fetch('GET', '/api/livery/' + encodeURIComponent(id)); return r.j.ok ? r.j.livery : null; } catch (e) { return null; } },
+
     // ---------- community tracks ----------
     async ctList(sort) {
       if (!this.api) return null;

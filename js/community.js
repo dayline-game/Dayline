@@ -76,6 +76,17 @@
     dr.forEach(d => grid.appendChild(draftCard(d)));
     if (!rows.length && !dr.length) grid.innerHTML = `<div class="empty" style="grid-column:1/-1"><h3>${mine ? 'You have not published a track yet' : 'No tracks yet'}</h3><p>Be the first. Build one in the editor, finish it once, then publish it.</p><button class="btn btn-coral" id="cmEmpty">+ Create a track</button></div>`;
     const eb = $('cmEmpty'); if (eb) eb.onclick = () => UI.openEditor(null);
+    if (rows.length && (cm.tab === 'new' || cm.tab === 'trending')) {
+      const w = await Net.cotw(); if (cm.token !== tok) return;
+      if (w && w.track) {
+        const b = h(`<button class="cm-card cm-cotw" style="grid-column:1/-1"><div class="bd"><div class="lbl">Creator of the week</div><b class="nm"></b><div class="mt"></div></div></button>`);
+        const c = w.creator, t = w.track; reg(t);
+        b.querySelector('.nm').textContent = (c && c.tag ? c.tag : 'A driver') + ' · ' + t.name;
+        b.querySelector('.mt').innerHTML = `<span>♥ ${t.likes}</span><span>${t.n} driver${t.n === 1 ? '' : 's'}</span>` + (c ? `<span>${c.tracks} track${c.tracks === 1 ? '' : 's'}</span>` : '');
+        b.onclick = () => selectTrack(t);
+        grid.appendChild(b);
+      }
+    }
     rows.forEach(r => grid.appendChild(card(r)));
     const want = cm.focus || (cm.sel && cm.sel.id); cm.focus = null;
     const hit = want && (rows.find(r => r.id === want) || (cm.link && cm.link.id === want ? cm.link : null));
@@ -87,7 +98,7 @@
     el.insertBefore(thumbImg(r, 320, 200), el.firstChild);
     el.querySelector('.nm').textContent = r.name;
     const best = Net.save.best[r.id], by = r.by && r.by.uid === Net.uid ? 'You' : ((r.by && r.by.tag) || 'Driver');
-    el.querySelector('.mt').innerHTML = `<span>${esc((DL.BIOMES[r.biome] || {}).name || r.biome)}</span><span>${fmtLen(r.length)}</span><span>${r.n} driver${r.n === 1 ? '' : 's'}</span><span>by ${esc(by)}</span>` + (best ? `<span class="pb">PB ${DL.fmtTime(best).slice(1, 9)}</span>` : '');
+    el.querySelector('.mt').innerHTML = `<span>${esc((DL.BIOMES[r.biome] || {}).name || r.biome)}</span><span>${fmtLen(r.length)}</span><span>${r.n} driver${r.n === 1 ? '' : 's'}</span>${r.likes ? `<span>♥ ${r.likes}</span>` : ''}<span>by ${esc(by)}</span>` + (best ? `<span class="pb">PB ${DL.fmtTime(best).slice(1, 9)}</span>` : '');
     el.onclick = () => selectTrack(r);
     if (cm.sel && cm.sel.id === r.id) el.classList.add('on');
     return el;
@@ -119,7 +130,7 @@
     side.innerHTML = `<button class="icon-btn cm-x" id="cmClose" aria-label="Close"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
       <div class="hd"><div class="lbl">Track by ${esc(by)}</div><h3></h3>
       <div class="chips"><span class="tag">${esc((DL.BIOMES[r.biome] || {}).name || r.biome)}</span><span class="tag">${fmtLen(r.length)}</span><span class="tag" id="cmN">${r.n} driver${r.n === 1 ? '' : 's'}</span></div></div>
-      <div class="acts"><button class="btn btn-go" id="cmPlay">Play <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M7 4l12 8-12 8z"/></svg></button><button class="btn btn-line btn-sm" id="cmLink">Copy link</button>${mineT ? '<button class="btn btn-line btn-sm" id="cmDel">Delete</button>' : ''}</div>
+      <div class="acts"><button class="btn btn-go" id="cmPlay">Play <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M7 4l12 8-12 8z"/></svg></button><button class="btn btn-line btn-sm" id="cmLink">Copy link</button>${mineT || !Net.api ? '' : '<button class="btn btn-line btn-sm" id="cmLike">♡ Like</button>'}${mineT ? '<button class="btn btn-line btn-sm" id="cmDel">Delete</button>' : ''}</div>
       <div class="lbl" style="padding:2px 16px 6px;display:flex;justify-content:space-between"><span>Fastest times</span><span id="cmSel"></span></div>
       <div class="tl" id="cmTimes"><div class="empty"><p>Loading times…</p></div></div>`;
     side.insertBefore(thumbImg(r, 480, 300, 'th-big'), side.firstChild);
@@ -130,6 +141,18 @@
     upd();
     $('cmPlay').onclick = async () => { const c = await ensureExt(r.id); X.startRace(r.id, Object.values(sel), c, { leave: 'community' }); };
     $('cmLink').onclick = async () => { const u = DL.Share ? DL.Share.trackLink(r.id) : location.href; try { await navigator.clipboard.writeText(u); toast('<b>Link copied</b>. Anyone can race this track'); } catch (e) { window.prompt('Copy this link', u); } };
+    const lk = $('cmLike');
+    if (lk) {
+      const paint = (liked, n) => { lk.textContent = (liked ? '♥ Liked' : '♡ Like') + (n ? ' · ' + n : ''); lk.classList.toggle('on', liked); };
+      paint(false, r.likes || 0);
+      Net.myLikes().then(set => { if (cm.sel && cm.sel.id === r.id) paint(set.has(r.id), r.likes || 0); });
+      lk.onclick = async () => {
+        if (Net.mode !== 'online') { toast('Sign in to like tracks'); return; }
+        lk.disabled = true; const res = await Net.ctLike(r.id); lk.disabled = false;
+        if (!res.ok) { toast(res.error); return; }
+        r.likes = res.likes; paint(res.liked, res.likes);
+      };
+    }
     const db = $('cmDel');
     if (db) db.onclick = async () => {
       if (!db.dataset.sure) { db.dataset.sure = 1; db.textContent = 'Tap again to delete'; setTimeout(() => { db.dataset.sure = ''; db.textContent = 'Delete'; }, 3000); return; }
