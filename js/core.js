@@ -241,6 +241,10 @@ window.DL = window.DL || {};
       const gear = Math.min(5, Math.floor(Math.abs(speed) / 11));
       const rpm = 0.25 + (Math.abs(speed) - gear * 11) / 11 * 0.6 + gear * 0.03 + throttle * 0.1;
       const fq = 55 + rpm * 130;
+      // gear change: brief power dip; throttle lift at speed: exhaust pops
+      if (e.gear != null && gear !== e.gear && speed > 5) { e.g.gain.cancelScheduledValues(t); e.g.gain.setValueAtTime(0.01, t); this.pop(0.05, 900); }
+      if (e.thr > 0.6 && throttle < 0.2 && Math.abs(speed) > 22 && t - (e.popT || 0) > 0.5) { e.popT = t; const n = 2 + (Math.random() * 3 | 0); for (let i = 0; i < n; i++) setTimeout(() => this.pop(0.07 + Math.random() * 0.05, 500 + Math.random() * 500), i * (60 + Math.random() * 70)); }
+      e.gear = gear; e.thr = throttle;
       e.o1.frequency.setTargetAtTime(fq, t, 0.05); e.o2.frequency.setTargetAtTime(fq, t, 0.05);
       e.f.frequency.setTargetAtTime(400 + throttle * 1400 + rpm * 600, t, 0.08);
       e.g.gain.setTargetAtTime(0.05 + throttle * 0.07, t, 0.08);
@@ -267,6 +271,13 @@ window.DL = window.DL || {};
       g.gain.setValueAtTime(Math.min(0.6, v), ctx.currentTime);
       g.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.25);
       s.connect(f); f.connect(g); g.connect(this.master); s.start(); s.stop(ctx.currentTime + 0.3);
+    },
+    pop(v, fq) {
+      if (!this.ctx) return;
+      const ctx = this.ctx, s = ctx.createBufferSource(), f = ctx.createBiquadFilter(), g = ctx.createGain();
+      s.buffer = this.noise; f.type = 'bandpass'; f.frequency.value = fq || 700; f.Q.value = 1.2;
+      g.gain.setValueAtTime(v, ctx.currentTime); g.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.09);
+      s.connect(f); f.connect(g); g.connect(this.master); s.start(ctx.currentTime, Math.random()); s.stop(ctx.currentTime + 0.1);
     },
     click() { this.beep(660, 0.06, 'square', 0.05); },
     chime() { [523, 659, 784, 1047].forEach((f, i) => setTimeout(() => this.beep(f, 0.35, 'triangle', 0.16), i * 110)); },
