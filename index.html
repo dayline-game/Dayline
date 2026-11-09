@@ -398,6 +398,10 @@ input[type=range]{width:100%;accent-color:var(--coral);}
 .kspd small{font-size:12px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;}
 .knote{font-size:10.5px;color:var(--navy);opacity:.7;font-weight:600;text-shadow:0 1px 0 rgba(243,234,215,.8);}
 @media (max-width:760px){.rp-keys{bottom:calc(128px + env(safe-area-inset-bottom,0px));} .kgrid{grid-template-columns:repeat(3,38px);grid-template-rows:repeat(2,38px);} .kgrid b{font-size:20px;} .menu-more button{font-size:12px;}}
+/* colour-blind safe: blue = faster, orange = slower, plus arrows */
+body.cb{--good:#1f6fb5;--bad:#d9822b;}
+body.cb .sp.up{background:rgba(31,111,181,.14);border-color:rgba(31,111,181,.5);} body.cb .sp.down{background:rgba(217,130,43,.12);border-color:rgba(217,130,43,.5);}
+body.cb .sp.up em::before{content:'▼ ';} body.cb .sp.down em::before{content:'▲ ';}
 /* finish: sector splits + calmer result list */
 .splits-wrap{display:flex;flex-direction:column;gap:6px;}
 .splits{display:grid;gap:4px;}
@@ -600,14 +604,14 @@ input[type=range]{width:100%;accent-color:var(--coral);}
 <div id="toasts"></div>
 
 <script src="https://cdn.jsdelivr.net/npm/three@0.158.0/build/three.min.js"></script>
-<script src="config.js?v=20261109l"></script>
-<script src="js/core.js?v=20261109l"></script>
-<script src="js/track.js?v=20261109l"></script>
-<script src="js/physics.js?v=20261109l"></script>
-<script src="js/vehicles.js?v=20261109l"></script>
-<script src="js/net.js?v=20261109l"></script>
-<script src="js/auth.js?v=20261109l"></script>
-<script src="js/game.js?v=20261109l"></script>
-<script src="js/ui.js?v=20261109l"></script>
-<script src="js/community.js?v=20261109l"></script>
-<script src="js/share.js?v=20261109l"></script>
+<script src="config.js?v=20261109m"></script>
+<script src="js/core.js?v=20261109m"></script>
+<script src="js/track.js?v=20261109m"></script>
+<script src="js/physics.js?v=20261109m"></script>
+<script src="js/vehicles.js?v=20261109m"></script>
+<script src="js/net.js?v=20261109m"></script>
+<script src="js/auth.js?v=20261109m"></script>
+<script src="js/game.js?v=20261109m"></script>
+<script src="js/ui.js?v=20261109m"></script>
+<script src="js/community.js?v=20261109m"></script>
+<script src="js/share.js?v=20261109m"></script>

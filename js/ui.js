@@ -1029,6 +1029,8 @@
       <div class="field"><label class="lbl" for="sVol">Volume</label><input type="range" id="sVol" min="0" max="1" step="0.05" value="${s.vol}"></div>
       <div class="toggle-row"><span>Shadows</span><button class="chk ${s.shadows ? 'on' : ''}" id="sSh">${s.shadows ? 'On' : 'Off'}</button></div>
       <div class="toggle-row"><span>High quality (sharper, denser scenery)</span><button class="chk ${s.hq ? 'on' : ''}" id="sHq">${s.hq ? 'On' : 'Off'}</button></div>
+      <div class="field"><label class="lbl" for="sShake">Camera shake</label><input type="range" id="sShake" min="0" max="1" step="0.1" value="${s.shake}"></div>
+      <div class="toggle-row"><span>Colour-blind friendly splits</span><button class="chk ${s.cb ? 'on' : ''}" id="sCb">${s.cb ? 'On' : 'Off'}</button></div>
       <div class="toggle-row"><span>Race your best automatically</span><button class="chk ${s.pbGhost ? 'on' : ''}" id="sPb">${s.pbGhost ? 'On' : 'Off'}</button></div>
       <div class="toggle-row"><label for="sCam">Default camera</label><select id="sCam"><option value="0">Chase</option><option value="1">Far chase</option><option value="2">Bonnet</option><option value="3">Low rally</option><option value="4">Drone</option></select></div>
       <div class="toggle-row"><label for="sUnits">Speed units</label><select id="sUnits"><option value="kmh">km/h</option><option value="mph">mph</option></select></div>
@@ -1040,7 +1042,8 @@
     m.querySelector('#sCam').value = s.cam; m.querySelector('#sUnits').value = s.units; m.querySelector('#sTouch').value = s.touch;
     m.querySelector('#sVol').oninput = e => { s.vol = +e.target.value; Game.applySettings(); };
     const tog = (id, k, after) => { const b = m.querySelector(id); b.onclick = () => { s[k] = !s[k]; b.classList.toggle('on', s[k]); b.textContent = s[k] ? 'On' : 'Off'; Game.applySettings(); if (after) after(); }; };
-    tog('#sSh', 'shadows'); tog('#sPb', 'pbGhost');
+    m.querySelector('#sShake').oninput = e => { s.shake = +e.target.value; Game.applySettings(); };
+    tog('#sCb', 'cb'); tog('#sSh', 'shadows'); tog('#sPb', 'pbGhost');
     tog('#sHq', 'hq', () => toast('Scenery density changes on the next track load'));
     m.querySelector('#sCam').onchange = e => { s.cam = +e.target.value; Game.applySettings(); };
     m.querySelector('#sUnits').onchange = e => { s.units = e.target.value; Game.applySettings(); $('hUnit').textContent = s.units === 'mph' ? 'mph' : 'km/h'; };

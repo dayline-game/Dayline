@@ -9,7 +9,7 @@
   const orbit = { theta: 2.4, phi: 0.3, dist: 9, auto: true, drag: null };
   let mode = 'loading';
   let race = null, menuT = 0;
-  const settings = Game.settings = Object.assign({ vol: 0.6, shadows: true, hq: true, cam: 0, units: 'kmh', touch: 'auto', pbGhost: true }, DL.store.get('settings', {}));
+  const settings = Game.settings = Object.assign({ vol: 0.6, shadows: true, hq: true, cam: 0, units: 'kmh', touch: 'auto', pbGhost: true, shake: 1, cb: false }, DL.store.get('settings', {}));
   const keys = {};
   const touch = { left: 0, right: 0, gas: 0, brake: 0, drift: 0 };
   const input = { throttle: 0, brake: 0, steer: 0, handbrake: false };
@@ -56,6 +56,7 @@
     sun.castShadow = !!settings.shadows;
     scene.traverse(o => { if (o.material) o.material.needsUpdate = true; });
     DL.Audio.setVolume(settings.vol);
+    document.body.classList.toggle('cb', !!settings.cb);
     DL.store.set('settings', settings);
     resize();
   };
@@ -497,8 +498,8 @@
     r.steps++;
     const t = r.steps * DT;
     if (r.steps % REC_EVERY === 0) record();
-    if (ev.land) { DL.Audio.thump(ev.land / 25); r.shake = Math.min(1, ev.land / 20); burst(c.x, c.y, c.z, 6, dustColor(), 3); }
-    if (ev.hit) { DL.Audio.thump(ev.hit / 15); r.shake = Math.min(1, ev.hit / 15); }
+    if (ev.land) { DL.Audio.thump(ev.land / 25); r.shake = Math.min(1, ev.land / 20) * settings.shake; burst(c.x, c.y, c.z, 6, dustColor(), 3); }
+    if (ev.hit) { DL.Audio.thump(ev.hit / 15); r.shake = Math.min(1, ev.hit / 15) * settings.shake; }
     if (ev.air) r.airMax = Math.max(r.airMax, ev.air);
     const res = r.prog.update(px, pz, c.x, c.z, t);
     if (res === 'cp') onCheckpoint(r, t);
