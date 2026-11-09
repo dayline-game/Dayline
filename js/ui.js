@@ -75,6 +75,7 @@
     return (s.lastDay === t || s.lastDay === DL.addDays(t, -1) || (s.lastDay === DL.addDays(t, -2) && s.freezes > 0)) ? s.streak : 0;
   }
   function renderMenu() {
+    if (Net.save && !Net.save.gift24) { Net.save.gift24 = 1; Net.save.coins += 500; Net.persist(); Net.pushProfile(); renderCoins(); setTimeout(() => toast('<b>Coin boost</b>: +500 <span class="coin"></span> and bigger rewards from now on', 5000), 800); }
     const t = trackFor(today()), d = today();
     $('mDayNo').textContent = 'Daily No. ' + DL.dayNumber(d);
     $('mDate').textContent = DL.prettyDay(d);
@@ -805,7 +806,7 @@
       rot.fresh.forEach(it => { const t = shopTile(it); if (!Net.owns(it.cat, it.id)) t.appendChild(h('<span class="badge new">New</span>')); w.lastElementChild.appendChild(t); });
       body.appendChild(w); weekTimer();
     }
-    body.appendChild(h('<p class="is-foot">You earn coins for finishing each daily, personal bests, streaks and achievements. Nothing here changes speed, grip or hitbox.</p>'));
+    body.appendChild(h('<p class="is-foot">You earn coins for finishing each daily, extra laps, personal bests, streaks and achievements. Nothing here changes speed, grip or hitbox.</p>'));
   }
   const SHOW_3D = { cars: 1, spoiler: 1, wheels: 1, bumper: 1, finish: 1, tint: 1 };
   function renderInspect() {
@@ -1290,7 +1291,7 @@
     }, 30);
   }
   // ---------------- invites + shared liveries ----------------
-  const REF_BONUS = 150, REF_WELCOME = 100;
+  const REF_BONUS = 300, REF_WELCOME = 200;
   UI.afterConnect = async function () {
     Net.checkChampion().then(() => { if (Net.hasUfo() && !DL.store.get('ufoSeen:' + Net.save.ufoUntil, 0)) { DL.store.set('ufoSeen:' + Net.save.ufoUntil, 1); toast('<b>Weekly cup champion!</b> The UFO is in your garage until ' + DL.prettyDay(Net.save.ufoUntil)); } });
     const q = new URLSearchParams(location.search);

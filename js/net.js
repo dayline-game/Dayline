@@ -26,7 +26,7 @@
   function defaultSave() {
     const l = DL.encodeLivery(DL.defaultLivery());
     return {
-      v: 1, coins: 150, car: 'pebble',
+      v: 1, coins: 500, gift24: 1, car: 'pebble',
       owned: { cars: ['pebble'], spoiler: ['none'], wheels: ['std'], bumper: ['std'], exhaust: ['none'], trail: ['none'], finish: ['matte'], plate: ['none'], tint: ['clear'], stickers: ['basic'] },
       equip: { spoiler: 'none', wheels: 'std', bumper: 'std', exhaust: 'none', trail: 'none', finish: 'matte', plate: 'none', tint: 'clear' },
       paint: { pebble: { l, b: DL.DEFAULT_BASE } },
@@ -296,7 +296,7 @@
       const res = { coins: [], ach: [], prevBest: s.best[day] || null, isPB: false, community: true };
       s.runs++;
       const cl = s.claimed[day] || (s.claimed[day] = { done: 0, pb: 0 });
-      if (!cl.done) { cl.done = 1; res.coins.push(['Community finish', 10]); s.coins += 10; }
+      if (!cl.done) { cl.done = 1; res.coins.push(['Community finish', 30]); s.coins += 30; }
       if (!res.prevBest || time < res.prevBest) {
         res.isPB = true; s.best[day] = time;
         DL.store.set('ghost:' + day, ghostEnc);
@@ -328,10 +328,10 @@
       const add = (label, n) => { if (n > 0) { res.coins.push([label, n]); s.coins += n; } };
       s.runs++;
       const cl = s.claimed[day] || (s.claimed[day] = { done: 0, pb: 0 });
-      const archive = day !== today;
+      const archive = day !== today, firstFinish = !cl.done;
       if (!cl.done) {
         cl.done = 1;
-        add(archive ? 'Archive finish' : 'Daily finish', archive ? 12 : 25);
+        add(archive ? 'Archive finish' : 'Daily finish', archive ? 40 : 100);
         if (archive) { s.archiveDone++; if (s.archiveDone >= 5) this.award('archive5', res.ach); }
         else {
           s.days++;
@@ -340,7 +340,7 @@
           else if (s.lastDay === DL.addDays(today, -2) && s.freezes > 0) { s.freezes--; s.streak++; res.notes.push('Streak freeze used. Streak saved'); }
           else if (s.lastDay !== today) s.streak = 1;
           s.lastDay = today; s.bestStreak = Math.max(s.bestStreak, s.streak);
-          add('Streak bonus ×' + s.streak, 5 * Math.min(s.streak, 8));
+          add('Streak bonus ×' + s.streak, 15 * Math.min(s.streak, 10));
           if (s.streak % 7 === 0 && s.freezes < 2) { s.freezes++; res.notes.push('Streak freeze earned (' + s.freezes + '/2)'); }
           if (s.streak >= 3) this.award('streak3', res.ach);
           if (s.streak >= 7) this.award('streak7', res.ach);
@@ -352,9 +352,11 @@
       }
       if (!res.prevBest || time < res.prevBest) {
         res.isPB = true;
-        if (res.prevBest && cl.pb < 4) { cl.pb++; add('Personal best', 8); }
+        if (res.prevBest && cl.pb < 6) { cl.pb++; add('Personal best', 25); }
         s.best[day] = time;
       }
+      // every extra finished lap on today's daily pays a little, up to five a day
+      if (!archive && !firstFinish && (cl.laps || 0) < 5) { cl.laps = (cl.laps || 0) + 1; add('Extra lap ' + cl.laps + '/5', 20); }
       this.award('first', res.ach);
       if (meta.recoveries === 0) this.award('clean', res.ach);
       if (meta.airMax >= 1.5) this.award('air', res.ach);
