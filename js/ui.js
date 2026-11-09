@@ -391,7 +391,7 @@
       body.appendChild(wrap);
       body.appendChild(h('<p class="hint">Every vehicle shares the same engine, grip and hitbox, so the board only measures driving. Drag the showroom to look around.</p>'));
     } else if (gTab === 'parts') {
-      for (const cat of ['spoiler', 'wheels', 'bumper', 'finish', 'exhaust', 'trail']) {
+      for (const cat of ['spoiler', 'wheels', 'bumper', 'finish', 'tint', 'plate', 'exhaust', 'trail']) {
         body.appendChild(h(`<div class="lbl">${DL.PART_LABELS[cat]}</div>`));
         const row = h('<div class="paint-tools"></div>');
         DL.PARTS[cat].forEach(p => {
@@ -401,6 +401,11 @@
           row.appendChild(b);
         });
         body.appendChild(row);
+        if (cat === 'plate') {
+          const pr = h(`<div class="namerow" style="margin:4px 0 8px"><input type="text" maxlength="7" placeholder="DAYLINE" autocomplete="off" spellcheck="false" value="${esc(s.equip.plateText || '')}" style="text-transform:uppercase;letter-spacing:.12em"><span class="namesaved" style="opacity:.6;font-size:12px">Plate text, 7 max</span></div>`);
+          pr.querySelector('input').addEventListener('change', e => { s.equip.plateText = DL.plateText(e.target.value === '' ? '' : e.target.value); if (!e.target.value) delete s.equip.plateText; Net.persist(); Net.pushProfile(); Game.refreshPlayerCar(); });
+          body.appendChild(pr);
+        }
       }
       body.appendChild(h('<p class="hint">Exhaust smoke and trails show while you race. Locked parts are in the shop.</p>'));
     } else if (gTab === 'paint') {
@@ -682,7 +687,7 @@
 
   // ---------------- shop ----------------
   const shop = { tab: 'cars' };
-  const SHOP_TABS = [['cars', 'Cars'], ['spoiler', 'Spoilers'], ['wheels', 'Wheels'], ['bumper', 'Bumpers'], ['exhaust', 'Exhaust'], ['trail', 'Trails'], ['finish', 'Finish'], ['stickers', 'Stickers']];
+  const SHOP_TABS = [['cars', 'Cars'], ['spoiler', 'Spoilers'], ['wheels', 'Wheels'], ['bumper', 'Bumpers'], ['exhaust', 'Exhaust'], ['trail', 'Trails'], ['finish', 'Finish'], ['tint', 'Tint'], ['plate', 'Plates'], ['stickers', 'Stickers']];
   function renderShop() {
     $('sTabs').innerHTML = SHOP_TABS.map(([k, n]) => `<button class="tab ${shop.tab === k ? 'on' : ''}" data-tab="${k}">${n}</button>`).join('');
     const body = $('sBody'); body.innerHTML = '';

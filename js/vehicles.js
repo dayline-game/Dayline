@@ -51,10 +51,19 @@
     finish: [
       { id: 'matte', name: 'Matte', price: 0 }, { id: 'gloss', name: 'Gloss', price: 100 },
       { id: 'metal', name: 'Metallic', price: 220 }, { id: 'pearl', name: 'Pearl', price: 320 }],
+    plate: [
+      { id: 'none', name: 'No plates', price: 0 }, { id: 'cream', name: 'Cream plates', price: 60 },
+      { id: 'yellow', name: 'Yellow plates', price: 90 }, { id: 'navy', name: 'Navy plates', price: 90 }, { id: 'coral', name: 'Coral plates', price: 120 }],
+    tint: [
+      { id: 'clear', name: 'Clear glass', price: 0 }, { id: 'smoke', name: 'Smoke tint', price: 70 },
+      { id: 'blue', name: 'Blue tint', price: 90 }, { id: 'amber', name: 'Amber tint', price: 90 }, { id: 'rose', name: 'Rose tint', price: 110 }],
     stickers: [
       { id: 'basic', name: 'Basic stamps', price: 0 }, { id: 'speed', name: 'Speed stamps', price: 110 }, { id: 'icons', name: 'Icon stamps', price: 150 }]
   };
-  DL.PART_LABELS = { spoiler: 'Spoilers', wheels: 'Wheels', bumper: 'Bumpers', exhaust: 'Exhaust', trail: 'Trails', finish: 'Paint finish', stickers: 'Sticker packs' };
+  DL.PART_LABELS = { spoiler: 'Spoilers', wheels: 'Wheels', bumper: 'Bumpers', exhaust: 'Exhaust', trail: 'Trails', finish: 'Paint finish', plate: 'Number plates', tint: 'Window tint', stickers: 'Sticker packs' };
+  DL.PLATE_STYLES = { cream: ['#f3ead7', '#1c2536', '#1c2536'], yellow: ['#f2c14e', '#1c2536', '#1c2536'], navy: ['#1c2536', '#f3ead7', '#f05a35'], coral: ['#f05a35', '#f3ead7', '#1c2536'] };
+  DL.TINTS = { smoke: [0x0b0d12, 0.8], blue: [0x24489a, 0.62], amber: [0xb8701c, 0.58], rose: [0xb04a6b, 0.58] };
+  DL.plateText = t => String(t || 'DAYLINE').toUpperCase().replace(/[^A-Z0-9 ]/g, '').slice(0, 7).trim() || 'DAYLINE';
   DL.TRAIL_COLORS = { cream: [0xf4ecdc, 0xf4ecdc], coral: [0xf05a35, 0xf7a072], navy: [0x1f2a3d, 0x4b5b74], sunset: [0xf05a35, 0xf2c14e] };
 
   // ---------- livery helpers ----------
@@ -263,6 +272,16 @@
   }
 
   const shared = {};
+  // number plate material: tiny canvas texture per style and text, shared between cars
+  function plateMat(style, text) {
+    return sharedMat('plate_' + style + '_' + text, () => {
+      const c = document.createElement('canvas'); c.width = 256; c.height = 64; const g = c.getContext('2d'), st = DL.PLATE_STYLES[style];
+      g.fillStyle = st[0]; g.fillRect(0, 0, 256, 64); g.strokeStyle = st[2]; g.lineWidth = 4; g.strokeRect(3, 3, 250, 58);
+      g.fillStyle = st[1]; g.font = '800 44px "Barlow Condensed", sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(text, 128, 35);
+      const tex = new THREE.CanvasTexture(c); if ('colorSpace' in tex) tex.colorSpace = THREE.SRGBColorSpace;
+      return new THREE.MeshBasicMaterial({ map: tex, side: THREE.FrontSide });
+    });
+  }
   function sharedMat(key, make) { return shared[key] || (shared[key] = make()); }
 
   function buildWheel(spec, style) {
@@ -440,7 +459,7 @@
   DL.buildCar = function (opts) {
     const spec = DL.CARS[opts.car] || DL.CARS.pebble;
     if (spec.kind === 'ufo') return buildUfo(opts, spec);
-    const equip = Object.assign({ spoiler: 'none', wheels: 'std', bumper: 'std', finish: 'matte' }, opts.equip || {});
+    const equip = Object.assign({ spoiler: 'none', wheels: 'std', bumper: 'std', finish: 'matte', plate: 'none', tint: 'clear' }, opts.equip || {});
     const root = new THREE.Group();          // follows physics position/yaw
     const body = new THREE.Group();          // pitch/roll
     root.add(body);
@@ -474,7 +493,9 @@
       : sharedMat('glassSolid', () => new THREE.MeshStandardMaterial({ color: 0x232c3b, roughness: 0.15, metalness: 0.4, flatShading: true }));
     const glassMat = opts.ghost ? glassSolid
       : sharedMat('glass18', () => new THREE.MeshStandardMaterial({ color: 0x2b3d58, roughness: 0.08, metalness: 0.45, flatShading: true, transparent: true, opacity: 0.4, depthWrite: false }));
-    const glass = new THREE.Mesh(split.glass, glassMat); glass.castShadow = false; glass.renderOrder = 3; body.add(glass);
+    const tintDef = !opts.ghost && DL.TINTS[equip.tint];
+    const glassUse = tintDef ? sharedMat('tint_' + equip.tint, () => new THREE.MeshStandardMaterial({ color: tintDef[0], roughness: 0.08, metalness: 0.45, flatShading: true, transparent: true, opacity: tintDef[1], depthWrite: false })) : glassMat;
+    const glass = new THREE.Mesh(split.glass, glassUse); glass.castShadow = false; glass.renderOrder = 3; body.add(glass);
     const extraMat = opts.ghost ? glassMat : sharedMat('trim', () => new THREE.MeshLambertMaterial({ color: 0x1f2a3d, flatShading: true }));
     // solid paint for add-on bodywork (wings, bed rails): box UVs would smear the livery texture across them
     const paintMat = opts.ghost ? glassMat : new THREE.MeshStandardMaterial({ color: new THREE.Color(DL.PALETTE[opts.base == null ? DL.DEFAULT_BASE : opts.base]), flatShading: true, roughness: fin.roughness, metalness: fin.metalness });
@@ -564,6 +585,16 @@
         const p = new THREE.Mesh(new THREE.CylinderGeometry(0.13, 0.13, 0.12, 8), headMat);
         p.rotation.x = Math.PI / 2; p.position.set((k - 1.5) * spec.W * 0.2, lightY + 0.06, frontZ + 0.2); body.add(p);
       }
+    }
+
+    if (!opts.ghost && DL.PLATE_STYLES[equip.plate]) {
+      const txt = DL.plateText(equip.plateText), pm = plateMat(equip.plate, txt);
+      const pw = 0.62, ph = 0.16, py = spec.lower[0][1] + 0.44;
+      // where the hull outline sits at plate height (the ends are sloped on most cars)
+      const edgeZ = (y, rearSide) => { let best = rearSide ? 1e9 : -1e9; const L = spec.lower; for (let k = 0; k < L.length; k++) { const a = L[k], b = L[(k + 1) % L.length]; if ((a[1] - y) * (b[1] - y) <= 0 && a[1] !== b[1]) { const z = a[0] + (b[0] - a[0]) * (y - a[1]) / (b[1] - a[1]); best = rearSide ? Math.min(best, z) : Math.max(best, z); } } return best; };
+      const rz = edgeZ(py, true), fz = edgeZ(py, false);
+      if (rz < 1e8) { const rear = new THREE.Mesh(new THREE.PlaneGeometry(pw, ph), pm); rear.position.set(0, py, rz - 0.06); rear.rotation.y = Math.PI; body.add(rear); }
+      if (fz > -1e8) { const front = new THREE.Mesh(new THREE.PlaneGeometry(pw, ph), pm); front.position.set(0, py, fz + 0.06); body.add(front); }
     }
 
     addFeatures({ body, spec, bodyMat, extraMat, headMat, tailMat, glassMat, glassSolid, frontZ, rearZ, roofY, lightY, deckY, ghost: !!opts.ghost });

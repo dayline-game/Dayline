@@ -27,8 +27,8 @@
     const l = DL.encodeLivery(DL.defaultLivery());
     return {
       v: 1, coins: 150, car: 'pebble',
-      owned: { cars: ['pebble'], spoiler: ['none'], wheels: ['std'], bumper: ['std'], exhaust: ['none'], trail: ['none'], finish: ['matte'], stickers: ['basic'] },
-      equip: { spoiler: 'none', wheels: 'std', bumper: 'std', exhaust: 'none', trail: 'none', finish: 'matte' },
+      owned: { cars: ['pebble'], spoiler: ['none'], wheels: ['std'], bumper: ['std'], exhaust: ['none'], trail: ['none'], finish: ['matte'], plate: ['none'], tint: ['clear'], stickers: ['basic'] },
+      equip: { spoiler: 'none', wheels: 'std', bumper: 'std', exhaust: 'none', trail: 'none', finish: 'matte', plate: 'none', tint: 'clear' },
       paint: { pebble: { l, b: DL.DEFAULT_BASE } },
       designs: [{ name: 'Factory', l, b: DL.DEFAULT_BASE }],
       best: {}, claimed: {}, ach: {},
