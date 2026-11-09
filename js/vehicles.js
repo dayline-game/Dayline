@@ -384,7 +384,7 @@
       const top = new THREE.Mesh(new THREE.CylinderGeometry(W * 0.49, W * 0.49, 3.5, 10, 1, false, Math.PI / 2, Math.PI), crust);
       top.scale.set(1, 1, 0.45); top.rotation.x = Math.PI / 2; top.position.set(0, 2.06, -0.1); top.castShadow = !ghost; body.add(top);
       bx(W * 0.82, 0.07, 3.3, 0, 2.06, -0.1, crust, 0, 0);
-      both(s => { cy(0.3, 0.06, s * (W * 0.95 / 2 + 0.03), 1.8, -0.6, glassSolid, 'x', 12); cy(0.34, 0.04, s * (W * 0.95 / 2 + 0.02), 1.8, -0.6, chrome, 'x', 12); cy(0.3, 0.06, s * (W * 0.95 / 2 + 0.03), 1.8, 0.4, glassSolid, 'x', 12); cy(0.34, 0.04, s * (W * 0.95 / 2 + 0.02), 1.8, 0.4, chrome, 'x', 12); });
+      both(s => { cy(0.27, 0.06, s * (W * 0.95 / 2 + 0.03), 1.8, -1.3, glassSolid, 'x', 12); cy(0.31, 0.04, s * (W * 0.95 / 2 + 0.02), 1.8, -1.3, chrome, 'x', 12); cy(0.27, 0.06, s * (W * 0.95 / 2 + 0.03), 1.8, -0.85, glassSolid, 'x', 12); cy(0.31, 0.04, s * (W * 0.95 / 2 + 0.02), 1.8, -0.85, chrome, 'x', 12); });
       cy(0.09, 0.8, W * 0.3, 2.45, -1.5, dark, 'y', 8); cy(0.14, 0.06, W * 0.3, 2.88, -1.5, dark, 'y', 8);   // chimney
       bx(W * 0.7, 0.35, 0.08, 0, 0.8, frontZ + 0.04, dark); bx(W * 1.0, 0.1, 0.1, 0, 0.45, frontZ + 0.05, cream);
       both(s => bx(0.06, 0.06, 0.4, s * (W / 2 + 0.02), 1.05, 1.0, chrome));                        // door handles
@@ -444,11 +444,13 @@
 
     // side windows for panel-sided bodies
     if (spec.windows) {
-      const zs = spec.cabin.map(p => p[0]), ys = spec.cabin.map(p => p[1]);
-      const z1 = Math.max(...zs) - 0.5, z0 = Math.min(...zs) + 0.3, y0 = Math.min(...ys) + 0.25, y1 = Math.max(...ys) - 0.18;
-      [-1, 1].forEach(s => {
-        const w = new THREE.Mesh(new THREE.BoxGeometry(0.04, y1 - y0, (z1 - z0) * 0.5), glassSolid);
-        w.position.set(s * (spec.W * spec.cw / 2 + 0.06), (y0 + y1) / 2, z1 - (z1 - z0) * 0.25); body.add(w);
+      // cab door windows only, kept forward of the race-number roundel (livery columns 12-20 of 32) so nothing covers the number
+      const Lb = bb.maxZ - bb.minZ, zStart = bb.minZ + Lb * 0.66, zc = zStart + 0.28, zl = 0.5;
+      const topAt = z => { let t = -1e9; const c = spec.cabin; for (let k = 0; k < c.length; k++) { const a = c[k], b2 = c[(k + 1) % c.length]; if ((a[0] - z) * (b2[0] - z) <= 0 && a[0] !== b2[0]) t = Math.max(t, a[1] + (b2[1] - a[1]) * (z - a[0]) / (b2[0] - a[0])); } return t; };
+      const y1 = topAt(zc + zl / 2) - 0.12, y0 = Math.min(...spec.cabin.map(p => p[1])) + 0.2;
+      if (y1 - y0 > 0.15) [-1, 1].forEach(s => {
+        const w = new THREE.Mesh(new THREE.BoxGeometry(0.04, y1 - y0, zl), glassSolid);
+        w.position.set(s * (spec.W * spec.cw / 2 + 0.06), (y0 + y1) / 2, zc); body.add(w);
       });
     }
     if (spec.bed) {
