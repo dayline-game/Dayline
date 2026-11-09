@@ -80,6 +80,9 @@ window.DL = window.DL || {};
 
   // ---------- patch notes (major releases only, newest first) ----------
   DL.PATCHES = [
+    { v: '2.2', date: 'November 2026', title: 'New Look, New Shop', art: 'community',
+      lead: 'A cleaner game: a lobby, a Locker for your loadout and a proper Item Shop.',
+      items: ['New top bar: Play, Locker, Shop, Ranks and Tracks are always one tap away (a bottom bar on phones)', 'A cleaner lobby: today’s track on the left, a big Play button on the right, your car in the middle', 'Item Shop: Featured and Daily items rotate at midnight, the same for every driver', 'Every item now has a rarity, from Common to Legendary, and its own picture', 'Search the shop by name, part or rarity, or browse by category', 'Tap any item to inspect it on your car in 3D before you buy', 'Locker: every slot of your loadout at a glance, tap one to swap it', 'Save up to three loadouts and switch between them in one tap'] },
     { v: '2.1', date: 'November 2026', title: 'Built for Phones', art: 'community',
       lead: 'Dayline now plays properly on your phone, full screen.',
       items: ['Full screen when you race (Android and tablets), with a full screen button in the top bar', 'iPhone: add Dayline to your home screen and it opens full screen like an app', 'New touch controls: bigger buttons, slide your thumbs between them without lifting', 'Three steering styles: left/right buttons, smooth thumb slide, or tilt the phone', 'Options for auto accelerate, button size, swapping sides and vibration', 'A back-on-track button, and the race pauses if you leave the app', 'Menus, garage and leaderboards fit phone screens, upright or sideways', 'Wider view when you play upright', 'Smoother frame rate: the game lowers its resolution a little when your phone struggles', 'Track creator: two fingers to move, pinch to zoom, twist to turn'] },

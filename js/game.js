@@ -123,8 +123,12 @@
 
   function setOffset(cam, kind) {
     const w = window.innerWidth, h = window.innerHeight, narrow = w <= 760;
-    if (kind === 'menu') { if (narrow) cam.setViewOffset(w, h, 0, h * 0.34, w, h); else cam.setViewOffset(w, h, -w * 0.2, 0, w, h); }
-    else if (kind === 'side') { if (narrow) cam.setViewOffset(w, h, 0, h * 0.25, w, h); else cam.setViewOffset(w, h, w * 0.17, 0, w, h); }
+    if (kind === 'menu') { if (narrow) cam.setViewOffset(w, h, 0, h * 0.04, w, h); else cam.setViewOffset(w, h, -w * 0.02, -h * 0.05, w, h); }
+    else if (kind === 'side') {
+      const insp = Game.sideView === 'inspect';
+      if (narrow) cam.setViewOffset(w, h, 0, h * (insp ? 0.2 : 0.26), w, h);
+      else cam.setViewOffset(w, h, insp ? Math.min(w * 0.17, 220) : (h < 520 ? 40 : 60), 0, w, h);
+    }
     else cam.clearViewOffset();
   }
 

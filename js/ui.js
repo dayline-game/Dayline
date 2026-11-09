@@ -18,6 +18,9 @@
     screen = name;
     SCREENS.forEach(s => { $(s).hidden = s !== name; });
     $('topnav').hidden = name === 'hud' || name === 'replay' || name === 'editor';
+    const tabFor = name === 'archive' || name === 'room' ? 'menu' : name;
+    document.querySelectorAll('#navTabs [data-go]').forEach(b => b.classList.toggle('on', b.dataset.go === tabFor));
+    if (name !== 'shop' && shop.item) { shop.item = null; $('shop').classList.remove('inspecting'); }
     closeModal();
     if (name !== 'shop' && Game._preview) Game.showcase(null);
     if (name === 'menu' && Game.track() && Game.track().day !== today()) Game.loadDay(today());
@@ -33,7 +36,12 @@
     if (name === 'editor' && UI.renderEditor) UI.renderEditor();
   }
   UI.show = show;
-  UI.back = function () { if ($('modalRoot').firstChild) { closeModal(); return; } if (screen === 'replay') { show(UI._replayBack || 'board'); return; } if (screen === 'editor') { show('community'); return; } if (['garage', 'shop', 'board', 'archive', 'community'].includes(screen)) show('menu'); };
+  UI.back = function () { if ($('modalRoot').firstChild) { closeModal(); return; } if (screen === 'replay') { show(UI._replayBack || 'board'); return; } if (screen === 'editor') { show('community'); return; } if (screen === 'shop' && shop.item) { shop.item = null; renderShop(); return; } if (['garage', 'shop', 'board', 'archive', 'community'].includes(screen)) show('menu'); };
+  document.querySelectorAll('#navTabs [data-go]').forEach(b => b.addEventListener('click', () => {
+    const g = b.dataset.go;
+    if (g === 'board') $('bBoard').click(); else if (g === 'community') $('bCommunity').click();
+    else { if (g === 'shop') shop.item = null; show(g); }
+  }));
   document.querySelectorAll('[data-back]').forEach(b => b.addEventListener('click', () => show('menu')));
 
   // ---------------- toasts & modals ----------------
@@ -79,6 +87,8 @@
     $('mStreakBars').innerHTML = Array.from({ length: 7 }, (_, i) => `<i class="${i < Math.min(st, 7) ? 'on' : ''}"></i>`).join('');
     renderNameBox();
     renderNet();
+    $('lbPlaySub').textContent = 'Daily No. ' + DL.dayNumber(d) + ' · ' + t.B.name;
+    shopPip();
   }
   // leaderboard name (callsign) right on the menu so new players set one
   function renderNameBox() {
@@ -86,8 +96,10 @@
     const tag = (Net.save.tag || '').trim();
     if (document.activeElement !== inp) inp.value = Net.save.tag || '';
     box.classList.toggle('need', !tag);
+    const nt = $('lbNameTxt'); if (nt) nt.textContent = tag || 'Driver';
     $('mTagHint').innerHTML = tag ? 'Shown next to your times on the leaderboard.' : 'No name yet: you show up as &ldquo;Driver&rdquo; on the leaderboard.';
   }
+  $('lbName').onclick = () => { const b = $('mNameBox'); b.classList.toggle('open'); if (b.classList.contains('open')) $('mTag').focus(); };
   (function () {
     const inp = $('mTag'); if (!inp) return;
     let timer = null;
@@ -96,7 +108,7 @@
       renderNameBox(); const ok = $('mTagSaved'); ok.hidden = false; clearTimeout(ok._t); ok._t = setTimeout(() => { ok.hidden = true; }, 1600);
     };
     inp.addEventListener('input', () => { $('mNameBox').classList.toggle('need', !inp.value.trim()); clearTimeout(timer); timer = setTimeout(save, 700); });
-    inp.addEventListener('change', () => { clearTimeout(timer); save(); });
+    inp.addEventListener('change', () => { clearTimeout(timer); save(); $('mNameBox').classList.remove('open'); });
     inp.addEventListener('keydown', e => { e.stopPropagation(); if (e.key === 'Enter') inp.blur(); });
     inp.addEventListener('keyup', e => e.stopPropagation());
   })();
@@ -109,8 +121,8 @@
   }
   setInterval(() => {
     const ms = DL.msToNextDay(), s = Math.floor(ms / 1000);
-    $('mCountdown').textContent = [Math.floor(s / 3600), Math.floor(s / 60) % 60, s % 60].map(v => String(v).padStart(2, '0')).join(':');
-    if (UI._day && UI._day !== today()) { UI._day = today(); if (screen === 'menu') { Game.loadDay(today()); renderMenu(); toast('<b>New daily track is live</b>'); } }
+    $('mCountdown').textContent = $('isTimer').textContent = [Math.floor(s / 3600), Math.floor(s / 60) % 60, s % 60].map(v => String(v).padStart(2, '0')).join(':');
+    if (UI._day && UI._day !== today()) { UI._day = today(); if (screen === 'menu') { Game.loadDay(today()); renderMenu(); toast('<b>New daily track is live</b>'); } if (screen === 'shop' && !shop.item) renderShop(); shopPip(); }
   }, 500);
 
   // ghosts picked on the leaderboard follow you into a normal Race now too
@@ -368,52 +380,98 @@
   $('gTabs').addEventListener('click', e => { const b = e.target.closest('.tab'); if (!b) return; gTab = b.dataset.tab; renderGarage(); });
   $('gRace').onclick = () => startRace(today(), []);
 
+  // ---------- locker: loadout slots on the left, the car in the middle, a drawer of items on the right ----------
+  const SLOTS = ['cars', 'paint', 'spoiler', 'wheels', 'bumper', 'finish', 'tint', 'plate', 'exhaust', 'trail'];
+  const SVG_PAINT = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a9 9 0 1 0 0 18c1.5 0 2-1 2-2 0-1.5-1.5-1.6-1.5-3s1-2 2.5-2H18a3 3 0 0 0 3-3c0-4.4-4-8-9-8z"/><circle cx="7.5" cy="11" r="1.2"/><circle cx="10" cy="7" r="1.2"/><circle cx="15" cy="7.5" r="1.2"/></svg>';
+  const SVG_LOCK = '<svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.6" stroke-linecap="round"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>';
+  const rarVars = (el, r) => { const R = DL.RARITIES[r] || DL.RARITIES.common; el.style.setProperty('--rc', R.c); el.style.setProperty('--ra', R.a); };
+  // one item tile, used by the shop and the locker
+  function tileEl(it, o) {
+    o = o || {};
+    const R = DL.RARITIES[it.rarity];
+    const price = o.price ? `<span class="pr"><span class="coin"></span>${it.price.toLocaleString('en-GB')}</span>` : '';
+    const t = h(`<button class="tile ${o.big ? 'big' : ''} ${o.locked ? 'locked' : ''} ${o.equipped ? 'equipped' : ''}" aria-label="${esc(it.name)}"><div class="art"></div><div class="info"><span class="nm">${esc(it.name)}</span><span class="sub">${esc(R.n)} · ${esc(it.sub)}</span>${price}</div><i class="bar"></i></button>`);
+    rarVars(t, it.rarity);
+    t.querySelector('.art').appendChild(DL.thumbImg(it.cat, it.id));
+    if (o.badge) t.appendChild(h(`<span class="badge">${esc(o.badge)}</span>`));
+    if (o.equipped) t.appendChild(h('<span class="badge on">Equipped</span>'));
+    else if (o.owned && o.showOwned) t.appendChild(h('<span class="badge own">Owned</span>'));
+    else if (o.locked) t.appendChild(h(`<span class="lock">${SVG_LOCK}</span>`));
+    return t;
+  }
+  function equip(cat, id) {
+    const s = Net.save;
+    if (cat === 'cars') { s.car = id; if (!s.paint[id]) s.paint[id] = { l: DL.encodeLivery(DL.defaultLivery()), b: DL.DEFAULT_BASE }; }
+    else s.equip[cat] = id;
+    Net.persist(); Net.pushProfile(); Game._preview = null; Game.refreshPlayerCar(); DL.Audio.click();
+  }
   function renderGarage() {
     const s = Net.save, spec = DL.CARS[s.car];
     $('gCarName').textContent = spec.name; $('gCarClass').textContent = spec.cls;
-    [...$('gTabs').children].forEach(t => t.classList.toggle('on', t.dataset.tab === gTab));
-    const body = $('gBody'); body.innerHTML = '';
-    Game.showcase(null);
+    Game.sideView = 'locker'; Game.showcase(null);
     if (gTab !== 'paint') ed = null;
-    if (gTab === 'cars') {
-      const wrap = h('<div class="items"></div>');
-      DL.CAR_ORDER.concat(['ufo']).forEach(id => {
-        const c = DL.CARS[id], own = Net.owns('cars', id);
-        if (id === 'ufo' && !own) { wrap.appendChild(h(`<div class="item" style="opacity:.6"><div class="lbl">${esc(c.cls)}</div><div class="nm">${esc(c.name)}</div><div class="row"><span class="hint">Win the Weekly cup to fly it</span></div></div>`)); return; }
-        const it = h(`<div class="item ${s.car === id ? 'sel' : ''}"><div class="lbl">${esc(c.cls)}</div><div class="nm">${esc(c.name)}</div>
-          <div class="row">${own ? (s.car === id ? '<span class="tag coral">Driving</span>' : '<button class="btn btn-navy btn-sm">Drive</button>') : `<span class="price"><span class="coin"></span>${c.price}</span><button class="btn btn-line btn-sm">Shop</button>`}</div></div>`);
-        const b = it.querySelector('button');
-        if (b) b.onclick = () => {
-          if (own) { s.car = id; if (!s.paint[id]) s.paint[id] = { l: DL.encodeLivery(DL.defaultLivery()), b: DL.DEFAULT_BASE }; Net.persist(); Net.pushProfile(); Game.refreshPlayerCar(); renderGarage(); }
-          else { shop.tab = 'cars'; show('shop'); }
-        };
-        wrap.appendChild(it);
-      });
-      body.appendChild(wrap);
-      body.appendChild(h('<p class="hint">Every vehicle shares the same engine, grip and hitbox, so the board only measures driving. Drag the showroom to look around.</p>'));
-    } else if (gTab === 'parts') {
-      for (const cat of ['spoiler', 'wheels', 'bumper', 'finish', 'tint', 'plate', 'exhaust', 'trail']) {
-        body.appendChild(h(`<div class="lbl">${DL.PART_LABELS[cat]}</div>`));
-        const row = h('<div class="paint-tools"></div>');
-        DL.PARTS[cat].forEach(p => {
-          const own = Net.owns(cat, p.id);
-          const b = h(`<button class="tool ${s.equip[cat] === p.id ? 'on' : ''}" ${own ? '' : 'disabled style="opacity:.45"'} title="${own ? '' : 'Buy in the shop'}">${esc(p.name)}</button>`);
-          if (own) b.onclick = () => { s.equip[cat] = p.id; Net.persist(); Net.pushProfile(); Game.refreshPlayerCar(); renderGarage(); };
-          row.appendChild(b);
-        });
-        body.appendChild(row);
-        if (cat === 'plate') {
-          const pr = h(`<div class="namerow" style="margin:4px 0 8px"><input type="text" maxlength="7" placeholder="DAYLINE" autocomplete="off" spellcheck="false" value="${esc(s.equip.plateText || '')}" style="text-transform:uppercase;letter-spacing:.12em"><span class="namesaved" style="opacity:.6;font-size:12px">Plate text, 7 max</span></div>`);
-          pr.querySelector('input').addEventListener('change', e => { s.equip.plateText = DL.plateText(e.target.value === '' ? '' : e.target.value); if (!e.target.value) delete s.equip.plateText; Net.persist(); Net.pushProfile(); Game.refreshPlayerCar(); });
-          body.appendChild(pr);
-        }
-      }
-      body.appendChild(h('<p class="hint">Exhaust smoke and trails show while you race. Locked parts are in the shop.</p>'));
-    } else if (gTab === 'paint') {
-      renderPaint(body);
-    } else if (gTab === 'designs') {
-      renderDesigns(body);
+    // loadout slots
+    const sl = $('gSlots'); sl.innerHTML = '';
+    SLOTS.forEach(k => {
+      const on = k === gTab || (k === 'paint' && gTab === 'designs');
+      const it = k === 'paint' ? null : k === 'cars' ? DL.itemInfo('cars', s.car) : DL.itemInfo(k, s.equip[k] || DL.PARTS[k][0].id);
+      const b = h(`<button class="slot ${on ? 'on' : ''}"><span class="sw"></span><div><span class="lbl">${esc(DL.CAT_ONE[k])}</span><b>${esc(it ? it.name : 'Livery')}</b></div></button>`);
+      if (it) { rarVars(b, it.rarity); b.querySelector('.sw').appendChild(DL.thumbImg(it.cat, it.id)); }
+      else { const pt = s.paint[s.car] || {}; b.querySelector('.sw').innerHTML = SVG_PAINT; b.querySelector('.sw').style.background = DL.PALETTE[pt.b == null ? DL.DEFAULT_BASE : pt.b] || '#888'; }
+      b.onclick = () => { gTab = k; renderGarage(); };
+      sl.appendChild(b);
+    });
+    renderPresets();
+    const painting = gTab === 'paint' || gTab === 'designs';
+    $('gDrawTitle').textContent = painting ? 'Paint' : DL.CAT_NAMES[gTab];
+    $('gDrawSub').textContent = painting ? 'Livery for the ' + spec.name : 'Tap to equip';
+    const tabs = $('gTabs'); tabs.hidden = !painting;
+    tabs.innerHTML = painting ? `<button class="tab ${gTab === 'paint' ? 'on' : ''}" data-tab="paint">Paint</button><button class="tab ${gTab === 'designs' ? 'on' : ''}" data-tab="designs">Designs</button>` : '';
+    const body = $('gBody'); body.innerHTML = '';
+    if (gTab === 'paint') { renderPaint(body); return; }
+    if (gTab === 'designs') { renderDesigns(body); return; }
+    const cat = gTab;
+    const ids = cat === 'cars' ? DL.CAR_ORDER.concat(Net.owns('cars', 'ufo') ? ['ufo'] : []) : DL.PARTS[cat].map(p => p.id);
+    const list = ids.map(id => DL.itemInfo(cat, id)).filter(Boolean);
+    list.sort((a, b) => (Net.owns(cat, b.id) - Net.owns(cat, a.id)) || (a.price - b.price));
+    const grid = h('<div class="lk-grid"></div>');
+    list.forEach(it => {
+      const own = Net.owns(cat, it.id), eq = cat === 'cars' ? s.car === it.id : s.equip[cat] === it.id;
+      const t = tileEl(it, { owned: own, locked: !own, equipped: eq, price: !own });
+      t.onclick = () => { if (!own) { openShopItem(it); return; } if (!eq) { equip(cat, it.id); renderGarage(); } };
+      grid.appendChild(t);
+    });
+    const more = h(`<button class="lk-more"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 8h14l-1 12H6zM9 8a3 3 0 0 1 6 0"/></svg>Get more in the shop</button>`);
+    more.onclick = () => { shop.cat = cat; shop.item = null; show('shop'); };
+    grid.appendChild(more);
+    body.appendChild(grid);
+    if (cat === 'plate') {
+      const pr = h(`<div class="field"><label class="lbl">Plate text</label><div class="namerow"><input type="text" maxlength="7" placeholder="DAYLINE" autocomplete="off" spellcheck="false" value="${esc(s.equip.plateText || '')}" style="text-transform:uppercase;letter-spacing:.12em"></div></div>`);
+      const inp = pr.querySelector('input');
+      inp.addEventListener('keydown', e => e.stopPropagation()); inp.addEventListener('keyup', e => e.stopPropagation());
+      inp.addEventListener('change', e => { s.equip.plateText = DL.plateText(e.target.value === '' ? '' : e.target.value); if (!e.target.value) delete s.equip.plateText; Net.persist(); Net.pushProfile(); Game.refreshPlayerCar(); renderGarage(); });
+      body.appendChild(pr);
     }
+    const hint = cat === 'cars' ? 'Every car shares the same engine, grip and hitbox, so the leaderboard only measures driving. Drag the car to look around.'
+      : cat === 'exhaust' || cat === 'trail' ? 'You see this behind your car while you race.' : 'Fits every car you own. Drag the car to look around.';
+    body.appendChild(h(`<p class="hint">${hint}</p>`));
+  }
+  // three saved loadouts (car, its paint and parts), kept on this device
+  function renderPresets() {
+    const el = $('gPresets'); if (!el) return; el.innerHTML = '';
+    const P = DL.store.get('loadouts', [null, null, null]), s = Net.save;
+    P.forEach((p, i) => {
+      const d = h(`<div class="pre"><b>Loadout ${i + 1}</b><small>${p && DL.CARS[p.car] ? esc(DL.CARS[p.car].name) : 'Empty'}</small><div><button ${p ? '' : 'disabled'}>Use</button><button class="ghost">Save</button></div></div>`);
+      const [use, save] = d.querySelectorAll('button');
+      use.onclick = () => {
+        if (!p || !Net.owns('cars', p.car)) { toast('You no longer own that car'); return; }
+        s.car = p.car; if (p.paint) s.paint[p.car] = p.paint; else if (!s.paint[p.car]) s.paint[p.car] = { l: DL.encodeLivery(DL.defaultLivery()), b: DL.DEFAULT_BASE };
+        for (const k in p.equip || {}) if (k === 'plateText' || Net.owns(k, p.equip[k])) s.equip[k] = p.equip[k];
+        Net.persist(); Net.pushProfile(); Game.refreshPlayerCar(); renderGarage(); toast(`<b>Loadout ${i + 1}</b> equipped`);
+      };
+      save.onclick = () => { const all = DL.store.get('loadouts', [null, null, null]); all[i] = { car: s.car, paint: s.paint[s.car] || null, equip: Object.assign({}, s.equip) }; DL.store.set('loadouts', all); renderPresets(); toast(`Saved to <b>Loadout ${i + 1}</b>`); };
+      el.appendChild(d);
+    });
   }
 
   // ---------- pixel paint editor ----------
@@ -687,63 +745,114 @@
   }
 
   // ---------------- shop ----------------
-  const shop = { tab: 'cars' };
-  const SHOP_TABS = [['cars', 'Cars'], ['spoiler', 'Spoilers'], ['wheels', 'Wheels'], ['bumper', 'Bumpers'], ['exhaust', 'Exhaust'], ['trail', 'Trails'], ['finish', 'Finish'], ['tint', 'Tint'], ['plate', 'Plates'], ['stickers', 'Stickers']];
-  function renderShop() {
-    $('sTabs').innerHTML = SHOP_TABS.map(([k, n]) => `<button class="tab ${shop.tab === k ? 'on' : ''}" data-tab="${k}">${n}</button>`).join('');
-    const body = $('sBody'); body.innerHTML = '';
-    const s = Net.save;
-    if (Game._preview) {
-      const n = h(`<div class="preview-note"><span>Previewing ${esc(Game._preview.label)}</span><button class="btn btn-line btn-sm" style="border-color:var(--cream);color:var(--cream)">Reset</button></div>`);
-      n.querySelector('button').onclick = () => { Game.showcase(null); renderShop(); };
-      body.appendChild(n);
-    }
-    const wrap = h('<div class="items"></div>');
-    const paint = s.paint[s.car] || {};
-    const cur = { car: s.car, livery: paint.l ? DL.decodeLivery(paint.l) : DL.defaultLivery(), base: paint.b, equip: Object.assign({}, s.equip) };
-    const card = (name, meta, price, own, equipped, onTry, onUse, onBuy) => {
-      const it = h(`<div class="item ${equipped ? 'sel' : ''}"><div class="nm">${esc(name)}</div><div class="meta">${esc(meta)}</div>
-        <div class="row"><span class="price">${own ? '<span class="tag">Owned</span>' : `<span class="coin"></span>${price}`}</span><span class="acts" style="display:flex;gap:5px"></span></div></div>`);
-      const act = it.querySelector('.acts');
-      if (onTry) { const t = h('<button class="btn btn-line btn-sm">Try</button>'); t.onclick = onTry; act.appendChild(t); }
-      if (own) { if (onUse && !equipped) { const u = h('<button class="btn btn-navy btn-sm">Use</button>'); u.onclick = onUse; act.appendChild(u); } else if (equipped) act.appendChild(h('<span class="tag coral">In use</span>')); }
-      else {
-        const b = h(`<button class="btn btn-coral btn-sm" ${s.coins < price ? 'disabled title="Not enough coins"' : ''}>Buy</button>`);
-        b.onclick = () => {
-          if (!b.dataset.c) { b.dataset.c = 1; b.textContent = 'Confirm'; setTimeout(() => { if (b.isConnected) { b.textContent = 'Buy'; delete b.dataset.c; } }, 3000); return; }
-          if (onBuy()) { DL.Audio.coin(); renderCoins(); toast(`<b>${esc(name)}</b> unlocked`); renderShop(); }
-        };
-        act.appendChild(b);
-      }
-      return it;
-    };
-    if (shop.tab === 'cars') {
-      DL.CAR_ORDER.forEach(id => {
-        const c = DL.CARS[id], own = Net.owns('cars', id);
-        wrap.appendChild(card(c.name, c.cls + ' · ' + c.blurb, c.price, own, s.car === id,
-          () => { Game.showcase(Object.assign({}, cur, { car: id, label: c.name })); renderShop(); },
-          () => { s.car = id; if (!s.paint[id]) s.paint[id] = { l: DL.encodeLivery(DL.defaultLivery()), b: DL.DEFAULT_BASE }; Net.persist(); Net.pushProfile(); Game._preview = null; Game.refreshPlayerCar(); renderShop(); },
-          () => Net.buy('cars', id, c.price)));
-      });
-    } else if (shop.tab === 'stickers') {
-      DL.PARTS.stickers.forEach(p => {
-        const own = Net.owns('stickers', p.id), list = Object.keys(DL.STAMPS).filter(k => DL.STAMPS[k].pack === p.id).join(', ');
-        wrap.appendChild(card(p.name, 'Paint stamps: ' + list, p.price, own, false, null, null, () => Net.buy('stickers', p.id, p.price)));
-      });
-    } else {
-      const cat = shop.tab;
-      DL.PARTS[cat].forEach(p => {
-        const own = Net.owns(cat, p.id), fx = cat === 'exhaust' || cat === 'trail';
-        wrap.appendChild(card(p.name, fx ? 'Shows while racing' : DL.PART_LABELS[cat], p.price, own, s.equip[cat] === p.id,
-          fx ? null : () => { const e = Object.assign({}, cur.equip); e[cat] = p.id; Game.showcase(Object.assign({}, cur, { equip: e, label: p.name })); renderShop(); },
-          () => { s.equip[cat] = p.id; Net.persist(); Net.pushProfile(); Game._preview = null; Game.refreshPlayerCar(); renderShop(); },
-          () => Net.buy(cat, p.id, p.price)));
-      });
-    }
-    body.appendChild(wrap);
-    body.appendChild(h(`<p class="hint">You earn coins for finishing each daily, personal bests, streaks and achievements. Nothing here changes speed, grip or hitbox.</p>`));
+  // ---------- item shop: featured + daily items that rotate for everyone at midnight, then the full catalogue ----------
+  const shop = { cat: 'all', q: '', item: null };
+  function shopRotation(day) {
+    const r = DL.mulberry32((DL.seedFor(day) ^ 0x5eed1) >>> 0);
+    const take = arr => arr.splice(Math.floor(r() * arr.length), 1)[0];
+    const cars = DL.CAR_ORDER.filter(id => id !== 'pebble').map(id => DL.itemInfo('cars', id));
+    const parts = DL.allItems().filter(it => it.cat !== 'cars' && it.price > 0);
+    const bigPart = take(parts.filter(p => p.price >= 200));
+    const rest = parts.filter(p => p.key !== bigPart.key);
+    const daily = []; while (daily.length < 6 && rest.length) daily.push(take(rest));
+    return { feat: [take(cars), bigPart], daily };
   }
-  $('sTabs').addEventListener('click', e => { const b = e.target.closest('.tab'); if (!b) return; shop.tab = b.dataset.tab; renderShop(); });
+  const SEARCH_WORDS = it => [it.name, it.sub, DL.CAT_NAMES[it.cat], DL.RARITIES[it.rarity].n, it.cat].join(' ').toLowerCase();
+  function shopTile(it, big) {
+    const own = Net.owns(it.cat, it.id);
+    const eq = it.cat === 'cars' ? Net.save.car === it.id : Net.save.equip[it.cat] === it.id;
+    const t = tileEl(it, { big, price: !own, owned: own, showOwned: true, equipped: own && eq && it.cat !== 'stickers' });
+    t.onclick = () => openShopItem(it);
+    return t;
+  }
+  function openShopItem(it) { shop.item = it; if (screen !== 'shop') show('shop'); else renderShop(); }
+  function shopPip() { const p = $('shopPip'); if (p) p.hidden = DL.store.get('shopSeen', '') === today(); }
+  function renderShop() {
+    const sc = $('shop');
+    DL.store.set('shopSeen', today()); shopPip();
+    if (shop.item) { renderInspect(); return; }
+    sc.classList.remove('inspecting'); $('isInspect').hidden = true;
+    Game.showcase(null);
+    const body = $('isBody'); body.innerHTML = '';
+    const q = shop.q.trim().toLowerCase();
+    if (!q) {
+      const rot = shopRotation(today());
+      const f = h('<section class="is-sec"><h3>Featured <small>Today only</small></h3><div class="is-feat"></div></section>');
+      rot.feat.forEach(it => f.lastElementChild.appendChild(shopTile(it, true)));
+      body.appendChild(f);
+      const d = h('<section class="is-sec"><h3>Daily <small>Same for every driver</small></h3><div class="is-grid"></div></section>');
+      rot.daily.forEach(it => d.lastElementChild.appendChild(shopTile(it)));
+      body.appendChild(d);
+    }
+    const b = h(`<section class="is-sec"><h3>${q ? 'Search results' : 'Browse everything'}</h3><div class="is-chips"></div><div class="is-grid"></div></section>`);
+    const chips = b.querySelector('.is-chips');
+    ['all'].concat(DL.CAT_ORDER).forEach(k => {
+      const c = h(`<button class="${shop.cat === k ? 'on' : ''}">${k === 'all' ? 'All' : esc(DL.CAT_NAMES[k])}</button>`);
+      c.onclick = () => { shop.cat = k; renderShop(); };
+      chips.appendChild(c);
+    });
+    const words = q.split(/\s+/).filter(Boolean);
+    const items = DL.allItems().filter(it => it.price > 0 && (shop.cat === 'all' || it.cat === shop.cat) && words.every(w => SEARCH_WORDS(it).includes(w)));
+    items.sort((a, b) => (Net.owns(a.cat, a.id) - Net.owns(b.cat, b.id)) || (b.price - a.price));
+    const g = b.querySelector('.is-grid');
+    items.forEach(it => g.appendChild(shopTile(it)));
+    if (!items.length) g.replaceWith(h(`<div class="is-empty">Nothing matches “${esc(shop.q)}”. Try a colour, a part or a rarity like epic.</div>`));
+    body.appendChild(b);
+    body.appendChild(h('<p class="is-foot">You earn coins for finishing each daily, personal bests, streaks and achievements. Nothing here changes speed, grip or hitbox.</p>'));
+  }
+  const SHOW_3D = { cars: 1, spoiler: 1, wheels: 1, bumper: 1, finish: 1, tint: 1 };
+  function renderInspect() {
+    const it = shop.item, s = Net.save, sc = $('shop'), box = $('isInspect');
+    sc.classList.add('inspecting'); box.hidden = false; Game.sideView = 'inspect';
+    const own = Net.owns(it.cat, it.id), eq = it.cat === 'cars' ? s.car === it.id : s.equip[it.cat] === it.id, R = DL.RARITIES[it.rarity];
+    // try it on in the showroom
+    const paint = s.paint[it.cat === 'cars' ? it.id : s.car] || {};
+    if (SHOW_3D[it.cat]) {
+      const e = Object.assign({}, s.equip); if (it.cat !== 'cars') e[it.cat] = it.id;
+      Game.showcase({ car: it.cat === 'cars' ? it.id : s.car, livery: paint.l ? DL.decodeLivery(paint.l) : DL.defaultLivery(), base: paint.b == null ? DL.DEFAULT_BASE : paint.b, equip: e, label: it.name });
+    } else Game.showcase(null);
+    const note = it.cat === 'exhaust' || it.cat === 'trail' ? '<div class="note">Shows behind your car while you race.</div>' : it.cat === 'stickers' ? '<div class="note">Stamps: ' + esc(Object.keys(DL.STAMPS).filter(k => DL.STAMPS[k].pack === it.id).join(', ')) + '. Use them in Locker → Paint.</div>' : '';
+    const short = Math.max(0, it.price - s.coins);
+    box.innerHTML = '';
+    const card = h(`<div class="ii-card"><span class="rar">${esc(R.n)}</span><h2>${esc(it.name)}</h2><div class="sub">${esc(it.sub)}${it.cat === 'cars' ? '' : ' · fits every car'}</div><p>${esc(it.blurb)}</p>${note}</div>`);
+    rarVars(card, it.rarity);
+    if (!SHOW_3D[it.cat]) { const im = DL.thumbImg(it.cat, it.id, 'big-thumb'); card.insertBefore(im, card.querySelector('p')); }
+    box.appendChild(card);
+    const acts = h('<div class="ii-acts"></div>');
+    if (!own) {
+      const buy = h(`<button class="ii-buy" ${short ? 'disabled' : ''}>Buy <span class="coin"></span>${it.price.toLocaleString('en-GB')}</button>`);
+      if (short) buy.insertAdjacentHTML('beforeend', `<small style="font-size:14px;letter-spacing:.06em">· ${short} more</small>`);
+      buy.onclick = () => {
+        if (!buy.classList.contains('confirm')) { buy.classList.add('confirm'); buy.innerHTML = `Buy for <span class="coin"></span>${it.price.toLocaleString('en-GB')}?`; setTimeout(() => { if (buy.isConnected && buy.classList.contains('confirm')) renderInspect(); }, 3500); return; }
+        if (Net.buy(it.cat, it.id, it.price)) {
+          DL.Audio.coin(); renderCoins(); toast(`<b>${esc(it.name)}</b> unlocked`);
+          if (it.cat !== 'stickers') equip(it.cat, it.id);
+          if (UI.confetti) UI.confetti();
+          renderInspect();
+        } else toast('Not enough coins');
+      };
+      acts.appendChild(buy);
+    }
+    const row = h('<div class="ii-row"></div>');
+    const back = h('<button class="ii-btn">← Shop</button>'); back.onclick = () => { shop.item = null; renderShop(); };
+    row.appendChild(back);
+    if (own && it.cat !== 'stickers') {
+      const u = h(`<button class="ii-btn ${eq ? 'on' : ''}">${eq ? 'Equipped' : 'Equip'}</button>`);
+      u.onclick = () => { if (!eq) { equip(it.cat, it.id); toast(`<b>${esc(it.name)}</b> equipped`); renderInspect(); } };
+      row.appendChild(u);
+    } else {
+      const l = h('<button class="ii-btn">Locker</button>'); l.onclick = () => { gTab = it.cat === 'stickers' ? 'paint' : it.cat; shop.item = null; show('garage'); };
+      row.appendChild(l);
+    }
+    acts.appendChild(row);
+    box.appendChild(acts);
+  }
+  (function () {
+    const inp = $('isSearch'); let t = null;
+    inp.addEventListener('input', () => { clearTimeout(t); t = setTimeout(() => { shop.q = inp.value; shop.item = null; renderShop(); }, 120); });
+    inp.addEventListener('keydown', e => { e.stopPropagation(); if (e.key === 'Escape') { inp.value = ''; shop.q = ''; renderShop(); inp.blur(); } });
+    inp.addEventListener('keyup', e => e.stopPropagation());
+  })();
 
   // ---------------- replay ----------------
   const fmtS = t => { const m = Math.floor(t / 60), s = t - m * 60; return m + ':' + (s < 10 ? '0' : '') + s.toFixed(1); };
