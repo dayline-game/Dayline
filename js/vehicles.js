@@ -639,13 +639,15 @@
     u.body.rotation.order = 'YXZ';
     u.body.rotation.x = pitch; u.body.rotation.z = roll;
     // tyre load: braking/accel pitch, cornering roll, and landings/bumps (sudden change of vertical speed)
-    const dy = u.py == null ? 0 : y - u.py, impact = DL.clamp(dy - (u.pdy || 0), 0, 0.5); u.py = y; u.pdy = dy;
+    const dy = u.py == null ? 0 : y - u.py, pd = u.pdy || 0;
+    // only a real landing squashes the tyres: falling fast on the previous frame and suddenly not any more (bumps and slopes do not count)
+    const impact = pd < -0.035 && dy > pd ? DL.clamp((dy - pd) * 0.8, 0, 0.35) : 0; u.py = y; u.pdy = dy;
     for (const w of u.wheels) {
       if (w.front) w.pivot.rotation.y = -steer * 0.45;
       w.wheel.rotation.x = spin || 0;
       if (u.deform) {
-        const T = DL.clamp(0.07 + (w.front ? 1 : -1) * pitch * 1.8 + (w.side < 0 ? 1 : -1) * roll * 1.8, 0, 0.26);
-        w.v += (T - w.c) * 0.4 + impact * 0.9; w.v *= 0.72; w.c = DL.clamp(w.c + w.v, 0, 0.3);
+        const T = DL.clamp(0.07 + (w.front ? 1 : -1) * pitch * 1.4 + (w.side < 0 ? 1 : -1) * roll * 1.4, 0.02, 0.17);
+        w.v += (T - w.c) * 0.4 + impact * 0.8; w.v *= 0.72; w.c = DL.clamp(w.c + w.v, 0, 0.22);
         deformTire(w, w.c, spin || 0);
       }
     }
