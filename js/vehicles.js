@@ -273,13 +273,13 @@
 
   const shared = {};
   // number plate material: tiny canvas texture per style and text, shared between cars
-  function plateMat(style, text) {
-    return sharedMat('plate_' + style + '_' + text, () => {
+  function plateMat(style, text, ghost) {
+    return sharedMat('plate_' + style + '_' + text + (ghost ? '_g' : ''), () => {
       const c = document.createElement('canvas'); c.width = 256; c.height = 64; const g = c.getContext('2d'), st = DL.PLATE_STYLES[style];
       g.fillStyle = st[0]; g.fillRect(0, 0, 256, 64); g.strokeStyle = st[2]; g.lineWidth = 4; g.strokeRect(3, 3, 250, 58);
       g.fillStyle = st[1]; g.font = '800 44px "Barlow Condensed", sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(text, 128, 35);
       const tex = new THREE.CanvasTexture(c); if ('colorSpace' in tex) tex.colorSpace = THREE.SRGBColorSpace;
-      return new THREE.MeshBasicMaterial({ map: tex, side: THREE.FrontSide });
+      return new THREE.MeshBasicMaterial({ map: tex, side: THREE.FrontSide, transparent: !!ghost, opacity: ghost ? 0.75 : 1, depthWrite: !ghost });
     });
   }
   function sharedMat(key, make) { return shared[key] || (shared[key] = make()); }
@@ -493,8 +493,8 @@
       : sharedMat('glassSolid', () => new THREE.MeshStandardMaterial({ color: 0x232c3b, roughness: 0.15, metalness: 0.4, flatShading: true }));
     const glassMat = opts.ghost ? glassSolid
       : sharedMat('glass18', () => new THREE.MeshStandardMaterial({ color: 0x2b3d58, roughness: 0.08, metalness: 0.45, flatShading: true, transparent: true, opacity: 0.4, depthWrite: false }));
-    const tintDef = !opts.ghost && DL.TINTS[equip.tint];
-    const glassUse = tintDef ? sharedMat('tint_' + equip.tint, () => new THREE.MeshStandardMaterial({ color: tintDef[0], roughness: 0.08, metalness: 0.45, flatShading: true, transparent: true, opacity: tintDef[1], depthWrite: false })) : glassMat;
+    const tintDef = DL.TINTS[equip.tint];
+    const glassUse = tintDef && opts.ghost ? sharedMat('gtint_' + equip.tint, () => new THREE.MeshBasicMaterial({ color: tintDef[0], transparent: true, opacity: 0.5, depthWrite: false })) : tintDef ? sharedMat('tint_' + equip.tint, () => new THREE.MeshStandardMaterial({ color: tintDef[0], roughness: 0.08, metalness: 0.45, flatShading: true, transparent: true, opacity: tintDef[1], depthWrite: false })) : glassMat;
     const glass = new THREE.Mesh(split.glass, glassUse); glass.castShadow = false; glass.renderOrder = 3; body.add(glass);
     const extraMat = opts.ghost ? glassMat : sharedMat('trim', () => new THREE.MeshLambertMaterial({ color: 0x1f2a3d, flatShading: true }));
     // solid paint for add-on bodywork (wings, bed rails): box UVs would smear the livery texture across them
@@ -587,8 +587,8 @@
       }
     }
 
-    if (!opts.ghost && DL.PLATE_STYLES[equip.plate]) {
-      const txt = DL.plateText(equip.plateText), pm = plateMat(equip.plate, txt);
+    if (DL.PLATE_STYLES[equip.plate]) {
+      const txt = DL.plateText(equip.plateText), pm = plateMat(equip.plate, txt, !!opts.ghost);
       const pw = 0.62, ph = 0.16, py = spec.lower[0][1] + 0.44;
       // where the hull outline sits at plate height (the ends are sloped on most cars)
       const edgeZ = (y, rearSide) => { let best = rearSide ? 1e9 : -1e9; const L = spec.lower; for (let k = 0; k < L.length; k++) { const a = L[k], b = L[(k + 1) % L.length]; if ((a[1] - y) * (b[1] - y) <= 0 && a[1] !== b[1]) { const z = a[0] + (b[0] - a[0]) * (y - a[1]) / (b[1] - a[1]); best = rearSide ? Math.min(best, z) : Math.max(best, z); } } return best; };
