@@ -127,6 +127,54 @@
 
   // player-made tracks are registered here by id (day key 'c_xxxxxxxx') before they are raced
   DL.customTracks = DL.customTracks || {};
+  // ---------------- daily weather (visual only, same for everyone, no effect on physics) ----------------
+  const WEATHER = {
+    clear:  { name: 'Clear', hemi: 1.5, sun: 2.6 },
+    golden: { name: 'Golden hour', hemi: 1.3, sun: 2.9, tint: 0xffb066, mix: 0.35, sunc: 0xffc27a },
+    fog:    { name: 'Fog', hemi: 1.7, sun: 1.2, tint: 0xc9d0d4, mix: 0.7, fogNear: 10, fogFar: 260 },
+    rain:   { name: 'Rain', hemi: 1.3, sun: 0.9, tint: 0x7d8a96, mix: 0.6, fogNear: 40, fogFar: 520, rain: true },
+    dusk:   { name: 'Dusk', hemi: 0.9, sun: 1.1, tint: 0x3a3f68, mix: 0.6, sunc: 0xff9a7a, fogNear: 80, fogFar: 900 }
+  };
+  Game.weather = WEATHER.clear;
+  let rainPts = null;
+  function applyWeather(day, B) {
+    let w = WEATHER.clear;
+    if (day && /^\d{8}$/.test(day)) {
+      const h = DL.hashStr('wx:' + day) % 100;
+      w = h < 44 ? WEATHER.clear : h < 60 ? WEATHER.golden : h < 76 ? WEATHER.fog : h < 90 ? WEATHER.rain : WEATHER.dusk;
+    }
+    Game.weather = w;
+    hemi.intensity = w.hemi; sun.intensity = w.sun;
+    if (w.tint) {
+      const t = new THREE.Color(w.tint), m = w.mix;
+      scene.background = new THREE.Color(B.sky).lerp(t, m);
+      scene.fog = new THREE.Fog(new THREE.Color(B.fog).lerp(t, m), w.fogNear || 260, w.fogFar || 1700);
+      const top = new THREE.Color(B.sky).lerp(t, m), hor = new THREE.Color(B.fog).lerp(t, m), c = new THREE.Color(), p = skyDome.geometry.attributes.position, col = skyDome.geometry.attributes.color;
+      for (let i = 0; i < p.count; i++) { const hh = Math.max(0, p.getY(i) / 3000); c.copy(hor).lerp(top, Math.pow(hh, 0.55)); col.setXYZ(i, c.r, c.g, c.b); }
+      col.needsUpdate = true;
+      hemi.color.lerp(t, m * 0.5);
+      if (w.sunc) sun.color.set(w.sunc);
+    }
+    if (rainPts) { scene.remove(rainPts); rainPts.geometry.dispose(); rainPts.material.dispose(); rainPts = null; }
+    if (w.rain) {
+      const n = 1400, pos = new Float32Array(n * 3);
+      for (let i = 0; i < n; i++) { pos[i * 3] = (Math.random() - .5) * 60; pos[i * 3 + 1] = Math.random() * 30; pos[i * 3 + 2] = (Math.random() - .5) * 60; }
+      const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+      rainPts = new THREE.Points(g, new THREE.PointsMaterial({ color: 0xcfd8e0, size: 0.09, transparent: true, opacity: 0.6, depthWrite: false, fog: false }));
+      rainPts.frustumCulled = false; scene.add(rainPts);
+    }
+    const el = document.getElementById('wxTag'); if (el) el.textContent = w === WEATHER.clear ? '' : w.name;
+  }
+  Game.tickWeather = function (dt) {
+    if (!rainPts) return;
+    const a = rainPts.geometry.attributes.position, c = camera.position;
+    for (let i = 0; i < a.count; i++) {
+      let y = a.getY(i) - 28 * dt; if (y < -2) { y += 32; a.setX(i, (Math.random() - .5) * 60); a.setZ(i, (Math.random() - .5) * 60); }
+      a.setY(i, y);
+    }
+    a.needsUpdate = true; rainPts.position.set(c.x, c.y - 4, c.z);
+  };
+
   Game.loadDay = function (day, custom) {
     custom = custom || DL.customTracks[day] || null;
     const key = custom ? day + '|' + custom.biome + '|' + JSON.stringify(custom.pts) + '|' + JSON.stringify(custom.ext || null) : day;
@@ -142,6 +190,7 @@
       col.needsUpdate = true; }
     hemi.color.set(B.hemiSky); hemi.groundColor.set(B.hemiGround);
     sun.color.set(B.sun);
+    applyWeather(custom ? null : day, B);
     if (playerModel) { scene.add(playerModel); parkPlayer(); }
     return track;
   };
@@ -790,6 +839,7 @@
   // ---------------- per-frame ----------------
   const gs = new Float32Array(8);
   function frame(dt) {
+    Game.tickWeather(dt);
     menuT += dt;
     readInput(dt);
     if (world && world.group.userData.clouds) world.group.userData.clouds.children.forEach((c, i) => { c.position.x += dt * (1.5 + (i % 3)); });
