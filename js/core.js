@@ -80,6 +80,9 @@ window.DL = window.DL || {};
 
   // ---------- patch notes (major releases only, newest first) ----------
   DL.PATCHES = [
+    { v: '2.0', date: 'November 2026', title: 'The BIG Update', art: 'community',
+      lead: 'Race together, win a UFO, and a lot more.',
+      items: ['Live rooms: share a 4-letter code and race the daily or any community map together, no countdown, endless laps', 'Weekly Cup: the winner drives a floating, wheel-less UFO for the whole week', 'Community: likes, Trending and Most liked tabs, Creator of the Week, six track templates', 'Friends and weekly leaderboards, invite links with coin rewards, shareable liveries', 'Daily weather, gear-shift and exhaust sounds, photo mode in replays', 'Streak freezes and new streak rewards, colour-blind mode and a camera-shake slider'] },
     { v: '1.9', date: 'November 2026', title: 'Brighter World', art: 'offroad',
       lead: 'A fresh coat of paint on every map: clearer skies, richer colours, bluer water.',
       items: ['Brighter, richer landscapes in every biome', 'Gradient skies and a cleaner, longer view distance', 'Vivid water, greener trees and brighter mountains', 'New landforms per biome: desert mesas, sharp peaks, snow dunes, forest knolls, sea cliffs, terraced fields. A little different every day', 'Animated 3-2-1-GO', 'Cleaner start and finish gates with a chequered line, nothing clipping into scenery', 'Same tracks, same handling'] },
