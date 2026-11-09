@@ -407,13 +407,15 @@ input[type=range]{width:100%;accent-color:var(--coral);}
 .kgrid{display:grid;grid-template-columns:repeat(3,44px);grid-template-rows:repeat(2,44px);gap:5px;}
 .kgrid b{display:flex;align-items:center;justify-content:center;border-radius:9px;background:rgba(243,234,215,.92);color:var(--navy);font-family:var(--f-display);font-size:24px;font-weight:800;border:1.5px solid var(--navy);box-shadow:0 3px 0 var(--navy);transition:transform .05s,background .05s;}
 .kgrid b.on{background:var(--coral);color:#fff;transform:translateY(3px);box-shadow:0 0 0 var(--navy);}
+.kspace{margin-top:6px;width:152px;height:30px;display:flex;align-items:center;justify-content:center;border-radius:9px;background:rgba(243,234,215,.92);color:var(--navy);font-family:var(--f-display);font-size:13px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;border:1.5px solid var(--navy);box-shadow:0 3px 0 var(--navy);transition:transform .05s,background .05s;}
+.kspace.on{background:var(--coral);color:#fff;transform:translateY(3px);box-shadow:0 0 0 var(--navy);}
 .ksteer{position:relative;height:8px;border-radius:5px;background:rgba(243,234,215,.55);}
 .ksteer i{position:absolute;top:0;bottom:0;border-radius:5px;background:#f2c14e;left:50%;width:0;}
 .kspd{display:flex;align-items:baseline;gap:6px;color:var(--navy);text-shadow:0 1px 0 rgba(243,234,215,.85);}
 .kspd b{font-family:var(--f-display);font-size:40px;font-weight:900;line-height:1;}
 .kspd small{font-size:12px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;}
 .knote{font-size:10.5px;color:var(--navy);opacity:.7;font-weight:600;text-shadow:0 1px 0 rgba(243,234,215,.8);}
-@media (max-width:760px){.rp-keys{bottom:calc(128px + env(safe-area-inset-bottom,0px));} .kgrid{grid-template-columns:repeat(3,38px);grid-template-rows:repeat(2,38px);} .kgrid b{font-size:20px;} .menu-more button{font-size:12px;}}
+@media (max-width:760px){.kspace{width:124px;height:26px;font-size:11px;} .rp-keys{bottom:calc(128px + env(safe-area-inset-bottom,0px));} .kgrid{grid-template-columns:repeat(3,38px);grid-template-rows:repeat(2,38px);} .kgrid b{font-size:20px;} .menu-more button{font-size:12px;}}
 /* colour-blind safe: blue = faster, orange = slower, plus arrows */
 body.cb{--good:#1f6fb5;--bad:#d9822b;}
 body.cb .sp.up{background:rgba(31,111,181,.14);border-color:rgba(31,111,181,.5);} body.cb .sp.down{background:rgba(217,130,43,.12);border-color:rgba(217,130,43,.5);}
@@ -915,6 +917,7 @@ body.fs #navFull{background:var(--cream-2);}
   <div class="rp-top"><div class="rp-chip"><span class="lbl">Replay</span><b id="rpName">Driver</b><span class="num" id="rpTime">0:00.000</span></div></div>
   <div class="rp-keys" aria-hidden="true">
     <div class="kgrid"><span></span><b id="kUp">↑</b><span></span><b id="kLeft">←</b><b id="kDown">↓</b><b id="kRight">→</b></div>
+    <div class="kspace" id="kSpace">Space · handbrake</div>
     <div class="ksteer" id="kSteer"><i></i></div>
     <div class="kspd"><b class="num" id="rpSpd">0</b><small id="rpSpdU">km/h</small></div>
     <div class="knote">Inputs reconstructed from the replay</div>
@@ -962,18 +965,18 @@ body.fs #navFull{background:var(--cream-2);}
 <div id="toasts"></div>
 
 <script src="https://cdn.jsdelivr.net/npm/three@0.158.0/build/three.min.js"></script>
-<script src="config.js?v=20261109art"></script>
-<script src="js/core.js?v=20261109art"></script>
-<script src="js/track.js?v=20261109art"></script>
-<script src="js/physics.js?v=20261109art"></script>
-<script src="js/vehicles.js?v=20261109art"></script>
-<script src="js/items.js?v=20261109art"></script>
-<script src="js/net.js?v=20261109art"></script>
-<script src="js/thumbs.js?v=20261109art"></script>
-<script src="js/auth.js?v=20261109art"></script>
-<script src="js/game.js?v=20261109art"></script>
-<script src="js/ui.js?v=20261109art"></script>
-<script src="js/community.js?v=20261109art"></script>
-<script src="js/rooms.js?v=20261109art"></script>
-<script src="js/share.js?v=20261109art"></script>
-<script src="js/mobile.js?v=20261109art"></script>
+<script src="config.js?v=20261109hb"></script>
+<script src="js/core.js?v=20261109hb"></script>
+<script src="js/track.js?v=20261109hb"></script>
+<script src="js/physics.js?v=20261109hb"></script>
+<script src="js/vehicles.js?v=20261109hb"></script>
+<script src="js/items.js?v=20261109hb"></script>
+<script src="js/net.js?v=20261109hb"></script>
+<script src="js/thumbs.js?v=20261109hb"></script>
+<script src="js/auth.js?v=20261109hb"></script>
+<script src="js/game.js?v=20261109hb"></script>
+<script src="js/ui.js?v=20261109hb"></script>
+<script src="js/community.js?v=20261109hb"></script>
+<script src="js/rooms.js?v=20261109hb"></script>
+<script src="js/share.js?v=20261109hb"></script>
+<script src="js/mobile.js?v=20261109hb"></script>

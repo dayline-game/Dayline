@@ -490,8 +490,8 @@
     const spdAt = tt => { const a = Math.max(0, tt - 0.1), b = Math.min(r.dur, tt + 0.1); DL.sampleGhost(r.gh, a, rk0); DL.sampleGhost(r.gh, b, rk1); return Math.hypot(rk1[0] - rk0[0], rk1[2] - rk0[2]) / Math.max(0.02, b - a); };
     const vN = spdAt(t), acc = (spdAt(Math.min(r.dur, t + 0.25)) - spdAt(Math.max(0, t - 0.25))) / 0.5;
     DL.sampleGhost(r.gh, t, rs1);
-    const brk = rs1[7] > 0.5 || acc < -9, stv = DL.clamp(rs1[6] / 0.82, -1, 1), live = t < r.dur - 0.2;
-    r.keys = { gas: live && !brk && (acc > -1.2 || vN > 48), brake: live && brk, left: stv < -0.2, right: stv > 0.2, st: stv, v: vN };
+    const flag = Math.round(rs1[7]), hbk = (flag & 2) > 0, brk = (flag & 1) > 0 || acc < -9, stv = DL.clamp(rs1[6] / 0.82, -1, 1), live = t < r.dur - 0.2;
+    r.keys = { gas: live && !brk && (acc > -1.2 || vN > 48), brake: live && brk, hb: live && hbk, left: stv < -0.2, right: stv > 0.2, st: stv, v: vN };
     DL.poseCar(r.model, x, y, z, c.yaw, c.pitch, c.roll, c.steerVis, r.spin, rs1[7] > 0.5);
     r.model.updateMatrixWorld();
     const snap = r.snap; r.snap = false;
@@ -512,7 +512,8 @@
 
   function record() {
     const c = race.car;
-    race.frames.push([c.x, c.y, c.z, c.yaw, c.pitch, c.roll, c.steerVis, input.brake > 0 ? 1 : 0]);
+    // last value: 1 = brake, 2 = handbrake (3 = both); older ghosts only ever hold 0 or 1
+    race.frames.push([c.x, c.y, c.z, c.yaw, c.pitch, c.roll, c.steerVis, (input.brake > 0 ? 1 : 0) | (input.handbrake ? 2 : 0)]);
   }
 
   function physicsStep(r) {

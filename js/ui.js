@@ -903,7 +903,7 @@
   UI.replayHud = function (r, t) {
     const k = r.keys;
     if (k) {
-      $('kUp').classList.toggle('on', k.gas); $('kDown').classList.toggle('on', k.brake);
+      $('kUp').classList.toggle('on', k.gas); $('kDown').classList.toggle('on', k.brake); $('kSpace').classList.toggle('on', !!k.hb);
       $('kLeft').classList.toggle('on', k.left); $('kRight').classList.toggle('on', k.right);
       { const b = $('kSteer').firstElementChild; b.style.left = (50 + Math.min(0, k.st) * 50) + '%'; b.style.width = (Math.abs(k.st) * 50) + '%'; }
       $('rpSpd').textContent = Math.round((k.v || 0) * (Game.settings.units === 'mph' ? 2.237 : 3.6));

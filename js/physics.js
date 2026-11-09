@@ -301,7 +301,8 @@
   };
   DL.sampleGhost = function (gh, t, out) {
     const fi = t * gh.hz, i = Math.floor(fi), a = DL.clamp(i, 0, gh.n - 1), b = DL.clamp(i + 1, 0, gh.n - 1), k = DL.clamp(fi - i, 0, 1);
-    for (let c = 0; c < 8; c++) out[c] = gh.f[a * 8 + c] + (gh.f[b * 8 + c] - gh.f[a * 8 + c]) * k;
+    for (let c = 0; c < 7; c++) out[c] = gh.f[a * 8 + c] + (gh.f[b * 8 + c] - gh.f[a * 8 + c]) * k;
+    out[7] = gh.f[(k < 0.5 ? a : b) * 8 + 7];        // flags (brake, handbrake) are not blended
     out.done = i >= gh.n - 1;
     return out;
   };
