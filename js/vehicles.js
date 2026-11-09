@@ -415,15 +415,24 @@
     for (let i = 0; i < 8; i++) { const a = i / 8 * Math.PI * 2, l = new THREE.Mesh(new THREE.SphereGeometry(0.09, 6, 4), lightMat); l.position.set(Math.sin(a) * 1.75, 0.46, Math.cos(a) * 1.75); body.add(l); }
     const tailMat = new THREE.MeshStandardMaterial({ color: 0xc73a2e, emissive: 0xf05a35, emissiveIntensity: 0.15 });
     [-1, 1].forEach(s => { const t = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.12, 0.08), tailMat); t.position.set(s * 0.6, 0.5, -1.82); t.rotation.y = 0; body.add(t); });
-    const under = new THREE.Mesh(new THREE.CircleGeometry(0.9, 16), new THREE.MeshBasicMaterial({ color: 0x39d6ff, transparent: true, opacity: ghost ? 0.15 : 0.5, depthWrite: false, blending: THREE.AdditiveBlending }));
-    under.rotation.x = Math.PI / 2; under.position.y = -0.05; body.add(under);
+    // underside: glowing core, tractor-beam cone to the ground and a pool of light on the road
+    const H = 0.95;
+    const add = (o, op) => new THREE.MeshBasicMaterial({ color: o, transparent: true, opacity: op, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide, fog: false });
+    const core = new THREE.Mesh(new THREE.CircleGeometry(0.85, 20), add(0xbff6ff, ghost ? 0.2 : 0.85)); core.rotation.x = Math.PI / 2; core.position.y = -0.02; body.add(core);
+    const spin = new THREE.Group(); spin.position.y = 0.0; body.add(spin);
+    for (let i = 0; i < 6; i++) { const a = i / 6 * Math.PI * 2, n = new THREE.Mesh(new THREE.SphereGeometry(0.13, 8, 6), lightMat); n.position.set(Math.sin(a) * 1.05, -0.02, Math.cos(a) * 1.05); spin.add(n); }
+    const beam = new THREE.Mesh(new THREE.CylinderGeometry(0.8, 1.5, H, 20, 1, true), add(0x39d6ff, ghost ? 0.06 : 0.2)); beam.position.y = -H / 2; beam.renderOrder = 2; body.add(beam);
+    const beam2 = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.95, H, 16, 1, true), add(0xbff6ff, ghost ? 0.05 : 0.22)); beam2.position.y = -H / 2; beam2.renderOrder = 2; body.add(beam2);
+    const pool = new THREE.Mesh(new THREE.CircleGeometry(1.7, 28), add(0x39d6ff, ghost ? 0.1 : 0.4)); pool.rotation.x = -Math.PI / 2; pool.position.y = -H + 0.02; pool.renderOrder = 2; body.add(pool);
+    const top = new THREE.Mesh(new THREE.SphereGeometry(0.12, 8, 6), lightMat); top.position.y = 1.62; body.add(top);
+    const ant = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.02, 0.3, 5), new THREE.MeshLambertMaterial({ color: 0xdfe4ea })); ant.position.y = 1.5; body.add(ant);
     root.userData = {
-      spec, equip: {}, body, bodyMesh: hullMesh, wheels: [], tailMat, canvas, tex, bodyMat, ufo: true, ufoRing: lightMat,
+      spec, equip: {}, body, bodyMesh: hullMesh, wheels: [], tailMat, canvas, tex, bodyMat, ufo: true, ufoRing: lightMat, ufoSpin: spin, ufoPool: pool, ufoBeam: [beam, beam2],
       exhaust: new THREE.Vector3(0, 0.2, -1.9), paintMat: bodyMat, deform: false, rearZ: -R, frontZ: R, roofY: 1.5,
       setLivery(liv, b) { DL.drawLiveryCanvas(canvas, liv, b); tex.needsUpdate = true; },
       dispose() { root.traverse(o => { if (o.geometry) o.geometry.dispose(); }); tex.dispose(); bodyMat.dispose(); glass.dispose(); lightMat.dispose(); }
     };
-    body.position.y = 0.42;      // hover height
+    body.position.y = 0.95;      // hover height
     return root;
   }
 
@@ -589,7 +598,13 @@
     model.position.set(x, y, z);
     model.rotation.set(0, yaw, 0);
     const u = model.userData;
-    if (u.ufo) { const t = performance.now() / 1000; u.body.position.y = 0.42 + Math.sin(t * 2.2) * 0.05; u.ufoRing.emissiveIntensity = 1.3 + Math.sin(t * 5) * 0.4; }
+    if (u.ufo) {
+      const t = performance.now() / 1000, hv = 0.95 + Math.sin(t * 2.2) * 0.06;
+      u.body.position.y = hv; u.ufoRing.emissiveIntensity = 1.5 + Math.sin(t * 5) * 0.5; u.ufoSpin.rotation.y = t * 1.6;
+      // keep the light pool on the road: it follows the hover height, and the cone stretches to meet it
+      u.ufoPool.position.y = -hv + 0.04; u.ufoPool.scale.setScalar(0.95 + Math.sin(t * 3) * 0.05);
+      u.ufoBeam.forEach(b => { b.scale.y = hv / 0.95; b.position.y = -hv / 2; });
+    }
     u.body.rotation.order = 'YXZ';
     u.body.rotation.x = pitch; u.body.rotation.z = roll;
     // tyre load: braking/accel pitch, cornering roll, and landings/bumps (sudden change of vertical speed)
