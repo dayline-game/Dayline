@@ -999,18 +999,29 @@
       for (let q = 0; q < 3; q++) { cl[p + q * 3] = c3.r; cl[p + q * 3 + 1] = c3.g; cl[p + q * 3 + 2] = c3.b; }
       p += 9;
     };
+    // triangles are stored tile by tile so each tile can be culled on its own (camera and shadow pass)
+    const TT = 32, ntx = Math.ceil(nx / TT), nty = Math.ceil(nz / TT), tileStart = new Int32Array(ntx * nty + 1);
+    for (let tj = 0; tj < nty; tj++) for (let ti = 0; ti < ntx; ti++) {
+      const w = Math.min(TT, nx - ti * TT), h = Math.min(TT, nz - tj * TT), t = tj * ntx + ti;
+      tileStart[t + 1] = tileStart[t] + w * h * 18;
+    }
     for (let j = 0; j < nz; j++) for (let i = 0; i < nx; i++) {
+      const ti = (i / TT) | 0, tj = (j / TT) | 0, w = Math.min(TT, nx - ti * TT);
+      p = tileStart[tj * ntx + ti] + ((j - tj * TT) * w + (i - ti * TT)) * 18;
       const k00 = j * (nx + 1) + i, k10 = k00 + 1, k01 = k00 + nx + 1, k11 = k01 + 1;
       const a = vtx(i, j), b = vtx(i + 1, j), c = vtx(i, j + 1), d = vtx(i + 1, j + 1);
       if ((i + j) & 1) { pushTri(a, c, b, k00, k01, k10); pushTri(b, c, d, k10, k01, k11); }
       else { pushTri(a, c, d, k00, k01, k11); pushTri(a, d, b, k00, k11, k10); }
     }
-    const tg = new THREE.BufferGeometry();
-    tg.setAttribute('position', new THREE.BufferAttribute(pos, 3));
-    tg.setAttribute('color', new THREE.BufferAttribute(cl, 3));
-    tg.computeVertexNormals();
-    const terrain = new THREE.Mesh(tg, new THREE.MeshLambertMaterial({ vertexColors: true, flatShading: true }));
-    terrain.receiveShadow = true;
+    const terrain = new THREE.Group(), terrainMat = new THREE.MeshLambertMaterial({ vertexColors: true, flatShading: true });
+    for (let t = 0; t < ntx * nty; t++) {
+      const a0 = tileStart[t], a1 = tileStart[t + 1];
+      const tg = new THREE.BufferGeometry();
+      tg.setAttribute('position', new THREE.BufferAttribute(pos.slice(a0, a1), 3));
+      tg.setAttribute('color', new THREE.BufferAttribute(cl.slice(a0, a1), 3));
+      tg.computeVertexNormals(); tg.computeBoundingSphere();
+      const tm = new THREE.Mesh(tg, terrainMat); tm.receiveShadow = true; terrain.add(tm);
+    }
     group.add(terrain);
 
     // ---- road ribbon, kerbs, centre line ----
@@ -1417,16 +1428,23 @@
     for (const type in items) {
       const list = items[type];
       if (!list.length) continue;
-      const im = new THREE.InstancedMesh(propGeometry(type), new THREE.MeshLambertMaterial({ vertexColors: true, flatShading: true }), list.length);
-      list.forEach((o, k) => {
-        im.setMatrixAt(k, M4(o.x, o.y, o.z, o.s, o.sy, o.s, o.ry));
+      // one batch per ~220 m square so frustum culling (camera and shadow pass) can skip whole areas
+      const geo = propGeometry(type), mat = new THREE.MeshLambertMaterial({ vertexColors: true, flatShading: true }), cells = new Map();
+      list.forEach(o => {
         const shade = type === 'mesa' || type === 'house' || type === 'barn' ? 0.96 + pr() * 0.08 : 0.88 + pr() * 0.24;
-        im.setColorAt(k, new THREE.Color(shade, shade, shade));
         const rad = PROP_RADIUS[type];
         if (rad > 0 && o.d < 70) track._addCollider({ kind: type, x: o.x, z: o.z, r: rad * o.s });
+        const key = Math.floor(o.x / 320) + "," + Math.floor(o.z / 320);
+        let c = cells.get(key); if (!c) cells.set(key, c = []);
+        c.push([o, shade]);
       });
-      im.castShadow = type !== 'bush' && type !== 'shrub'; im.receiveShadow = true;
-      group.add(im);
+      cells.forEach(c => {
+        const im = new THREE.InstancedMesh(geo, mat, c.length);
+        c.forEach(([o, shade], k) => { im.setMatrixAt(k, M4(o.x, o.y, o.z, o.s, o.sy, o.s, o.ry)); im.setColorAt(k, new THREE.Color(shade, shade, shade)); });
+        im.castShadow = type !== 'bush' && type !== 'shrub'; im.receiveShadow = true;
+        im.computeBoundingSphere();
+        group.add(im);
+      });
     }
 
     // ---- water ----

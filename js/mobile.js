@@ -209,11 +209,11 @@
   const cp = UI.checkpoint; UI.checkpoint = function (k, total, delta) { buzz(delta != null && delta > 0 ? [10, 40, 10] : 18); return cp.apply(this, arguments); };
   const fin = UI.finished; if (fin) UI.finished = function () { buzz([30, 60, 50]); return fin.apply(this, arguments); };
 
-  // ---------------- adaptive resolution (phones) ----------------
+  // ---------------- adaptive resolution (every device) ----------------
   let fr = [], lastT = 0, cool = 0;
   function watch(t) {
     requestAnimationFrame(watch);
-    if (!DL.isTouch() || Game.mode() !== 'race' || document.hidden) { lastT = 0; fr.length = 0; return; }
+    if (Game.mode() !== 'race' || document.hidden) { lastT = 0; fr.length = 0; return; }
     if (lastT) fr.push(t - lastT); lastT = t;
     if (fr.length < 90) return;
     fr.sort((a, b) => a - b); const med = fr[fr.length >> 1]; fr.length = 0;

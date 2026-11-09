@@ -6,6 +6,7 @@
   let renderer, scene, camera, sun, hemi, envTex, skyDome;
   let track = null, world = null, playerModel = null;
   let gScene, gCam, gModel, gSun;
+  let idleAcc = 0, idleN = 0;
   const orbit = { theta: 2.4, phi: 0.3, dist: 9, auto: true, drag: null };
   let mode = 'loading';
   let race = null, menuT = 0;
@@ -18,7 +19,7 @@
   // ---------------- init ----------------
   Game.init = function () {
     const canvas = document.getElementById('gl');
-    renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' });
+    renderer = new THREE.WebGLRenderer({ canvas, antialias: (window.devicePixelRatio || 1) < 1.75, powerPreference: 'high-performance' });   // MSAA costs a lot and shows little on dense screens
     renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     scene = new THREE.Scene();
     camera = new THREE.PerspectiveCamera(60, 1, 0.3, 5000);
@@ -70,6 +71,7 @@
     Game.resScale = k; renderer.setPixelRatio(Game.baseRatio * k); resize();
   };
   Game.renderer = () => renderer;
+  Game.scenes = () => ({ scene, gScene });
 
   function buildEnv() {
     const s = new THREE.Scene();
@@ -238,7 +240,7 @@
       opts = { car: sv.car, livery: paint.l ? DL.decodeLivery(paint.l) : DL.defaultLivery(), base: paint.b == null ? DL.DEFAULT_BASE : paint.b, equip: sv.equip };
     }
     if (gModel) { gScene.remove(gModel); gModel.userData.dispose(); }
-    gModel = DL.buildCar(opts);
+    gModel = DL.buildCar(opts); idleN = -1;
     gModel.position.y = 0.24;
     gModel.traverse(o => { if (o.isMesh) o.castShadow = true; });
     gScene.add(gModel);
@@ -256,7 +258,7 @@
 
   // ---------------- modes ----------------
   Game.setMode = function (m) {
-    mode = m;
+    mode = m; idleN = -1;
     if (m !== 'editor') Game.edStale(false);
     if (race && m !== 'race' && m !== 'replay') endRace();
     if (m === 'garage' || m === 'shop') { orbit.auto = true; }
@@ -865,7 +867,13 @@
 
   // ---------------- per-frame ----------------
   const gs = new Float32Array(8);
+  // menus and the locker barely change: refresh the shadow map a few times a second instead of every frame
+  const shadowLive = on => { if (!renderer.shadowMap.enabled) return; if (on) renderer.shadowMap.autoUpdate = true; else { renderer.shadowMap.autoUpdate = false; if (idleN % 8 === 0) renderer.shadowMap.needsUpdate = true; } };
   function frame(dt) {
+    if (mode !== 'race' && mode !== 'replay' && mode !== 'editor') {
+      // idle scenes (menu, locker, shop, boards) only need 30 fps; the slow camera drift looks the same and the GPU gets half the work
+      idleAcc += dt; if (idleAcc < 0.028 && !(DL.Game._forceFrame)) return; dt = Math.min(idleAcc, 0.05); idleAcc = 0; idleN++;
+    } else idleAcc = 0;
     Game.tickWeather(dt);
     menuT += dt;
     readInput(dt);
@@ -875,12 +883,14 @@
       setOffset(camera, 'none');
       sun.position.set(race.car.x + 60, race.car.y + 110, race.car.z + 40); sun.target.position.set(race.car.x, race.car.y, race.car.z);
       updateParticles(dt);
+      shadowLive(true);
       renderer.render(scene, camera);
     } else if (mode === 'replay' && race) {
       updateReplay(dt);
       setOffset(camera, 'none');
       sun.position.set(race.car.x + 60, race.car.y + 110, race.car.z + 40); sun.target.position.set(race.car.x, race.car.y, race.car.z);
       if (Game.camHook) Game.camHook(camera, race, scene);
+      shadowLive(true);
       renderer.render(scene, camera);
       if (Game.onReplayFrame) Game.onReplayFrame(renderer.domElement);
       if (Game.photoReq) { Game.photoReq = false; renderer.domElement.toBlob(b => { if (!b) return; const a = document.createElement('a'); a.href = URL.createObjectURL(b); a.download = 'dayline-photo.png'; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 4000); DL.UI.toast && DL.UI.toast('Photo saved'); }, 'image/png'); }
@@ -892,6 +902,7 @@
       gCam.lookAt(0, cy, 0);
       setOffset(gCam, 'side');
       if (gModel) gModel.userData.wheels.forEach(w => { w.pivot.rotation.y = 0; });
+      shadowLive(false);
       renderer.render(gScene, gCam);
     } else if (mode === 'editor' && track) {
       const v = edv, cp = Math.cos(v.ph), w = window.innerWidth, h = window.innerHeight;
@@ -903,6 +914,7 @@
       camera.updateMatrixWorld();
       if (playerModel) playerModel.visible = false;
       sun.position.set(v.tx + 60, v.ty + 110, v.tz + 40); sun.target.position.set(v.tx, v.ty, v.tz);
+      shadowLive(true);
       renderer.render(scene, camera);
       if (Game.onEdFrame) Game.onEdFrame();
     } else if (track && playerModel) {
@@ -917,6 +929,7 @@
       playerModel.visible = true;
       sun.position.set(s.x + 60, gy + 110, s.z + 40); sun.target.position.set(s.x, gy, s.z);
       updateParticles(dt);
+      shadowLive(false);
       renderer.render(scene, camera);
     }
   }
