@@ -193,6 +193,7 @@
   // ---------------- modes ----------------
   Game.setMode = function (m) {
     mode = m;
+    if (m !== 'editor') Game.edStale(false);
     if (race && m !== 'race' && m !== 'replay') endRace();
     if (m === 'garage' || m === 'shop') { orbit.auto = true; }
     if (m === 'menu' || m === 'board' || m === 'archive' || m === 'community' || m === 'editor') { parkPlayer(); }
@@ -200,6 +201,7 @@
   Game.mode = () => mode;
   const edv = Game.edView = { th: 0.8, ph: 0.8, dist: 700, tx: 0, ty: 0, tz: 0 };
   Game.edCamera = () => camera;
+  Game.edStale = on => { if (renderer) renderer.domElement.style.filter = on ? 'grayscale(.9) brightness(.85)' : ''; };
 
   // ---------------- race ----------------
   Game.startRace = async function (day, ghostSpecs, custom, opts) {

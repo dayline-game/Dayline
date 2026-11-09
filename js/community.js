@@ -221,8 +221,8 @@
     requestAnimationFrame(() => { sizeCanvas(); renderTabs(); changed(true); if (ed.fitNext) { previewTrack(true); fit(); ed.fitNext = false; } scheduleWorld(0); });
   };
   function sizeCanvas() {
-    const r = cv.getBoundingClientRect(), dpr = Math.min(2, window.devicePixelRatio || 1);
-    ed.W = r.width; ed.H = r.height; ed.dpr = dpr; cv.width = Math.max(1, r.width * dpr); cv.height = Math.max(1, r.height * dpr);
+    const dpr = Math.min(2, window.devicePixelRatio || 1), W = window.innerWidth, Hh = window.innerHeight;   // same size the 3D renderer uses, so handles and rays line up exactly
+    ed.W = W; ed.H = Hh; ed.dpr = dpr; cv.style.width = W + 'px'; cv.style.height = Hh + 'px'; cv.width = Math.max(1, W * dpr); cv.height = Math.max(1, Hh * dpr);
     const pr = pcv.getBoundingClientRect(); ed.PW = pr.width; ed.PH = pr.height; pcv.width = Math.max(1, pr.width * dpr); pcv.height = Math.max(1, pr.height * dpr);
   }
   window.addEventListener('resize', () => { if (!$('editor').hidden) { sizeCanvas(); draw(); drawProf(); } });
@@ -274,7 +274,7 @@
 
   // ----- tabs / side panel -----
   const TAB_HELP = {
-    layout: 'Click the ground to add waypoints, drag a handle to move it, click the road to insert one, double-click to remove. Orbit: right-drag, Option+drag or the orbit button (or Q/E). Pan: shift+right-drag or the hand. Scroll zooms.',
+    layout: 'Click the ground to add waypoints, drag a handle to move it, click the road to insert one, double-click to remove. Drag empty ground to pan. Orbit: right-drag, Option+drag or the orbit button (or Q/E). Scroll zooms.',
     elev: 'Pick a waypoint and set its height, or drag its handle up and down in the 3D view. Drag the dots on the profile to shape hills and valleys. Red parts are too steep.',
     terr: 'Paint on the ground: raise or lower it, level it off, or erase edits. The road is never touched. The seed re-rolls the natural landforms.',
     props: 'Pick a prop and click or paint on the ground to place it. Scatter adds natural scenery on its own and its dice re-rolls it.',
@@ -353,6 +353,7 @@
     const st = $('edStatus');
     if (ed.res.ok) { st.className = 'ed-status ok'; st.textContent = tested ? 'Tested ✓ Ready to publish' : 'Valid track. Test drive it to unlock publishing'; }
     else { st.className = 'ed-status bad'; st.textContent = ed.res.error; }
+    Game.edStale(!ed.res.ok);
     $('edTest').disabled = !ed.res.ok; $('edPublish').disabled = !(ed.res.ok && tested);
     $('edPublish').title = tested ? '' : 'Finish a test drive on this exact layout first';
     $('edUndo').disabled = !ed.hist.length;
@@ -400,9 +401,15 @@
       cx.closePath(); cx.strokeStyle = ed.tab === 'props' ? (ed.tool === 'perase' ? '#d4441f' : propCol(ed.propType)) : '#f05a35'; cx.lineWidth = 2.5; cx.stroke();
       cx.fillStyle = 'rgba(240,90,53,.12)'; if (ed.tab === 'terr') cx.fill();
     }
+    if (!ed.res.ok && ed.spline && ed.spline.xs.length > 1) {
+      cx.beginPath(); let on = false; const sp = ed.spline;
+      for (let i = 0; i < sp.xs.length; i += 2) { const q = proj(sp.xs[i], gY(sp.xs[i], sp.zs[i]) + 1, sp.zs[i]); if (!q[2]) { on = false; continue; } if (!on) { cx.moveTo(q[0], q[1]); on = true; } else cx.lineTo(q[0], q[1]); }
+      cx.setLineDash([10, 8]); cx.strokeStyle = '#d4441f'; cx.lineWidth = 3; cx.stroke(); cx.setLineDash([]);
+    }
+    if (!ed.res.ok) { cx.font = '800 20px Barlow Condensed, sans-serif'; cx.textAlign = 'center'; const t = ed.res.error || 'Fix the layout'; const w = cx.measureText(t).width + 28, bx = W / 2 + 150 - w / 2; cx.fillStyle = 'rgba(138,42,28,.92)'; cx.beginPath(); cx.roundRect ? cx.roundRect(bx, 16, w, 36, 10) : cx.rect(bx, 16, w, 36); cx.fill(); cx.fillStyle = '#fff'; cx.fillText(t, W / 2 + 150, 40); }
     if (!ed.pts.length) { cx.fillStyle = 'rgba(255,255,255,.9)'; cx.font = '800 26px Barlow Condensed, sans-serif'; cx.textAlign = 'center'; cx.fillText('Click the ground to place the start', W / 2 + 150, H / 2); }
   }
-  Game.onEdFrame = () => { if (!$('editor').hidden) draw(); };
+  Game.onEdFrame = () => { if ($('editor').hidden) return; if (ed.W !== window.innerWidth || ed.H !== window.innerHeight || ed.dpr !== Math.min(2, window.devicePixelRatio || 1)) sizeCanvas(); draw(); };
   // road height profile (elevation tab)
   const prof = { x0: 46, x1: 14, y0: 14, y1: 20 };
   function profMap() {
@@ -431,9 +438,9 @@
 
   // ----- pointer interaction -----
   let drag = null;
-  const evPos = e => { const r = cv.getBoundingClientRect(); return [e.clientX - r.left, e.clientY - r.top]; };
+  const evPos = e => [e.clientX, e.clientY];
   const wpScreen = i => { const tr = ed.tr, p = ed.pts[i], ok = tr && tr.wpIdx && tr.wpIdx.length === ed.pts.length; return proj(p[0], (ok ? tr.py[tr.wpIdx[i]] : gY(p[0], p[1])) + 7, p[1]); };
-  const hitPoint = (px, pz) => { let best = -1, bd = 18; ed.pts.forEach((p, i) => { const q = wpScreen(i), d = Math.hypot(q[0] - px, q[1] - pz); if (q[2] && d < bd) { bd = d; best = i; } }); return best; };
+  const hitPoint = (px, pz) => { let best = -1, bd = 28; ed.pts.forEach((p, i) => { const q = wpScreen(i), d = Math.hypot(q[0] - px, q[1] - pz); if (q[2] && d < bd) { bd = d; best = i; } }); return best; };
   const inMap = w => [DL.clamp(Math.round(w[0]), -LIM, LIM), DL.clamp(Math.round(w[1]), -LIM, LIM)];
   const nearRoad = (x, z) => { if (!ed.spline) return 1e9; let b = 1e9; const s = ed.spline; for (let i = 0; i < s.xs.length; i += 2) b = Math.min(b, Math.hypot(s.xs[i] - x, s.zs[i] - z)); return b; };
   function paintTerrain(w) {
@@ -471,17 +478,18 @@
       changed(true); return;
     }
     if (paint) { snap(); drag = { kind: 'paint', moved: true }; applyPaint(px, pz); return; }
-    drag = { kind: 'click', x: px, z: pz, th: V.th, ph: V.ph, moved: false };
+    drag = { kind: 'click', x: px, z: pz, th: V.th, ph: V.ph, tx: V.tx, tz: V.tz, moved: false };
   });
+  function panTo(V, d, px, pz) { const k = V.dist * 0.0012, c = Math.cos(V.th), s2 = Math.sin(V.th), dx = px - d.x, dz = pz - d.z; V.tx = d.tx - dx * k * c - dz * k * s2; V.tz = d.tz + dx * k * s2 - dz * k * c; V.ty = gY(V.tx, V.tz); }
   cv.addEventListener('pointermove', e => {
     const [px, pz] = evPos(e), V = EV(); ed.lastMove = Date.now();
     if (!drag) { if (ed.tab === 'terr' || ed.tab === 'props') { ed.ptr = [px, pz]; if (!ed.hitQ) ed.hitQ = requestAnimationFrame(() => { ed.hitQ = 0; ed.hit = ed.ptr ? rayHit(ed.ptr[0], ed.ptr[1]) : null; }); } return; }
     if (drag.kind === 'pt') { const w = rayHit(px, pz); if (w) { ed.pts[drag.i] = inMap(w); drag.moved = true; changed(true, 'layout'); } }
     else if (drag.kind === 'elev') { const E = ed.ext; E.elev[drag.i] = Math.round(DL.clamp(drag.h0 + (drag.y - pz) * drag.mpp, DL.EXT_LIM.ELEV_MIN, DL.EXT_LIM.ELEV_MAX)); drag.moved = true; changed(true, 'terrain'); const hs = $('edHeight'); if (hs) { hs.value = E.elev[drag.i]; $('edHeightV').textContent = E.elev[drag.i] + ' m'; hs.disabled = false; } }
     else if (drag.kind === 'paint') { applyPaint(px, pz); }
-    else if (drag.kind === 'orbit' || (drag.kind === 'click' && Math.hypot(px - drag.x, pz - drag.z) > 5 && false)) { V.th = drag.th - (px - drag.x) * 0.006; V.ph = DL.clamp(drag.ph + (pz - drag.z) * 0.006, 0.12, 1.5); drag.moved = true; }
-    else if (drag.kind === 'pan') { const k = V.dist * 0.0012, c = Math.cos(V.th), s2 = Math.sin(V.th), dx = px - drag.x, dz = pz - drag.z; V.tx = drag.tx - dx * k * c - dz * k * s2 * -1 * -1; V.tz = drag.tz + dx * k * s2 - dz * k * c; V.ty = gY(V.tx, V.tz); drag.moved = true; }
-    else if (drag.kind === 'click') { if (Math.hypot(px - drag.x, pz - drag.z) > 5) { drag.moved = true; V.th = drag.th - (px - drag.x) * 0.006; V.ph = DL.clamp(drag.ph + (pz - drag.z) * 0.006, 0.12, 1.5); ed.camDrag = true; } }
+    else if (drag.kind === 'orbit' || (drag.kind === 'click' && Math.hypot(px - drag.x, pz - drag.z) > 5 && false)) { V.th = drag.th - (px - drag.x) * 0.006; V.ph = DL.clamp(drag.ph + (pz - drag.z) * 0.006, 0.3, 1.5); drag.moved = true; }
+    else if (drag.kind === 'pan') { panTo(V, drag, px, pz); drag.moved = true; }
+    else if (drag.kind === 'click') { if (Math.hypot(px - drag.x, pz - drag.z) > 5) { drag.moved = true; ed.camDrag = true; panTo(V, drag, px, pz); } }
   });
   const onUp = e => {
     if (!drag) return; const d = drag; drag = null; ed.camDrag = false; const [px, pz] = evPos(e);
@@ -544,7 +552,7 @@
   document.addEventListener('scroll', e => { if ($('editor').hidden) return; const t = e.target; if (t === document || t === $('editor') || t === document.querySelector('.ed-wrap')) { window.scrollTo(0, 0); $('editor').scrollLeft = 0; document.querySelector('.ed-wrap').scrollLeft = 0; } }, true);
   $('edName').addEventListener('input', e => { ed.name = e.target.value; clearTimeout(saveT); saveT = setTimeout(saveDraft, 400); });
   $('edUndo').onclick = () => { const p = ed.hist.pop(); if (p) { const o = JSON.parse(p); ed.pts = o[0]; ed.ext = o[1]; ed.sel = -1; ed.tr = null; prevKey = ''; renderTabs(); changed(false, 'terrain'); } };
-  $('edExit').onclick = () => { saveDraft(); show('community'); };
+  $('edExit').onclick = () => { saveDraft(); Game.edStale(false); show('community'); };
 
   // ----- random track generator -----
   function randomElev(rnd, level) {
