@@ -1036,7 +1036,10 @@
       tbl.appendChild(t);
     } catch (e) {
       console.warn(e);
-      if (board.token === tok) tbl.innerHTML = '<div class="empty"><h3>Board unreachable</h3><p>The leaderboard did not answer. Try again in a moment.</p></div>';
+      if (board.token === tok) {
+        tbl.innerHTML = '<div class="empty"><h3>Board unreachable</h3><p>The leaderboard did not answer. Check your connection and try again.</p><button class="btn btn-coral btn-sm" id="bRetry">Try again</button></div>';
+        const rb = tbl.querySelector('#bRetry'); if (rb) rb.onclick = async () => { rb.disabled = true; rb.textContent = 'Trying…'; try { if (!(Net.api && Net.mode === 'online')) await Net.connectApi(); } catch (e2) { } renderBoard(); };
+      }
     }
   }
   function displayName(r, names) { const p = names[r.uid]; return (p && p.name) || r.tag || (r.uid === Net.uid ? 'You' : 'Driver'); }

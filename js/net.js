@@ -104,7 +104,18 @@
 
     // ---------- own backend (Cloudflare Worker + D1) ----------
     api: false, google: false, token: null, trackVer: null,
+    // reads (and the idempotent connect calls) retry twice on a dropped connection, a timeout or a 5xx so one bad moment on a phone connection does not show as "unreachable"
     async _fetch(method, path, body) {
+      const retry = method === 'GET' || path === '/api/auth/guest';
+      let last;
+      for (let a = 0; a < (retry ? 3 : 1); a++) {
+        if (a) await new Promise(r => setTimeout(r, a * 700));
+        try { const r = await this._fetch1(method, path, body); if (r.s < 500 || a === (retry ? 2 : 0)) return r; last = r; }
+        catch (e) { last = e; if (a === (retry ? 2 : 0)) throw e; }
+      }
+      if (last instanceof Error || (last && last.name)) throw last; return last;
+    },
+    async _fetch1(method, path, body) {
       const ctl = typeof AbortController !== 'undefined' ? new AbortController() : null;
       const t = ctl && setTimeout(() => ctl.abort(), 12000);
       try {
@@ -126,11 +137,26 @@
       if (server && (server.runs || 0) >= (this.save.runs || 0)) { this.save = this._normSave(server); DL.store.set('save', this.save); DL.emit('save'); }
       else this.persist();
     },
+    // if the first connection fails, keep trying in the background (and again whenever the phone comes back online or the tab is shown)
+    _retryConnect() {
+      if (this._rc) return; let n = 0;
+      const go = () => {
+        if (this.api && this.mode === 'online') return;
+        if (++n > 12) { clearInterval(iv); this._rc = 0; return; }
+        if (!document.hidden && !this._connecting) this.connectApi();
+      };
+      const iv = this._rc = setInterval(go, 12000);
+      if (!this._rcBound) { this._rcBound = 1; const kick = () => { if (!(this.api && this.mode === 'online') && !this._connecting) this.connectApi(); }; addEventListener('online', kick); document.addEventListener('visibilitychange', () => { if (!document.hidden) kick(); }); }
+    },
     async connectApi() {
+      if (this._connecting) return; this._connecting = true;
+      try { await this._connectApi(); } finally { this._connecting = false; if (this.api && this.mode === 'online' && this._rc) { clearInterval(this._rc); this._rc = 0; } }
+    },
+    async _connectApi() {
       this.mode = 'connecting'; DL.emit('net');
       let ping = null;
       try { const r = await this._fetch('GET', '/api/ping'); if (r.s === 200 && r.j.ok) ping = r.j; } catch (e) { }
-      if (!ping) { this._setStatus('local'); return; }
+      if (!ping) { this._setStatus('local'); this._retryConnect(); return; }
       this.api = true; this.db = { api: true }; this.canWrite = true; this.trackVer = ping.ver; this.google = !!ping.google;
       if (ping.clientId) DL.CONFIG.googleClientId = ping.clientId;
       this.token = DL.store.get('token', null);
@@ -143,7 +169,7 @@
           this.token = g.j.token; DL.store.set('token', this.token);
           me = { id: g.j.id, save: null, linked: false, tag: '' };
         }
-      } catch (e) { this._setStatus('unreachable'); return; }
+      } catch (e) { this._setStatus('unreachable'); this._retryConnect(); return; }
       this.uid = me.id; this.username = me.username || ''; this.linked = !!me.linked || !!this.username;
       if (!this.linked && DL.Auth && DL.Auth.user) DL.Auth.signOut(true);
       this._reconcile(me.save);
