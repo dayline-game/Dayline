@@ -604,10 +604,19 @@
     if (!ed.name) { const W1 = ['Misty', 'Golden', 'Crimson', 'Silent', 'Windy', 'Ember', 'Frosty', 'Hidden', 'Lone', 'Sunset', 'Thunder', 'Velvet'], W2 = ['Ridge', 'Run', 'Pass', 'Loop', 'Drift', 'Canyon', 'Sprint', 'Valley', 'Rise', 'Descent', 'Hairpins', 'Circuit']; ed.name = W1[Math.floor(rnd() * W1.length)] + ' ' + W2[Math.floor(rnd() * W2.length)]; $('edName').value = ed.name; }
     ed.tested = null; ed.tr = null; prevKey = ''; renderTabs(); changed(false, 'terrain'); previewTrack(true); fit(); scheduleWorld(0);
   }
+  const TPL = [
+    { n: 'Sprint', o: { len: 800, twist: 0, hills: 0, dens: 0.4, biome: 'country' } },
+    { n: 'Mountain pass', o: { len: 2400, twist: 1, hills: 2, dens: 1, biome: 'mountain' } },
+    { n: 'Hairpin hell', o: { len: 1500, twist: 2, hills: 1, dens: 1, biome: 'forest' } },
+    { n: 'Coast cruise', o: { len: 2400, twist: 0, hills: 1, dens: 1, biome: 'coast' } },
+    { n: 'Desert blast', o: { len: 3200, twist: 0, hills: 0, dens: 0.4, biome: 'desert' } },
+    { n: 'Snow epic', o: { len: 3200, twist: 1, hills: 2, dens: 1.8, biome: 'snow' } }
+  ];
   $('edRandom').onclick = () => {
     const o = { len: 1500, twist: 1, hills: 1, dens: 1, biome: '' };
     const m = modal(`<div class="lbl">Track creator</div><h2>Random track</h2>
       <p class="hint">Builds the road, hills, terrain and scenery for you. You can change anything afterwards.</p>
+      <div class="field"><span class="lbl">Starter templates</span><div class="ed-biomes" id="rgTpl">${TPL.map((t, i) => `<button class="chk" data-i="${i}">${esc(t.n)}</button>`).join('')}</div></div>
       <div class="field"><span class="lbl">Length</span><div class="ed-biomes" id="rgLen"><button class="chk" data-v="800">Short</button><button class="chk on" data-v="1500">Medium</button><button class="chk" data-v="2400">Long</button><button class="chk" data-v="3200">Epic</button></div></div>
       <div class="field"><span class="lbl">Corners</span><div class="ed-biomes" id="rgTw"><button class="chk" data-v="0">Flowing</button><button class="chk on" data-v="1">Mixed</button><button class="chk" data-v="2">Technical</button></div></div>
       <div class="field"><span class="lbl">Hills</span><div class="ed-biomes" id="rgHi"><button class="chk" data-v="0">Flat</button><button class="chk on" data-v="1">Rolling</button><button class="chk" data-v="2">Mountainous</button></div></div>
@@ -616,6 +625,7 @@
       <div class="btn-row"><button class="btn btn-go" id="rgGo" style="font-size:22px">Generate</button><button class="btn btn-line" id="rgNo">Cancel</button></div>`, { sticky: true });
     const pick = (id, key, num) => m.querySelector('#' + id).onclick = e => { const b = e.target.closest('.chk'); if (!b) return; [...b.parentNode.children].forEach(c => c.classList.toggle('on', c === b)); o[key] = num ? +b.dataset.v : b.dataset.v; };
     pick('rgLen', 'len', 1); pick('rgTw', 'twist', 1); pick('rgHi', 'hills', 1); pick('rgBi', 'biome', 0); pick('rgDe', 'dens', 1);
+    m.querySelector('#rgTpl').onclick = e => { const b = e.target.closest('.chk'); if (!b) return; Object.assign(o, TPL[+b.dataset.i].o); closeModal(); setTimeout(() => randomTrack(o), 30); };
     m.querySelector('#rgNo').onclick = closeModal;
     m.querySelector('#rgGo').onclick = () => { closeModal(); setTimeout(() => randomTrack(o), 30); };
   };
