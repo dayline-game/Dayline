@@ -12,6 +12,9 @@
     { id: 'ghost', name: 'Ghostbuster', desc: 'Finish ahead of a ghost you raced', coins: 60 },
     { id: 'streak3', name: 'Three in a Row', desc: 'Keep a 3-day streak', coins: 75 },
     { id: 'streak7', name: 'Full Week', desc: 'Keep a 7-day streak', coins: 200 },
+    { id: 'streak14', name: 'Fortnight', desc: 'Keep a 14-day streak', coins: 350 },
+    { id: 'streak30', name: 'Monthly Habit', desc: 'Keep a 30-day streak. Unlocks the Ducktail spoiler', coins: 800 },
+    { id: 'streak100', name: 'Centurion', desc: 'Keep a 100-day streak. Unlocks the Big wing', coins: 3000 },
     { id: 'runs25', name: 'Regular', desc: 'Complete 25 runs', coins: 100 },
     { id: 'archive5', name: 'Archivist', desc: 'Finish 5 past dailies', coins: 80 },
     { id: 'painter', name: 'Sign Writer', desc: 'Save a custom livery', coins: 50 },
@@ -29,7 +32,7 @@
       paint: { pebble: { l, b: DL.DEFAULT_BASE } },
       designs: [{ name: 'Factory', l, b: DL.DEFAULT_BASE }],
       best: {}, claimed: {}, ach: {},
-      streak: 0, bestStreak: 0, lastDay: null, runs: 0, days: 0, archiveDone: 0,
+      streak: 0, bestStreak: 0, freezes: 0, lastDay: null, runs: 0, days: 0, archiveDone: 0,
       golds: 0, silvers: 0, bronzes: 0, score: 0, tag: '', friends: []
     };
   }
@@ -320,12 +323,18 @@
         if (archive) { s.archiveDone++; if (s.archiveDone >= 5) this.award('archive5', res.ach); }
         else {
           s.days++;
+          res.notes = res.notes || [];
           if (s.lastDay === DL.addDays(today, -1)) s.streak++;
+          else if (s.lastDay === DL.addDays(today, -2) && s.freezes > 0) { s.freezes--; s.streak++; res.notes.push('Streak freeze used. Streak saved'); }
           else if (s.lastDay !== today) s.streak = 1;
           s.lastDay = today; s.bestStreak = Math.max(s.bestStreak, s.streak);
           add('Streak bonus ×' + s.streak, 5 * Math.min(s.streak, 8));
+          if (s.streak % 7 === 0 && s.freezes < 2) { s.freezes++; res.notes.push('Streak freeze earned (' + s.freezes + '/2)'); }
           if (s.streak >= 3) this.award('streak3', res.ach);
           if (s.streak >= 7) this.award('streak7', res.ach);
+          if (s.streak >= 14) this.award('streak14', res.ach);
+          if (s.streak >= 30 && this.award('streak30', res.ach)) { if (!s.owned.spoiler.includes('ducktail')) s.owned.spoiler.push('ducktail'); }
+          if (s.streak >= 100 && this.award('streak100', res.ach)) { if (!s.owned.spoiler.includes('wing')) s.owned.spoiler.push('wing'); }
         }
         s.score += 1;
       }

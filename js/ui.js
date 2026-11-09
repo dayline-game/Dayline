@@ -64,7 +64,7 @@
   // ---------------- menu ----------------
   function streakNow() {
     const s = Net.save, t = today();
-    return (s.lastDay === t || s.lastDay === DL.addDays(t, -1)) ? s.streak : 0;
+    return (s.lastDay === t || s.lastDay === DL.addDays(t, -1) || (s.lastDay === DL.addDays(t, -2) && s.freezes > 0)) ? s.streak : 0;
   }
   function renderMenu() {
     const t = trackFor(today()), d = today();
@@ -75,7 +75,7 @@
     const best = Net.save.best[d];
     $('mMedals').innerHTML = `<span class="lbl">Your best today</span><b class="num">${best ? DL.fmtTime(best).slice(1, 8) : 'No time yet'}</b>`;
     const st = streakNow();
-    $('mStreak').textContent = st + (st === 1 ? ' day' : ' days') + (Net.save.lastDay === d ? '' : st ? ' · race today to keep it' : '');
+    $('mStreak').textContent = st + (st === 1 ? ' day' : ' days') + (Net.save.lastDay === d ? '' : st ? ' · race today to keep it' : '') + (Net.save.freezes ? ' · ❄ ' + Net.save.freezes + ' freeze' + (Net.save.freezes > 1 ? 's' : '') : '');
     $('mStreakBars').innerHTML = Array.from({ length: 7 }, (_, i) => `<i class="${i < Math.min(st, 7) ? 'on' : ''}"></i>`).join('');
     renderNameBox();
     renderNet();
@@ -295,6 +295,7 @@
       <div class="res-time" ${!valid ? 'style="text-decoration:line-through;opacity:.5"' : ''}>${DL.fmtTime(t)}</div>
       <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
         ${r.recoveries ? `<span class="tag">${r.recoveries} recover${r.recoveries > 1 ? 'ies' : 'y'}</span>` : '<span class="tag">Clean run</span>'}
+        ${res && res.notes ? res.notes.map(n => `<span class="tag coral">${esc(n)}</span>`).join('') : ''}
       </div>
       ${valid ? sp.html : ''}
       ${!valid ? '<p class="hint" style="color:var(--bad);font-weight:600">Don’t cheat. That run failed the plausibility check (it skipped part of the route or moved impossibly), so the time was deleted.</p>' : ''}
