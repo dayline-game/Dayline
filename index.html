@@ -430,6 +430,10 @@ body.cb .sp.up em::before{content:'▼ ';} body.cb .sp.down em::before{content:'
 .rm-picks{display:flex;flex-direction:column;gap:4px;max-height:40vh;overflow:auto}
 .rm-pick{display:flex;justify-content:space-between;padding:10px;border:1px solid var(--line);border-radius:8px;background:transparent;cursor:pointer;font:inherit;color:inherit}
 .rm-pick:hover{background:rgba(17,21,29,.07)}
+#rmHud{position:absolute;top:70px;left:12px;background:rgba(17,21,29,.62);color:var(--cream);border-radius:10px;padding:8px 10px;font-size:13px;min-width:170px;pointer-events:none}
+#rmHud div{display:grid;grid-template-columns:16px 1fr auto;gap:6px}
+#rmHud .me{color:#ffb199}
+
 </style>
 
 <canvas id="gl"></canvas>
@@ -638,15 +642,15 @@ body.cb .sp.up em::before{content:'▼ ';} body.cb .sp.down em::before{content:'
 <div id="toasts"></div>
 
 <script src="https://cdn.jsdelivr.net/npm/three@0.158.0/build/three.min.js"></script>
-<script src="config.js?v=20261109v"></script>
-<script src="js/core.js?v=20261109v"></script>
-<script src="js/track.js?v=20261109v"></script>
-<script src="js/physics.js?v=20261109v"></script>
-<script src="js/vehicles.js?v=20261109v"></script>
-<script src="js/net.js?v=20261109v"></script>
-<script src="js/auth.js?v=20261109v"></script>
-<script src="js/game.js?v=20261109v"></script>
-<script src="js/ui.js?v=20261109v"></script>
-<script src="js/community.js?v=20261109v"></script>
-<script src="js/rooms.js?v=20261109v"></script>
-<script src="js/share.js?v=20261109v"></script>
+<script src="config.js?v=20261109w"></script>
+<script src="js/core.js?v=20261109w"></script>
+<script src="js/track.js?v=20261109w"></script>
+<script src="js/physics.js?v=20261109w"></script>
+<script src="js/vehicles.js?v=20261109w"></script>
+<script src="js/net.js?v=20261109w"></script>
+<script src="js/auth.js?v=20261109w"></script>
+<script src="js/game.js?v=20261109w"></script>
+<script src="js/ui.js?v=20261109w"></script>
+<script src="js/community.js?v=20261109w"></script>
+<script src="js/rooms.js?v=20261109w"></script>
+<script src="js/share.js?v=20261109w"></script>

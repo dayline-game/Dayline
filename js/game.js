@@ -395,7 +395,6 @@
 
   Game.restart = function () {
     if (!race) return;
-    if (race.room) { DL.emit('toast', 'No restarts in a live room'); return; }
     race.paused = false; DL.UI.paused(false);
     // reload ghosts so a personal best set on the previous attempt becomes the new target
     race.ghosts.forEach(g => { scene.remove(g.model); g.model.userData.dispose(); });
@@ -929,7 +928,7 @@
     const r = race;
     if (r.paused) { placeCamera(false, 0); return; }
     if (!r.running && !r.finished) {
-      if (r.room && DL.Rooms) r.countdown = (r.room.goAt - DL.Rooms.clock()) / 1000; else r.countdown -= dt;
+      if (r.room) r.countdown = 0; else r.countdown -= dt;
       const n = Math.ceil(r.countdown);
       if (n < r.lastBeep && n >= 1 && n <= 3) { r.lastBeep = n; DL.Audio.beep([0, 440, 523, 659][n], 0.16, 'triangle', 0.18); DL.UI.count(n); startLamps(n); }
       if (r.countdown <= 0) { r.running = true; DL.Audio.beep(880, 0.4, 'triangle', 0.22); DL.Audio.beep(1320, 0.35, 'sine', 0.12); DL.UI.count(0); startLamps(0); }
@@ -974,6 +973,7 @@
 
 
   // ---------------- live room opponents ----------------
+  Game.raceNow = () => race;
   Game.inRoom = () => !!(race && race.room);
   Game.roomState = function () {
     const r = race; if (!r || !r.room) return null;

@@ -264,7 +264,6 @@
       <div class="btn-row"><button class="btn btn-line" id="pSettings">Settings</button><button class="btn btn-line" id="pQuit">Quit</button></div>`, { sticky: true });
     m.querySelector('#pResume').onclick = () => Game.pause(false);
     m.querySelector('#pRestart').onclick = () => Game.restart();
-    if (Game.inRoom && Game.inRoom()) m.querySelector('#pRestart').style.display = 'none';
     m.querySelector('#pRecover').onclick = () => { Game.pause(false); Game.recover(); };
     m.querySelector('#pSettings').onclick = () => openSettings(true);
     m.querySelector('#pQuit').onclick = () => leaveRace();
