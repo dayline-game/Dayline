@@ -129,7 +129,7 @@
   DL.customTracks = DL.customTracks || {};
   Game.loadDay = function (day, custom) {
     custom = custom || DL.customTracks[day] || null;
-    const key = custom ? day + '|' + custom.biome + '|' + JSON.stringify(custom.pts) : day;
+    const key = custom ? day + '|' + custom.biome + '|' + JSON.stringify(custom.pts) + '|' + JSON.stringify(custom.ext || null) : day;
     if (track && track._key === key) return track;
     if (world) { scene.remove(world.group); disposeGroup(world.group); }
     track = new DL.Track(day, custom); track._key = key;
@@ -198,6 +198,8 @@
     if (m === 'menu' || m === 'board' || m === 'archive' || m === 'community' || m === 'editor') { parkPlayer(); }
   };
   Game.mode = () => mode;
+  const edv = Game.edView = { th: 0.8, ph: 0.8, dist: 700, tx: 0, ty: 0, tz: 0 };
+  Game.edCamera = () => camera;
 
   // ---------------- race ----------------
   Game.startRace = async function (day, ghostSpecs, custom, opts) {
@@ -809,6 +811,18 @@
       setOffset(gCam, 'side');
       if (gModel) gModel.userData.wheels.forEach(w => { w.pivot.rotation.y = 0; });
       renderer.render(gScene, gCam);
+    } else if (mode === 'editor' && track) {
+      const v = edv, cp = Math.cos(v.ph), w = window.innerWidth, h = window.innerHeight;
+      camera.position.set(v.tx + Math.sin(v.th) * v.dist * cp, v.ty + Math.sin(v.ph) * v.dist, v.tz + Math.cos(v.th) * v.dist * cp);
+      const gy = track.groundAt(camera.position.x, camera.position.z, {}, true).y + 5; if (camera.position.y < gy) camera.position.y = gy;
+      camera.lookAt(v.tx, v.ty, v.tz);
+      if (camera.fov !== 55) { camera.fov = 55; camera.updateProjectionMatrix(); }
+      if (w > 760) camera.setViewOffset(w, h, -150, 0, w, h); else camera.clearViewOffset();
+      camera.updateMatrixWorld();
+      if (playerModel) playerModel.visible = false;
+      sun.position.set(v.tx + 60, v.ty + 110, v.tz + 40); sun.target.position.set(v.tx, v.ty, v.tz);
+      renderer.render(scene, camera);
+      if (Game.onEdFrame) Game.onEdFrame();
     } else if (track && playerModel) {
       // menu & overlay screens: cinematic idle shot of the player's car on today's track
       const s = track.start, a = s.yaw + 0.75 + Math.sin(menuT * 0.12) * 0.3;

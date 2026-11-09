@@ -52,7 +52,8 @@
   $('bCommunity').onclick = () => show('community');
   $('cmCreate').onclick = () => UI.openEditor(null);
   $('cmTabs').addEventListener('click', e => { const b = e.target.closest('.tab'); if (!b) return; cm.tab = b.dataset.tab; UI.renderCommunity(); });
-  const reg = r => { DL.customTracks[r.id] = { id: r.id, name: r.name, biome: r.biome, pts: r.pts }; };
+  const reg = r => { const old = DL.customTracks[r.id]; DL.customTracks[r.id] = { id: r.id, name: r.name, biome: r.biome, pts: r.pts, ext: r.ext || (old && old.ext) || null, needExt: !!r.hasExt && !r.ext && !(old && old.ext) }; };
+  async function ensureExt(id) { const c = DL.customTracks[id]; if (!c || !c.needExt) return c; const t = await Net.ctGet(id); if (t) { c.ext = t.ext || null; c.needExt = false; } return c; }
   const fmtLen = m => (m / 1000).toFixed(2) + ' km';
 
   UI.renderCommunity = async function () {
@@ -119,7 +120,7 @@
     const sel = X.board.sel[r.id] || (X.board.sel[r.id] = {});
     const upd = () => { const n = Object.keys(sel).length; $('cmSel').textContent = n ? n + ' ghost' + (n > 1 ? 's' : '') + ' selected' : 'Pick up to 3 ghosts'; };
     upd();
-    $('cmPlay').onclick = () => X.startRace(r.id, Object.values(sel), DL.customTracks[r.id], { leave: 'community' });
+    $('cmPlay').onclick = async () => { const c = await ensureExt(r.id); X.startRace(r.id, Object.values(sel), c, { leave: 'community' }); };
     const db = $('cmDel');
     if (db) db.onclick = async () => {
       if (!db.dataset.sure) { db.dataset.sure = 1; db.textContent = 'Tap again to delete'; setTimeout(() => { db.dataset.sure = ''; db.textContent = 'Delete'; }, 3000); return; }
@@ -127,7 +128,7 @@
       if (await Net.ctDelete(r.id)) { toast('Track deleted'); closeSide(); UI.renderCommunity(); } else { toast('Could not delete that track'); db.disabled = false; }
     };
     // the 3D scene behind the panel shows this track
-    clearTimeout(bgTimer); bgTimer = setTimeout(() => { try { if (cm.sel && cm.sel.id === r.id) Game.loadDay(r.id, DL.customTracks[r.id]); } catch (e) { console.warn(e); } }, 220);
+    clearTimeout(bgTimer); bgTimer = setTimeout(async () => { try { const c = await ensureExt(r.id); if (cm.sel && cm.sel.id === r.id) Game.loadDay(r.id, c); } catch (e) { console.warn(e); } }, 220);
     // times
     const box = $('cmTimes');
     try {
@@ -192,173 +193,409 @@
     }
   };
 
-  // ---------------- editor ----------------
-  const ed = { id: null, name: '', biome: 'country', pts: [], sel: -1, v: { cx: 0, cz: 0, s: 0.3 }, tested: null, testKey: null, prob: null, spline: null, hist: [], res: { ok: false, error: '' }, W: 0, H: 0 };
-  const cv = $('edCanvas'), cx = cv.getContext('2d');
+  // ---------------- track creator ----------------
+  // Tabs: Layout (waypoints), Elevation (height per waypoint), Terrain (sculpt + relief + seed), Props (palette + scatter), Look (scenery).
+  const ed = { id: null, name: '', biome: 'country', pts: [], ext: null, tab: 'layout', sel: -1, v: { cx: 0, cz: 0, s: 0.3 }, tested: null, testKey: null, prob: null, spline: null, hist: [], res: { ok: false, error: '' }, W: 0, H: 0, tool: 'raise', brush: 70, str: 6, level: 6, propType: 'pine', propSize: 1, hand: false, tr: null, hm: null };
+  const cv = $('edCanvas'), cx = cv.getContext('2d'), pcv = $('edProf'), pcx = pcv.getContext('2d');
   const newId = () => 'c_' + Array.from(crypto.getRandomValues(new Uint8Array(8)), b => (b % 36).toString(36)).join('');
-  const edKey = () => JSON.stringify([ed.biome, ed.pts]);
   const STARTER = [[-460, 120], [-250, 120], [-40, 250], [200, 220]];
+  const defExt = () => ({ v: 2, hills: 0.4, rel: 1, dens: 1, seed: 0, pseed: 0, unique: true, terr: [], props: [] });
+  const cloneExt = e => JSON.parse(JSON.stringify(e));
+  const customObj = () => ({ id: ed.id, name: (ed.name || 'Untitled track').trim() || 'Untitled track', biome: ed.biome, pts: ed.pts.map(p => [p[0], p[1]]), ext: cleanExt() });
+  function cleanExt() { const c = DL.cleanExt(ed.ext, ed.pts.length); return c.ok ? c.ext : null; }
+  const edKey = () => JSON.stringify([ed.biome, ed.pts, ed.ext]);
+  const PROP_NAMES = { pine: 'Pine', snowpine: 'Snow pine', round: 'Oak', palm: 'Palm', cactus: 'Cactus', bush: 'Bush', shrub: 'Shrub', rock: 'Rock', boulder: 'Boulder', haybale: 'Hay bale', house: 'House', barn: 'Barn', windmill: 'Windmill', lighthouse: 'Lighthouse', mesa: 'Mesa', cabin: 'Cabin', watchtower: 'Watch tower', tent: 'Tent', logpile: 'Log pile', snowman: 'Snowman', igloo: 'Igloo', icespire: 'Ice spire', umbrella: 'Umbrella', lifeguard: 'Lifeguard', cratestack: 'Crates', scarecrow: 'Scarecrow', silo: 'Silo', watertower: 'Water tower', tractor: 'Tractor', billboard: 'Billboard', tirestack: 'Tyres', radiomast: 'Radio mast', pumpjack: 'Pump jack', rockarch: 'Rock arch' };
+  const PROP_COL = { pine: '#2f6b46', snowpine: '#5e8f86', round: '#5c9a4a', palm: '#3e9a5e', cactus: '#4d8a4a', bush: '#6aa05a', shrub: '#a39a55', rock: '#8c8f98', boulder: '#6f737c', haybale: '#d9b45a', house: '#d9705a', barn: '#b9473a', windmill: '#e9e2cf', lighthouse: '#f3ead7', mesa: '#c98a5a' };
+  const propCol = t => PROP_COL[t] || '#7a6bb0';
 
   UI.openEditor = function (d) {
-    if (d) { Object.assign(ed, { id: d.id, name: d.name || '', biome: d.biome || 'country', pts: d.pts.map(p => [p[0], p[1]]), sel: -1, tested: null, hist: [] }); }
-    else Object.assign(ed, { id: newId(), name: '', biome: 'country', pts: STARTER.map(p => p.slice()), sel: -1, tested: null, hist: [] });
-    ed.fitNext = true; show('editor');
+    if (d) Object.assign(ed, { id: d.id, name: d.name || '', biome: d.biome || 'country', pts: d.pts.map(p => [p[0], p[1]]), ext: d.ext ? Object.assign(defExt(), cloneExt(d.ext)) : defExt(), sel: -1, tested: null, hist: [], tab: 'layout' });
+    else Object.assign(ed, { id: newId(), name: '', biome: 'country', pts: STARTER.map(p => p.slice()), ext: defExt(), sel: -1, tested: null, hist: [], tab: 'layout' });
+    if (!ed.ext.terr) ed.ext.terr = []; if (!ed.ext.props) ed.ext.props = [];
+    ed.tr = null; ed.fitNext = true; show('editor');
   };
   UI.renderEditor = function () {
-    if (!ed.id) { Object.assign(ed, { id: newId(), pts: STARTER.map(p => p.slice()) }); }
+    if (!ed.id) { Object.assign(ed, { id: newId(), pts: STARTER.map(p => p.slice()), ext: defExt() }); }
     $('edName').value = ed.name;
-    $('edBiomes').innerHTML = '';
-    DL.BIOME_KEYS.forEach(k => {
-      const b = h(`<button class="chk ${ed.biome === k ? 'on' : ''}" data-k="${k}">${esc(DL.BIOMES[k].name)}</button>`);
-      b.onclick = () => { snap(); ed.biome = k; changed(); renderBiomes(); };
-      $('edBiomes').appendChild(b);
-    });
-    requestAnimationFrame(() => { sizeCanvas(); if (ed.fitNext) { fit(); ed.fitNext = false; } changed(true); });
+    requestAnimationFrame(() => { sizeCanvas(); renderTabs(); changed(true); if (ed.fitNext) { previewTrack(true); fit(); ed.fitNext = false; } scheduleWorld(0); });
   };
-  const renderBiomes = () => [...$('edBiomes').children].forEach(b => b.classList.toggle('on', b.dataset.k === ed.biome));
   function sizeCanvas() {
     const r = cv.getBoundingClientRect(), dpr = Math.min(2, window.devicePixelRatio || 1);
     ed.W = r.width; ed.H = r.height; ed.dpr = dpr; cv.width = Math.max(1, r.width * dpr); cv.height = Math.max(1, r.height * dpr);
+    const pr = pcv.getBoundingClientRect(); ed.PW = pr.width; ed.PH = pr.height; pcv.width = Math.max(1, pr.width * dpr); pcv.height = Math.max(1, pr.height * dpr);
   }
-  window.addEventListener('resize', () => { if (!$('editor').hidden) { sizeCanvas(); draw(); } });
+  window.addEventListener('resize', () => { if (!$('editor').hidden) { sizeCanvas(); draw(); drawProf(); } });
+  const EV = () => Game.edView;
+  const gY = (x, z) => ed.tr ? ed.tr.groundAt(x, z, {}, true).y : 0;
   function fit() {
-    let s = Math.min(ed.W, ed.H) / (2 * LIM * 0.92), c = [0, 0];
-    if (ed.pts.length) {
-      let x0 = 1e9, x1 = -1e9, z0 = 1e9, z1 = -1e9;
-      ed.pts.forEach(p => { x0 = Math.min(x0, p[0]); x1 = Math.max(x1, p[0]); z0 = Math.min(z0, p[1]); z1 = Math.max(z1, p[1]); });
-      s = DL.clamp(Math.min(ed.W / (x1 - x0 + 320), ed.H / (z1 - z0 + 320)), 0.12, 1.1); c = [(x0 + x1) / 2, (z0 + z1) / 2];
-    }
-    ed.v = { cx: c[0], cz: c[1], s };
+    const v = EV(); let x0 = 1e9, x1 = -1e9, z0 = 1e9, z1 = -1e9;
+    ed.pts.forEach(p => { x0 = Math.min(x0, p[0]); x1 = Math.max(x1, p[0]); z0 = Math.min(z0, p[1]); z1 = Math.max(z1, p[1]); });
+    if (!ed.pts.length) { x0 = z0 = -200; x1 = z1 = 200; }
+    v.tx = (x0 + x1) / 2; v.tz = (z0 + z1) / 2; v.ty = gY(v.tx, v.tz); v.dist = DL.clamp(Math.max(x1 - x0, z1 - z0) * 1.05 + 260, 320, 3600); v.ph = 0.85;
   }
-  const w2c = (x, z) => [ed.W / 2 + (x - ed.v.cx) * ed.v.s, ed.H / 2 - (z - ed.v.cz) * ed.v.s];
-  const c2w = (px, pz) => [ed.v.cx + (px - ed.W / 2) / ed.v.s, ed.v.cz - (pz - ed.H / 2) / ed.v.s];
-  const snap = () => { ed.hist.push(JSON.stringify(ed.pts)); if (ed.hist.length > 60) ed.hist.shift(); };
+  const proj = (x, y, z) => { const c = Game.edCamera(); c.updateMatrixWorld(); const q = new THREE.Vector3(x, y, z).project(c); return [(q.x + 1) / 2 * ed.W, (1 - q.y) / 2 * ed.H, q.z > -1 && q.z < 1]; };
+  // ray from the camera through a screen point, marched down onto the terrain
+  function rayHit(px, pz) {
+    const c = Game.edCamera(); c.updateMatrixWorld(); const rc = new THREE.Raycaster(); rc.setFromCamera(new THREE.Vector2(px / ed.W * 2 - 1, -(pz / ed.H) * 2 + 1), c);
+    const o = rc.ray.origin, d = rc.ray.direction, f = (t) => o.y + d.y * t - gY(o.x + d.x * t, o.z + d.z * t);
+    let t = 0, pt = 0, pf = f(0);
+    if (pf < 0) return null;
+    for (let i = 0; i < 700 && t < 9000; i++) {
+      t += Math.max(4, t * 0.012); const fv = f(t);
+      if (fv < 0) { let a = pt, b = t; for (let k = 0; k < 14; k++) { const m = (a + b) / 2; if (f(m) < 0) b = m; else a = m; } const tt = (a + b) / 2; return [o.x + d.x * tt, o.y + d.y * tt, o.z + d.z * tt]; }
+      pt = t;
+    }
+    return null;
+  }
+  const snap = () => { ed.hist.push(JSON.stringify([ed.pts, ed.ext])); if (ed.hist.length > 50) ed.hist.shift(); };
+  const hex = n => '#' + ('000000' + n.toString(16)).slice(-6);
 
+  // ----- keeping the elevation list in step with the waypoints -----
+  function ensureElev() {
+    if (ed.ext.elev && ed.ext.elev.length === ed.pts.length) return;
+    const tr = previewTrack(true); const e = [];
+    if (tr && tr.wpIdx && tr.wpIdx.length === ed.pts.length) { const y0 = tr.py[14]; tr.wpIdx.forEach(i => e.push(Math.round((tr.py[i] - y0) * 10) / 10)); }
+    else ed.pts.forEach(() => e.push(0));
+    ed.ext.elev = e;
+  }
+  function insertElev(at) { if (!ed.ext.elev) return; const e = ed.ext.elev, a = e[Math.max(0, at - 1)], b = e[Math.min(e.length - 1, at)]; e.splice(at, 0, Math.round((a + b) / 2 * 10) / 10); }
+
+  // ----- preview track (same terrain code the race uses) + 3D world refresh -----
+  let prevKey = '', wT = 0;
+  function previewTrack(force) {
+    const k = edKey() + '|' + ed.name;
+    if (!force && ed.tr && prevKey === k) return ed.tr;
+    if (!ed.res.ok) return ed.tr;
+    try { ed.tr = new DL.Track(ed.id, customObj()); prevKey = k; } catch (e) { console.warn(e); }
+    return ed.tr;
+  }
+  function scheduleWorld(ms) { clearTimeout(wT); wT = setTimeout(() => { if ($('editor').hidden || !ed.res.ok) return; try { Game.loadDay(ed.id, customObj()); } catch (e) { console.warn(e); } }, ms == null ? 260 : ms); }
+
+  // ----- tabs / side panel -----
+  const TAB_HELP = {
+    layout: 'Click the ground to add waypoints, drag a handle to move it, click the road to insert one, double-click to remove. Right-drag orbits, shift+right-drag pans, scroll zooms.',
+    elev: 'Pick a waypoint and set its height, or drag its handle up and down in the 3D view. Drag the dots on the profile to shape hills and valleys. Red parts are too steep.',
+    terr: 'Paint on the ground: raise or lower it, level it off, or erase edits. The road is never touched. The seed re-rolls the natural landforms.',
+    props: 'Pick a prop and click or paint on the ground to place it. Scatter adds natural scenery on its own and its dice re-rolls it.',
+    look: 'Pick the biome: it sets the colours, trees, water and weather of your track.'
+  };
+  function renderTabs() {
+    [...$('edTabs').children].forEach(b => b.classList.toggle('on', b.dataset.t === ed.tab));
+    $('edProfWrap').hidden = ed.tab !== 'elev'; if (ed.tab === 'elev') sizeCanvas(); $('edHint').textContent = TAB_HELP[ed.tab];
+    const P = $('edPane'), E = ed.ext; P.innerHTML = '';
+    const slider = (id, label, min, max, step, val, fmt) => `<label class="ed-sl"><span>${label}<b id="${id}V">${fmt ? fmt(val) : val}</b></span><input type="range" id="${id}" min="${min}" max="${max}" step="${step}" value="${val}"></label>`;
+    const bind = (id, fn, fmt) => { const el = $(id); if (!el) return; el.oninput = () => { const v = +el.value; $(id + 'V').textContent = fmt ? fmt(v) : v; fn(v); }; };
+    if (ed.tab === 'layout') {
+      P.innerHTML = '<div class="btn-row"><button class="btn btn-line btn-sm" id="edDel">Delete point</button><button class="btn btn-line btn-sm" id="edFit">Fit view</button></div><div class="btn-row"><button class="btn btn-line btn-sm" id="edClear">Clear track</button><button class="btn btn-line btn-sm" id="edRev">Reverse</button></div>';
+      $('edDel').onclick = () => { if (ed.sel >= 0) { snap(); ed.pts.splice(ed.sel, 1); if (E.elev) E.elev.splice(ed.sel, 1); ed.sel = -1; changed(); } };
+      $('edFit').onclick = () => { fit(); draw(); };
+      $('edClear').onclick = () => { if (!ed.pts.length) return; snap(); ed.pts = []; E.elev = null; ed.sel = -1; changed(); };
+      $('edRev').onclick = () => { if (ed.pts.length < 2) return; snap(); ed.pts.reverse(); if (E.elev) E.elev.reverse(); ed.sel = -1; changed(); };
+    } else if (ed.tab === 'elev') {
+      const sel = ed.sel >= 0 && E.elev ? E.elev[ed.sel] : 0;
+      P.innerHTML = `<div class="ed-sel">${ed.sel >= 0 ? 'Waypoint ' + (ed.sel === 0 ? 'S (start)' : ed.sel === ed.pts.length - 1 ? 'F (finish)' : ed.sel) : 'Select a waypoint'}</div>` +
+        slider('edHeight', 'Height', DL.EXT_LIM.ELEV_MIN, DL.EXT_LIM.ELEV_MAX, 1, sel, v => v + ' m') +
+        slider('edHills', 'Natural hills along the road', 0, 2, 0.1, E.hills, v => Math.round(v * 100) + '%') +
+        '<div class="btn-row"><button class="btn btn-line btn-sm" id="edFlat">Flatten</button><button class="btn btn-line btn-sm" id="edSmooth">Smooth</button></div><div class="btn-row"><button class="btn btn-line btn-sm" id="edHillRand">🎲 Random hills</button><button class="btn btn-line btn-sm" id="edLegacy">Reset</button></div>';
+      $('edHeight').disabled = ed.sel < 0;
+      bind('edHeight', v => { if (ed.sel < 0) return; ensureElev(); E.elev[ed.sel] = v; changed(true, 'terrain'); }, v => v + ' m');
+      $('edHeight').onchange = () => { snap(); };
+      bind('edHills', v => { E.hills = v; changed(true, 'terrain'); }, v => Math.round(v * 100) + '%');
+      $('edFlat').onclick = () => { snap(); ensureElev(); E.elev = E.elev.map(() => 0); changed(false, 'terrain'); renderTabs(); };
+      $('edSmooth').onclick = () => { snap(); ensureElev(); const a = E.elev.slice(); E.elev = a.map((v, i) => Math.round(((a[Math.max(0, i - 1)] + v * 2 + a[Math.min(a.length - 1, i + 1)]) / 4) * 10) / 10); changed(false, 'terrain'); renderTabs(); };
+      $('edHillRand').onclick = () => { snap(); E.elev = randomElev(Math.random, 1); changed(false, 'terrain'); renderTabs(); };
+      $('edLegacy').onclick = () => { snap(); E.elev = null; changed(false, 'terrain'); renderTabs(); };
+    } else if (ed.tab === 'terr') {
+      const tool = (k, l) => `<button class="chk ${ed.tool === k ? 'on' : ''}" data-k="${k}">${l}</button>`;
+      P.innerHTML = '<span class="lbl">Brush</span><div class="ed-biomes" id="edTools">' + tool('raise', '▲ Raise') + tool('lower', '▼ Lower') + tool('level', '▬ Level') + tool('erase', '✕ Erase') + '</div>' +
+        slider('edBrush', 'Brush size', DL.EXT_LIM.R_MIN, 200, 5, ed.brush, v => v + ' m') + slider('edStr', 'Strength', 1, 20, 1, ed.str, v => v + ' m') + slider('edLevel', 'Level height (above start)', -30, 80, 1, ed.level, v => v + ' m') +
+        '<span class="lbl">Natural terrain</span>' + slider('edRel', 'Relief', 0, 2.5, 0.1, E.rel, v => Math.round(v * 100) + '%') +
+        `<div class="btn-row"><button class="btn btn-line btn-sm" id="edSeed">🎲 New landforms</button><button class="btn btn-line btn-sm" id="edClearT">Clear sculpt</button></div><div class="hint" id="edSeedV">Terrain seed ${E.seed} · ${E.terr.length} edit${E.terr.length === 1 ? '' : 's'}</div>`;
+      $('edTools').onclick = e => { const b = e.target.closest('.chk'); if (!b) return; ed.tool = b.dataset.k; renderTabs(); };
+      bind('edBrush', v => { ed.brush = v; draw(); }, v => v + ' m'); bind('edStr', v => { ed.str = v; }, v => v + ' m'); bind('edLevel', v => { ed.level = v; }, v => v + ' m');
+      bind('edRel', v => { E.rel = v; changed(true, 'terrain'); }, v => Math.round(v * 100) + '%');
+      $('edRel').onchange = () => snap();
+      $('edSeed').onclick = () => { snap(); E.seed = Math.floor(Math.random() * 99999) + 1; changed(false, 'terrain'); renderTabs(); };
+      $('edClearT').onclick = () => { if (!E.terr.length) return; snap(); E.terr = []; changed(false, 'terrain'); renderTabs(); };
+    } else if (ed.tab === 'props') {
+      const types = DL.PROP_TYPES, rec = (DL.PROP_REC || {})[ed.biome] || [];
+      P.innerHTML = '<span class="lbl">Prop</span><div class="ed-props" id="edPalette">' + types.map(t => `<button class="chk ${ed.propType === t && ed.tool !== 'perase' ? 'on' : ''}" data-k="${t}" style="--pc:${propCol(t)}"><i></i>${PROP_NAMES[t] || t}</button>`).join('') + '</div>' +
+        `<div class="btn-row"><button class="chk ${ed.tool === 'perase' ? 'on' : ''}" id="edPErase">✕ Erase props</button><button class="btn btn-line btn-sm" id="edClearP">Clear all</button></div>` +
+        slider('edPSize', 'Size', 0.5, 2.2, 0.1, ed.propSize, v => Math.round(v * 100) + '%') +
+        '<span class="lbl">Automatic scenery</span>' + slider('edDens', 'Scatter density', 0, 2.5, 0.1, E.dens, v => v === 0 ? 'Off' : Math.round(v * 100) + '%') +
+        `<label class="ed-ck"><input type="checkbox" id="edUniq" ${E.unique ? 'checked' : ''}> Landmarks and extras (cabins, signs, tents…)</label><div class="btn-row"><button class="btn btn-line btn-sm" id="edPSeed">🎲 Re-scatter</button></div><div class="hint">${E.props.length} placed by hand · scatter seed ${E.pseed}</div>`;
+      $('edPalette').onclick = e => { const b = e.target.closest('.chk'); if (!b) return; ed.propType = b.dataset.k; if (ed.tool === 'perase') ed.tool = 'raise'; renderTabs(); };
+      $('edPErase').onclick = () => { ed.tool = ed.tool === 'perase' ? 'raise' : 'perase'; renderTabs(); };
+      $('edClearP').onclick = () => { if (!E.props.length) return; snap(); E.props = []; changed(false, 'props'); renderTabs(); };
+      bind('edPSize', v => { ed.propSize = v; }, v => Math.round(v * 100) + '%');
+      bind('edDens', v => { E.dens = v; changed(true, 'props'); }, v => v === 0 ? 'Off' : Math.round(v * 100) + '%'); $('edDens').onchange = () => snap();
+      $('edUniq').onchange = e => { snap(); E.unique = e.target.checked; changed(false, 'props'); };
+      $('edPSeed').onclick = () => { snap(); E.pseed = Math.floor(Math.random() * 99999) + 1; changed(false, 'props'); renderTabs(); };
+    } else {
+      P.innerHTML = '<span class="lbl">Biome</span><div class="ed-biomes" id="edBiomes"></div><div class="hint">The biome sets ground colours, trees, water level, mountains and the kind of props that appear.</div>';
+      DL.BIOME_KEYS.forEach(k => {
+        const b = h(`<button class="chk ${ed.biome === k ? 'on' : ''}" data-k="${k}">${esc(DL.BIOMES[k].name)}</button>`);
+        b.onclick = () => { snap(); ed.biome = k; changed(false, 'terrain'); renderTabs(); };
+        $('edBiomes').appendChild(b);
+      });
+    }
+  }
+  $('edTabs').addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; ed.tab = b.dataset.t; if (ed.tab === 'elev') { ensureElev(); } if (!['terr', 'props'].includes(ed.tab)) ed.tool = 'raise'; else if (ed.tab === 'props' && ed.tool !== 'perase') ed.tool = 'raise'; renderTabs(); changed(true); });
+
+  // ----- change handling -----
   let saveT = 0;
-  function changed(noSave) {
+  function changed(noSave, what) {
     ed.spline = null;
     if (ed.pts.length >= 2) { try { ed.spline = DL.customCenterline(ed.pts); } catch (e) { } }
     ed.res = DL.validateCustomTrack(ed.pts); ed.prob = ed.res.ok ? null : (ed.res.at || null);
     const tested = ed.tested && ed.tested.key === edKey();
-    $('edLen').textContent = ed.spline ? Math.round((ed.spline.xs.length - 1) * 4) + ' m' : '0 m'; $('edPts').textContent = ed.pts.length;
     const st = $('edStatus');
     if (ed.res.ok) { st.className = 'ed-status ok'; st.textContent = tested ? 'Tested ✓ Ready to publish' : 'Valid track. Test drive it to unlock publishing'; }
     else { st.className = 'ed-status bad'; st.textContent = ed.res.error; }
     $('edTest').disabled = !ed.res.ok; $('edPublish').disabled = !(ed.res.ok && tested);
     $('edPublish').title = tested ? '' : 'Finish a test drive on this exact layout first';
-    $('edDel').disabled = ed.sel < 0; $('edUndo').disabled = !ed.hist.length;
-    draw();
-    if (!noSave) { clearTimeout(saveT); saveT = setTimeout(() => { if (ed.id && ed.pts.length) putDraft({ id: ed.id, name: ed.name, biome: ed.biome, pts: ed.pts, at: Date.now() }); }, 400); }
+    $('edUndo').disabled = !ed.hist.length;
+    if (ed.res.ok) { previewTrack(); scheduleWorld(); }
+    statsUpdate(); draw(); drawProf();
+    if (!noSave) { clearTimeout(saveT); saveT = setTimeout(saveDraft, 400); }
+  }
+  function saveDraft() { if (ed.id && ed.pts.length) putDraft({ id: ed.id, name: ed.name, biome: ed.biome, pts: ed.pts, ext: ed.ext, at: Date.now() }); }
+  function statsUpdate() {
+    const tr = ed.res.ok ? ed.tr : null; let climb = 0, steep = 0;
+    if (tr) { for (let i = 1; i < tr.N; i++) { const d = tr.py[i] - tr.py[i - 1]; if (d > 0) climb += d; } for (let i = 3; i < tr.N; i++) steep = Math.max(steep, Math.abs(tr.py[i] - tr.py[i - 3]) / 12); }
+    $('edLen').textContent = ed.spline ? Math.round((ed.spline.xs.length - 1) * 4) + ' m' : '0 m'; $('edPts').textContent = ed.pts.length;
+    $('edClimb').textContent = tr ? Math.round(climb) + ' m' : '—'; $('edSteep').textContent = tr ? Math.round(steep * 100) + '%' : '—';
+    $('edSteep').style.color = steep > 0.14 ? '#d4441f' : '';
   }
 
+  // ----- overlay drawing (handles on top of the real 3D scene) -----
   function draw() {
-    const B = DL.BIOMES[ed.biome], hex = n => '#' + ('000000' + n.toString(16)).slice(-6), W = ed.W, H = ed.H;
-    cx.setTransform(ed.dpr, 0, 0, ed.dpr, 0, 0);
-    cx.fillStyle = hex(B.ground[1]); cx.fillRect(0, 0, W, H);
-    // outside the buildable area
-    const a = w2c(-LIM, LIM), b = w2c(LIM, -LIM);
-    cx.fillStyle = 'rgba(17,21,29,.28)'; cx.fillRect(0, 0, W, H); cx.fillStyle = hex(B.ground[1]); cx.fillRect(a[0], a[1], b[0] - a[0], b[1] - a[1]);
-    cx.globalAlpha = 0.14; cx.fillStyle = hex(B.ground[2]); cx.fillRect(a[0], a[1], b[0] - a[0], b[1] - a[1]); cx.globalAlpha = 1;
-    // grid every 100 m
-    cx.strokeStyle = 'rgba(17,21,29,.10)'; cx.lineWidth = 1; cx.beginPath();
-    for (let g = -LIM; g <= LIM; g += 100) { const p = w2c(g, 0), q = w2c(0, g); cx.moveTo(p[0], a[1]); cx.lineTo(p[0], b[1]); cx.moveTo(a[0], q[1]); cx.lineTo(b[0], q[1]); }
-    cx.stroke();
-    cx.strokeStyle = 'rgba(17,21,29,.5)'; cx.setLineDash([8, 6]); cx.strokeRect(a[0], a[1], b[0] - a[0], b[1] - a[1]); cx.setLineDash([]);
-    // road
-    const sp = ed.spline, s = ed.v.s;
-    if (sp && sp.xs.length > 1) {
-      const path = () => { cx.beginPath(); const p0 = w2c(sp.xs[0], sp.zs[0]); cx.moveTo(p0[0], p0[1]); for (let i = 1; i < sp.xs.length; i++) { const p = w2c(sp.xs[i], sp.zs[i]); cx.lineTo(p[0], p[1]); } };
-      cx.lineJoin = 'round'; cx.lineCap = 'round';
-      path(); cx.strokeStyle = '#f3ead7'; cx.lineWidth = Math.max(8, 15 * s + 2); cx.stroke();
-      path(); cx.strokeStyle = ed.res.ok ? '#2c3548' : '#5a3a40'; cx.lineWidth = Math.max(6, 13 * s); cx.stroke();
-      path(); cx.strokeStyle = 'rgba(243,234,215,.8)'; cx.lineWidth = 1.4; cx.setLineDash([8, 9]); cx.stroke(); cx.setLineDash([]);
-      // direction arrows
-      cx.fillStyle = 'rgba(243,234,215,.9)';
-      for (let i = 14; i < sp.xs.length - 4; i += 28) {
-        const p = w2c(sp.xs[i], sp.zs[i]), q = w2c(sp.xs[i + 2], sp.zs[i + 2]), ang = Math.atan2(q[1] - p[1], q[0] - p[0]);
-        cx.save(); cx.translate(p[0], p[1]); cx.rotate(ang); cx.beginPath(); cx.moveTo(6, 0); cx.lineTo(-4, -4.5); cx.lineTo(-4, 4.5); cx.closePath(); cx.fill(); cx.restore();
-      }
+    const W = ed.W, H = ed.H, E = ed.ext; if (!W) return;
+    cx.setTransform(ed.dpr, 0, 0, ed.dpr, 0, 0); cx.clearRect(0, 0, W, H);
+    const tr = ed.tr, okTr = tr && ed.res.ok && tr.wpIdx && tr.wpIdx.length === ed.pts.length;
+    // road line
+    if (okTr) {
+      cx.beginPath(); let on = false;
+      for (let i = 0; i < tr.N; i += 2) { const p = proj(tr.px[i], tr.py[i] + 0.8, tr.pz[i]); if (!p[2]) { on = false; continue; } if (!on) { cx.moveTo(p[0], p[1]); on = true; } else cx.lineTo(p[0], p[1]); }
+      cx.strokeStyle = 'rgba(240,90,53,.9)'; cx.lineWidth = 2; cx.lineJoin = 'round'; cx.stroke();
     }
-    if (ed.prob) { const p = w2c(ed.prob[0], ed.prob[1]); cx.strokeStyle = '#d4441f'; cx.lineWidth = 3; cx.beginPath(); cx.arc(p[0], p[1], 22, 0, 7); cx.stroke(); cx.fillStyle = 'rgba(212,68,31,.18)'; cx.fill(); }
-    // waypoints
+    // manual props
+    if (E.props) E.props.forEach(p => { const q = proj(p[1], gY(p[1], p[2]) + 1, p[2]); if (!q[2]) return; cx.beginPath(); cx.arc(q[0], q[1], 4, 0, 7); cx.fillStyle = propCol(p[0]); cx.fill(); cx.lineWidth = 1; cx.strokeStyle = 'rgba(17,21,29,.8)'; cx.stroke(); });
+    // waypoints: pole from the ground up to a handle, labelled with the road height in the elevation tab
     ed.pts.forEach((p, i) => {
-      const q = w2c(p[0], p[1]), first = i === 0, last = i === ed.pts.length - 1 && i > 0, on = i === ed.sel;
-      cx.beginPath(); cx.arc(q[0], q[1], on ? 10 : 8, 0, 7);
-      cx.fillStyle = first ? '#3f7d5a' : last ? '#f05a35' : '#f3ead7'; cx.fill();
+      const gy = gY(p[0], p[1]), ry = okTr ? tr.py[tr.wpIdx[i]] : gy, a = proj(p[0], gy, p[1]), b = proj(p[0], ry + 7, p[1]);
+      if (!b[2]) return; const first = i === 0, last = i === ed.pts.length - 1 && i > 0, on = i === ed.sel;
+      cx.beginPath(); cx.moveTo(a[0], a[1]); cx.lineTo(b[0], b[1]); cx.strokeStyle = 'rgba(255,255,255,.7)'; cx.lineWidth = 2; cx.stroke();
+      cx.beginPath(); cx.arc(b[0], b[1], on ? 12 : 10, 0, 7); cx.fillStyle = first ? '#3f7d5a' : last ? '#f05a35' : '#f3ead7'; cx.fill();
       cx.lineWidth = on ? 3 : 2; cx.strokeStyle = on ? '#f05a35' : '#1c2536'; cx.stroke();
-      cx.fillStyle = first || last ? '#fff' : '#1c2536'; cx.font = '700 10px Barlow, sans-serif'; cx.textAlign = 'center'; cx.textBaseline = 'middle';
-      cx.fillText(first ? 'S' : last ? 'F' : String(i), q[0], q[1] + 0.5);
+      cx.fillStyle = first || last ? '#fff' : '#1c2536'; cx.font = '700 11px Barlow, sans-serif'; cx.textAlign = 'center'; cx.textBaseline = 'middle'; cx.fillText(first ? 'S' : last ? 'F' : String(i), b[0], b[1] + 0.5);
+      if (ed.tab === 'elev' && E.elev && E.elev[i] != null) { cx.font = '800 13px Barlow Condensed, sans-serif'; cx.strokeStyle = 'rgba(255,255,255,.9)'; cx.lineWidth = 3.5; const t = Math.round(E.elev[i]) + ' m'; cx.strokeText(t, b[0], b[1] - 20); cx.fillStyle = '#1c2536'; cx.fillText(t, b[0], b[1] - 20); }
     });
-    if (!ed.pts.length) { cx.fillStyle = 'rgba(17,21,29,.6)'; cx.font = '700 22px Barlow Condensed, sans-serif'; cx.textAlign = 'center'; cx.fillText('Click to place the start', W / 2, H / 2); }
-    // scale bar
-    const m100 = 100 * s; cx.fillStyle = 'rgba(17,21,29,.75)'; cx.fillRect(16, H - 24, m100, 3); cx.font = '700 11px Barlow, sans-serif'; cx.textAlign = 'left'; cx.fillText('100 m', 16, H - 32);
+    if (ed.prob) { const q = proj(ed.prob[0], gY(ed.prob[0], ed.prob[1]) + 2, ed.prob[1]); if (q[2]) { cx.strokeStyle = '#d4441f'; cx.lineWidth = 3; cx.beginPath(); cx.arc(q[0], q[1], 24, 0, 7); cx.stroke(); cx.fillStyle = 'rgba(212,68,31,.2)'; cx.fill(); } }
+    // brush ring on the ground
+    if (ed.hit && !ed.camDrag && (ed.tab === 'terr' || ed.tab === 'props')) {
+      const R = ed.tab === 'terr' ? ed.brush : ed.tool === 'perase' ? 22 : 5 * ed.propSize + 2; cx.beginPath(); let on = false;
+      for (let k = 0; k <= 48; k++) { const a = k / 48 * 6.2832, x = ed.hit[0] + Math.cos(a) * R, z = ed.hit[2] + Math.sin(a) * R, q = proj(x, gY(x, z) + 0.7, z); if (!q[2]) continue; if (!on) { cx.moveTo(q[0], q[1]); on = true; } else cx.lineTo(q[0], q[1]); }
+      cx.closePath(); cx.strokeStyle = ed.tab === 'props' ? (ed.tool === 'perase' ? '#d4441f' : propCol(ed.propType)) : '#f05a35'; cx.lineWidth = 2.5; cx.stroke();
+      cx.fillStyle = 'rgba(240,90,53,.12)'; if (ed.tab === 'terr') cx.fill();
+    }
+    if (!ed.pts.length) { cx.fillStyle = 'rgba(255,255,255,.9)'; cx.font = '800 26px Barlow Condensed, sans-serif'; cx.textAlign = 'center'; cx.fillText('Click the ground to place the start', W / 2 + 150, H / 2); }
+  }
+  Game.onEdFrame = () => { if (!$('editor').hidden) draw(); };
+  // road height profile (elevation tab)
+  const prof = { x0: 46, x1: 14, y0: 14, y1: 20 };
+  function profMap() {
+    const tr = ed.tr; if (!tr) return null;
+    let mn = 1e9, mx = -1e9; for (let i = 0; i < tr.N; i++) { mn = Math.min(mn, tr.py[i]); mx = Math.max(mx, tr.py[i]); }
+    const E = ed.ext.elev || []; const y0 = tr.py[14]; for (const v of E) { mn = Math.min(mn, y0 + v); mx = Math.max(mx, y0 + v); }
+    const pad = Math.max(8, (mx - mn) * 0.12); mn -= pad; mx += pad;
+    const L = tr.s[tr.N - 1] || 1, pw = ed.PW - prof.x0 - prof.x1, ph = ed.PH - prof.y0 - prof.y1;
+    return { tr, mn, mx, L, X: s => prof.x0 + s / L * pw, Y: h => prof.y0 + (1 - (h - mn) / (mx - mn)) * ph, inv: py => mn + (1 - (py - prof.y0) / ph) * (mx - mn), y0 };
+  }
+  function drawProf() {
+    if (ed.tab !== 'elev') return; const c = pcx; c.setTransform(ed.dpr, 0, 0, ed.dpr, 0, 0); c.clearRect(0, 0, ed.PW, ed.PH);
+    c.fillStyle = 'rgba(251,246,234,.94)'; c.fillRect(0, 0, ed.PW, ed.PH);
+    const M = profMap(); if (!M) { c.fillStyle = '#1c2536'; c.font = '700 14px Barlow'; c.fillText('Fix the layout to see the profile', 20, 40); return; }
+    const { tr } = M; c.lineWidth = 1; c.strokeStyle = 'rgba(17,21,29,.12)'; c.fillStyle = '#5a6272'; c.font = '700 11px Barlow'; c.textAlign = 'right';
+    for (let k = 0; k <= 4; k++) { const hv = M.mn + (M.mx - M.mn) * k / 4, y = M.Y(hv); c.beginPath(); c.moveTo(prof.x0, y); c.lineTo(ed.PW - prof.x1, y); c.stroke(); c.fillText(Math.round(hv - M.y0) + ' m', prof.x0 - 6, y + 4); }
+    // filled profile coloured by slope
+    for (let i = 1; i < tr.N; i++) {
+      const sl = Math.abs(tr.py[i] - tr.py[Math.max(0, i - 3)]) / (Math.min(3, i) * 4);
+      c.strokeStyle = sl > 0.125 ? '#d4441f' : sl > 0.08 ? '#e0a030' : '#2f7d5a'; c.lineWidth = 4;
+      c.beginPath(); c.moveTo(M.X(tr.s[i - 1]), M.Y(tr.py[i - 1])); c.lineTo(M.X(tr.s[i]), M.Y(tr.py[i])); c.stroke();
+    }
+    c.textAlign = 'center'; c.fillStyle = '#5a6272'; c.fillText(Math.round(M.L) + ' m', ed.PW - 30, ed.PH - 6); c.fillText('0', prof.x0, ed.PH - 6);
+    (tr.wpIdx || []).forEach((wi, i) => { const x = M.X(tr.s[wi]), y = M.Y(tr.py[wi]), on = i === ed.sel; c.beginPath(); c.arc(x, y, on ? 9 : 7, 0, 7); c.fillStyle = i === 0 ? '#3f7d5a' : i === ed.pts.length - 1 ? '#f05a35' : '#f3ead7'; c.fill(); c.lineWidth = on ? 3 : 2; c.strokeStyle = on ? '#f05a35' : '#1c2536'; c.stroke(); });
   }
 
-  // pointer interaction
+  // ----- pointer interaction -----
   let drag = null;
   const evPos = e => { const r = cv.getBoundingClientRect(); return [e.clientX - r.left, e.clientY - r.top]; };
-  const hitPoint = (px, pz) => { let best = -1, bd = 14; ed.pts.forEach((p, i) => { const q = w2c(p[0], p[1]), d = Math.hypot(q[0] - px, q[1] - pz); if (d < bd) { bd = d; best = i; } }); return best; };
+  const wpScreen = i => { const tr = ed.tr, p = ed.pts[i], ok = tr && tr.wpIdx && tr.wpIdx.length === ed.pts.length; return proj(p[0], (ok ? tr.py[tr.wpIdx[i]] : gY(p[0], p[1])) + 7, p[1]); };
+  const hitPoint = (px, pz) => { let best = -1, bd = 18; ed.pts.forEach((p, i) => { const q = wpScreen(i), d = Math.hypot(q[0] - px, q[1] - pz); if (q[2] && d < bd) { bd = d; best = i; } }); return best; };
+  const inMap = w => [DL.clamp(Math.round(w[0]), -LIM, LIM), DL.clamp(Math.round(w[1]), -LIM, LIM)];
+  const nearRoad = (x, z) => { if (!ed.spline) return 1e9; let b = 1e9; const s = ed.spline; for (let i = 0; i < s.xs.length; i += 2) b = Math.min(b, Math.hypot(s.xs[i] - x, s.zs[i] - z)); return b; };
+  function paintTerrain(w) {
+    const E = ed.ext, R = ed.brush;
+    if (ed.tool === 'erase') { E.terr = E.terr.filter(t => Math.hypot(t[0] - w[0], t[1] - w[2]) > R * 0.7); return; }
+    const mode = ed.tool === 'level' ? 1 : 0, hgt = mode ? ed.level : (ed.tool === 'raise' ? 1 : -1) * ed.str;
+    for (const t of E.terr) if (t[4] === mode && Math.hypot(t[0] - w[0], t[1] - w[2]) < R * 0.3 && Math.abs(t[2] - R) < 12) { t[3] = mode ? hgt : DL.clamp(Math.round((t[3] + hgt * 0.5) * 10) / 10, -DL.EXT_LIM.H, DL.EXT_LIM.H); return; }
+    if (E.terr.length >= DL.EXT_LIM.TERR) { toast('Terrain edit limit reached. Use a bigger brush or clear some.'); return; }
+    E.terr.push([Math.round(w[0]), Math.round(w[2]), R, mode ? hgt : hgt * 0.8, mode]);
+  }
+  function paintProp(w) {
+    const E = ed.ext;
+    if (ed.tool === 'perase') { const n0 = E.props.length; E.props = E.props.filter(p => Math.hypot(p[1] - w[0], p[2] - w[2]) > 22); return E.props.length !== n0; }
+    if (E.props.length >= DL.EXT_LIM.PROPS) { toast('Prop limit reached'); return false; }
+    if (nearRoad(w[0], w[2]) < 11) return false;
+    const gap = 9 * ed.propSize + 4; if (E.props.some(p => Math.hypot(p[1] - w[0], p[2] - w[2]) < gap)) return false;
+    E.props.push([ed.propType, Math.round(w[0]), Math.round(w[2]), Math.round(Math.random() * 628) / 100, ed.propSize]); return true;
+  }
+  function applyPaint(px, pz) {
+    const w = rayHit(px, pz); if (!w) return; ed.hit = w; let ch = false;
+    if (ed.tab === 'terr') { const last = drag.last; if (!last || Math.hypot(last[0] - w[0], last[2] - w[2]) > ed.brush * 0.45) { paintTerrain(w); drag.last = w; ch = true; } }
+    else { const last = drag.last, sp = 9 * ed.propSize + 6; if (!last || Math.hypot(last[0] - w[0], last[2] - w[2]) > sp) { drag.last = w; ch = paintProp(w); } }
+    if (ch) { ed.dirtyPaint = true; changed(true, ed.tab === 'terr' ? 'terrain' : 'props'); }
+  }
   cv.addEventListener('pointerdown', e => {
-    if (e.button === 2) return;
-    cv.setPointerCapture(e.pointerId);
-    const [px, pz] = evPos(e), i = hitPoint(px, pz);
-    if (i >= 0) { ed.sel = i; snap(); drag = { kind: 'pt', i, moved: false }; changed(true); }
-    else drag = { kind: 'pan', x: px, z: pz, cx: ed.v.cx, cz: ed.v.cz, moved: false };
+    cv.setPointerCapture(e.pointerId); const [px, pz] = evPos(e), V = EV();
+    const camBtn = e.button === 2 || e.button === 1 || (e.button === 0 && ed.hand);
+    if (camBtn) { drag = { kind: (e.shiftKey || (e.button === 0 && ed.hand) || e.button === 1) ? 'pan' : 'orbit', x: px, z: pz, th: V.th, ph: V.ph, tx: V.tx, tz: V.tz, moved: false }; ed.camDrag = true; return; }
+    const i = hitPoint(px, pz), paint = ed.tab === 'terr' || ed.tab === 'props';
+    if (i >= 0 && !(paint && false)) {
+      ed.sel = i;
+      if (ed.tab === 'layout') { snap(); drag = { kind: 'pt', i, moved: false }; }
+      else if (ed.tab === 'elev') { ensureElev(); snap(); const q = wpScreen(i); drag = { kind: 'elev', i, y: pz, h0: ed.ext.elev[i], mpp: 2 * Math.hypot(q[0] - ed.W / 2, 1) * 0 + 0, moved: false }; const c = Game.edCamera(), tr = ed.tr, wp = ed.pts[i], ry = tr && tr.wpIdx ? tr.py[tr.wpIdx[i]] : 0; drag.mpp = 2 * c.position.distanceTo(new THREE.Vector3(wp[0], ry, wp[1])) * Math.tan(27.5 * Math.PI / 180) / ed.H; renderTabs(); }
+      else drag = { kind: 'sel' };
+      changed(true); return;
+    }
+    if (paint) { snap(); drag = { kind: 'paint', moved: true }; applyPaint(px, pz); return; }
+    drag = { kind: 'click', x: px, z: pz, th: V.th, ph: V.ph, moved: false };
   });
   cv.addEventListener('pointermove', e => {
-    if (!drag) return; const [px, pz] = evPos(e);
-    if (drag.kind === 'pt') {
-      const w = c2w(px, pz); ed.pts[drag.i] = [DL.clamp(Math.round(w[0]), -LIM, LIM), DL.clamp(Math.round(w[1]), -LIM, LIM)]; drag.moved = true; ed.tested = ed.tested; changed(true);
-    } else {
-      if (Math.hypot(px - drag.x, pz - drag.z) > 4) drag.moved = true;
-      if (drag.moved) { ed.v.cx = drag.cx - (px - drag.x) / ed.v.s; ed.v.cz = drag.cz + (pz - drag.z) / ed.v.s; draw(); }
-    }
+    const [px, pz] = evPos(e), V = EV();
+    if (!drag) { const h = rayHit(px, pz); ed.hit = h; return; }
+    if (drag.kind === 'pt') { const w = rayHit(px, pz); if (w) { ed.pts[drag.i] = inMap(w); drag.moved = true; changed(true, 'layout'); } }
+    else if (drag.kind === 'elev') { const E = ed.ext; E.elev[drag.i] = Math.round(DL.clamp(drag.h0 + (drag.y - pz) * drag.mpp, DL.EXT_LIM.ELEV_MIN, DL.EXT_LIM.ELEV_MAX)); drag.moved = true; changed(true, 'terrain'); const hs = $('edHeight'); if (hs) { hs.value = E.elev[drag.i]; $('edHeightV').textContent = E.elev[drag.i] + ' m'; hs.disabled = false; } }
+    else if (drag.kind === 'paint') { applyPaint(px, pz); }
+    else if (drag.kind === 'orbit' || (drag.kind === 'click' && Math.hypot(px - drag.x, pz - drag.z) > 5 && false)) { V.th = drag.th - (px - drag.x) * 0.006; V.ph = DL.clamp(drag.ph + (pz - drag.z) * 0.006, 0.12, 1.5); drag.moved = true; }
+    else if (drag.kind === 'pan') { const k = V.dist * 0.0012, c = Math.cos(V.th), s2 = Math.sin(V.th), dx = px - drag.x, dz = pz - drag.z; V.tx = drag.tx - dx * k * c - dz * k * s2 * -1 * -1; V.tz = drag.tz + dx * k * s2 - dz * k * c; V.ty = gY(V.tx, V.tz); drag.moved = true; }
+    else if (drag.kind === 'click') { if (Math.hypot(px - drag.x, pz - drag.z) > 5) { drag.moved = true; V.th = drag.th - (px - drag.x) * 0.006; V.ph = DL.clamp(drag.ph + (pz - drag.z) * 0.006, 0.12, 1.5); ed.camDrag = true; } }
   });
   cv.addEventListener('pointerup', e => {
-    if (!drag) return; const d = drag; drag = null; const [px, pz] = evPos(e);
+    if (!drag) return; const d = drag; drag = null; ed.camDrag = false; const [px, pz] = evPos(e);
     if (d.kind === 'pt') { if (!d.moved) ed.hist.pop(); else changed(); return; }
-    if (d.moved) return;
-    // a click on empty map: insert on the road if it is close to it, otherwise extend the track
-    if (ed.pts.length >= DL.CUSTOM.MAX_PTS) { toast('That is the maximum number of points'); return; }
-    const w = c2w(px, pz), np = [DL.clamp(Math.round(w[0]), -LIM, LIM), DL.clamp(Math.round(w[1]), -LIM, LIM)];
-    let at = ed.pts.length, near = false;
-    if (ed.spline && ed.pts.length >= 2) {
-      let bd = 16 / ed.v.s;
-      for (let i = 0; i < ed.spline.xs.length; i += 2) { const dd = Math.hypot(ed.spline.xs[i] - w[0], ed.spline.zs[i] - w[1]); if (dd < bd) { bd = dd; near = true; } }
-      if (near) {
-        let bs = 1e9, bk = ed.pts.length - 2;
-        for (let k = 0; k < ed.pts.length - 1; k++) {
-          const A = ed.pts[k], B = ed.pts[k + 1], dx = B[0] - A[0], dz = B[1] - A[1], l2 = dx * dx + dz * dz || 1;
-          const t = DL.clamp(((w[0] - A[0]) * dx + (w[1] - A[1]) * dz) / l2, 0, 1), dd = Math.hypot(A[0] + dx * t - w[0], A[1] + dz * t - w[1]);
-          if (dd < bs) { bs = dd; bk = k; }
+    if (d.kind === 'elev') { if (!d.moved) ed.hist.pop(); changed(false, 'terrain'); return; }
+    if (d.kind === 'paint') { if (!ed.dirtyPaint) ed.hist.pop(); ed.dirtyPaint = false; changed(false, ed.tab === 'terr' ? 'terrain' : 'props'); renderTabs(); return; }
+    if (d.kind === 'click' && !d.moved) {
+      if (ed.tab !== 'layout') { if (ed.sel !== -1) { ed.sel = -1; renderTabs(); changed(true); } return; }
+      if (ed.pts.length >= DL.CUSTOM.MAX_PTS) { toast('That is the maximum number of points'); return; }
+      const h = rayHit(px, pz); if (!h) return; const w = [h[0], h[2]], np = inMap(w);
+      let at = ed.pts.length, near = false;
+      if (ed.spline && ed.pts.length >= 2) {
+        for (let i = 0; i < ed.spline.xs.length; i += 2) if (Math.hypot(ed.spline.xs[i] - w[0], ed.spline.zs[i] - w[1]) < 14) { near = true; break; }
+        if (near) {
+          let bs = 1e9, bk = ed.pts.length - 2;
+          for (let k = 0; k < ed.pts.length - 1; k++) {
+            const A = ed.pts[k], B = ed.pts[k + 1], dx = B[0] - A[0], dz = B[1] - A[1], l2 = dx * dx + dz * dz || 1;
+            const t = DL.clamp(((w[0] - A[0]) * dx + (w[1] - A[1]) * dz) / l2, 0, 1), dd = Math.hypot(A[0] + dx * t - w[0], A[1] + dz * t - w[1]);
+            if (dd < bs) { bs = dd; bk = k; }
+          }
+          at = bk + 1;
         }
-        at = bk + 1;
       }
+      snap(); ed.pts.splice(at, 0, np); insertElev(at); ed.sel = at; changed(false, 'layout');
     }
-    snap(); ed.pts.splice(at, 0, np); ed.sel = at; changed();
   });
-  cv.addEventListener('dblclick', e => { const [px, pz] = evPos(e), i = hitPoint(px, pz); if (i >= 0) { snap(); ed.pts.splice(i, 1); ed.sel = -1; changed(); } });
-  cv.addEventListener('contextmenu', e => { e.preventDefault(); const [px, pz] = evPos(e), i = hitPoint(px, pz); if (i >= 0) { snap(); ed.pts.splice(i, 1); ed.sel = -1; changed(); } });
-  cv.addEventListener('wheel', e => {
-    e.preventDefault(); const [px, pz] = evPos(e), w = c2w(px, pz), k = Math.exp(-e.deltaY * 0.0014);
-    ed.v.s = DL.clamp(ed.v.s * k, 0.1, 1.6); const w2 = c2w(px, pz); ed.v.cx += w[0] - w2[0]; ed.v.cz += w[1] - w2[1]; draw();
-  }, { passive: false });
+  cv.addEventListener('pointerleave', () => { ed.hit = null; });
+  cv.addEventListener('dblclick', e => { if (ed.tab !== 'layout') return; const [px, pz] = evPos(e), i = hitPoint(px, pz); if (i >= 0) { snap(); ed.pts.splice(i, 1); if (ed.ext.elev) ed.ext.elev.splice(i, 1); ed.sel = -1; changed(false, 'layout'); } });
+  cv.addEventListener('contextmenu', e => e.preventDefault());
+  cv.addEventListener('wheel', e => { e.preventDefault(); const V = EV(); V.dist = DL.clamp(V.dist * Math.exp(e.deltaY * 0.0012), 40, 4200); }, { passive: false });
+  // profile: pick and drag waypoint heights
+  let pdrag = null;
+  pcv.addEventListener('pointerdown', e => {
+    const M = profMap(); if (!M) return; pcv.setPointerCapture(e.pointerId); const r = pcv.getBoundingClientRect(), px = e.clientX - r.left, py = e.clientY - r.top;
+    let best = -1, bd = 22; (M.tr.wpIdx || []).forEach((wi, i) => { const d = Math.hypot(M.X(M.tr.s[wi]) - px, M.Y(M.tr.py[wi]) - py); if (d < bd) { bd = d; best = i; } });
+    if (best >= 0) { ed.sel = best; ensureElev(); snap(); pdrag = { i: best, moved: false, y0: M.y0 }; renderTabs(); changed(true); }
+  });
+  pcv.addEventListener('pointermove', e => {
+    if (!pdrag) return; const M = profMap(); if (!M) return; const r = pcv.getBoundingClientRect(), py = e.clientY - r.top;
+    ed.ext.elev[pdrag.i] = Math.round(DL.clamp(M.inv(py) - pdrag.y0, DL.EXT_LIM.ELEV_MIN, DL.EXT_LIM.ELEV_MAX)); pdrag.moved = true; prevKey = ''; try { previewTrack(true); } catch (er) { } changed(true, 'terrain');
+    const hs = $('edHeight'); if (hs) { hs.value = ed.ext.elev[pdrag.i]; $('edHeightV').textContent = ed.ext.elev[pdrag.i] + ' m'; hs.disabled = false; }
+  });
+  pcv.addEventListener('pointerup', () => { if (!pdrag) return; if (!pdrag.moved) ed.hist.pop(); pdrag = null; changed(false, 'terrain'); });
   window.addEventListener('keydown', e => {
     if ($('editor').hidden || /INPUT|TEXTAREA|SELECT/.test((e.target && e.target.tagName) || '')) return;
-    if ((e.code === 'Delete' || e.code === 'Backspace') && ed.sel >= 0) { e.preventDefault(); $('edDel').click(); }
+    if ((e.code === 'Delete' || e.code === 'Backspace') && ed.sel >= 0 && ed.tab === 'layout') { e.preventDefault(); $('edDel') && $('edDel').click(); }
     else if ((e.ctrlKey || e.metaKey) && e.code === 'KeyZ') { e.preventDefault(); $('edUndo').click(); }
   });
+  $('edHand').onclick = () => { ed.hand = !ed.hand; $('edHand').classList.toggle('on', ed.hand); };
+  $('edZoomIn').onclick = () => { const V = EV(); V.dist = DL.clamp(V.dist * 0.78, 40, 4200); }; $('edZoomOut').onclick = () => { const V = EV(); V.dist = DL.clamp(V.dist / 0.78, 40, 4200); };
 
-  $('edName').addEventListener('input', e => { ed.name = e.target.value; clearTimeout(saveT); saveT = setTimeout(() => putDraft({ id: ed.id, name: ed.name, biome: ed.biome, pts: ed.pts, at: Date.now() }), 400); });
-  $('edUndo').onclick = () => { const p = ed.hist.pop(); if (p) { ed.pts = JSON.parse(p); ed.sel = -1; changed(); } };
-  $('edDel').onclick = () => { if (ed.sel >= 0) { snap(); ed.pts.splice(ed.sel, 1); ed.sel = -1; changed(); } };
-  $('edClear').onclick = () => { if (!ed.pts.length) return; snap(); ed.pts = []; ed.sel = -1; changed(); };
-  $('edFit').onclick = () => { fit(); draw(); };
-  $('edExit').onclick = () => show('community');
+  $('edName').addEventListener('input', e => { ed.name = e.target.value; clearTimeout(saveT); saveT = setTimeout(saveDraft, 400); });
+  $('edUndo').onclick = () => { const p = ed.hist.pop(); if (p) { const o = JSON.parse(p); ed.pts = o[0]; ed.ext = o[1]; ed.sel = -1; ed.tr = null; prevKey = ''; renderTabs(); changed(false, 'terrain'); } };
+  $('edExit').onclick = () => { saveDraft(); show('community'); };
+
+  // ----- random track generator -----
+  function randomElev(rnd, level) {
+    const n = ed.pts.length, e = [0]; let v = 0, trend = 0;
+    for (let i = 1; i < n; i++) {
+      const d = Math.hypot(ed.pts[i][0] - ed.pts[i - 1][0], ed.pts[i][1] - ed.pts[i - 1][1]);
+      trend = trend * 0.6 + (rnd() - 0.5) * 2 * 0.07 * level; v = DL.clamp(v + trend * d * 1.2, -20, 100); e.push(Math.round(v * 10) / 10);
+    }
+    return e;
+  }
+  function genLayout(rnd, len, twist) {
+    const TW = [0.55, 0.95, 1.45][twist];
+    for (let tries = 0; tries < 400; tries++) {
+      let x = (rnd() - 0.5) * LIM, z = (rnd() - 0.5) * LIM, hd = rnd() * 6.283; const pts = [[Math.round(x), Math.round(z)]]; let acc = 0, bad = false;
+      while (acc < len && pts.length < 38) {
+        const step = 85 + rnd() * 70; hd += (rnd() - 0.5) * 2 * TW * (0.35 + rnd() * 0.65);
+        const lim = LIM * 0.88; if (Math.abs(x) > lim * 0.7 || Math.abs(z) > lim * 0.7) { const toC = Math.atan2(-x, -z); let dd = toC - hd; while (dd > Math.PI) dd -= 2 * Math.PI; while (dd < -Math.PI) dd += 2 * Math.PI; hd += DL.clamp(dd, -0.5, 0.5); }
+        x += Math.sin(hd) * step; z += Math.cos(hd) * step; if (Math.abs(x) > lim || Math.abs(z) > lim) { bad = true; break; }
+        pts.push([Math.round(x), Math.round(z)]); acc += step;
+      }
+      if (bad || pts.length < 4) continue;
+      const v = DL.validateCustomTrack(pts); if (v.ok) return pts;
+    }
+    return null;
+  }
+  function randomTrack(o) {
+    const rnd = Math.random, pts = genLayout(rnd, o.len, o.twist);
+    if (!pts) { toast('Could not make a track like that. Try again'); return; }
+    snap();
+    ed.pts = pts; ed.sel = -1; if (o.biome) ed.biome = o.biome; else ed.biome = DL.BIOME_KEYS[Math.floor(rnd() * DL.BIOME_KEYS.length)];
+    const E = ed.ext = defExt(); E.seed = Math.floor(rnd() * 99999) + 1; E.pseed = Math.floor(rnd() * 99999) + 1; E.rel = [0.5, 1, 1.7][o.hills]; E.dens = o.dens;
+    E.elev = o.hills === 0 ? pts.map(() => 0) : randomElev(rnd, o.hills === 1 ? 1 : 2.2); E.hills = [0.2, 0.5, 0.9][o.hills];
+    // a few mounds and hollows away from the road
+    const sp = DL.customCenterline(pts), n = 5 + Math.floor(rnd() * 7);
+    for (let k = 0; k < n * 4 && E.terr.length < n; k++) {
+      const p = pts[Math.floor(rnd() * pts.length)], a = rnd() * 6.283, d = 110 + rnd() * 260, x = Math.round(p[0] + Math.sin(a) * d), z = Math.round(p[1] + Math.cos(a) * d);
+      let md = 1e9; for (let i = 0; i < sp.xs.length; i += 3) md = Math.min(md, Math.hypot(sp.xs[i] - x, sp.zs[i] - z)); if (md < 95 || Math.abs(x) > LIM + 200 || Math.abs(z) > LIM + 200) continue;
+      E.terr.push([x, z, Math.round(80 + rnd() * 120), Math.round((rnd() < 0.7 ? 1 : -1) * (8 + rnd() * 30 * (0.5 + o.hills * 0.5))), 0]);
+    }
+    if (!ed.name) { const W1 = ['Misty', 'Golden', 'Crimson', 'Silent', 'Windy', 'Ember', 'Frosty', 'Hidden', 'Lone', 'Sunset', 'Thunder', 'Velvet'], W2 = ['Ridge', 'Run', 'Pass', 'Loop', 'Drift', 'Canyon', 'Sprint', 'Valley', 'Rise', 'Descent', 'Hairpins', 'Circuit']; ed.name = W1[Math.floor(rnd() * W1.length)] + ' ' + W2[Math.floor(rnd() * W2.length)]; $('edName').value = ed.name; }
+    ed.tested = null; ed.tr = null; prevKey = ''; renderTabs(); changed(false, 'terrain'); previewTrack(true); fit(); scheduleWorld(0);
+  }
+  $('edRandom').onclick = () => {
+    const o = { len: 1500, twist: 1, hills: 1, dens: 1, biome: '' };
+    const m = modal(`<div class="lbl">Track creator</div><h2>Random track</h2>
+      <p class="hint">Builds the road, hills, terrain and scenery for you. You can change anything afterwards.</p>
+      <div class="field"><span class="lbl">Length</span><div class="ed-biomes" id="rgLen"><button class="chk" data-v="800">Short</button><button class="chk on" data-v="1500">Medium</button><button class="chk" data-v="2400">Long</button><button class="chk" data-v="3200">Epic</button></div></div>
+      <div class="field"><span class="lbl">Corners</span><div class="ed-biomes" id="rgTw"><button class="chk" data-v="0">Flowing</button><button class="chk on" data-v="1">Mixed</button><button class="chk" data-v="2">Technical</button></div></div>
+      <div class="field"><span class="lbl">Hills</span><div class="ed-biomes" id="rgHi"><button class="chk" data-v="0">Flat</button><button class="chk on" data-v="1">Rolling</button><button class="chk" data-v="2">Mountainous</button></div></div>
+      <div class="field"><span class="lbl">Scenery</span><div class="ed-biomes" id="rgBi"><button class="chk on" data-v="">Surprise me</button>${DL.BIOME_KEYS.map(k => `<button class="chk" data-v="${k}">${esc(DL.BIOMES[k].name)}</button>`).join('')}</div></div>
+      <div class="field"><span class="lbl">Props</span><div class="ed-biomes" id="rgDe"><button class="chk" data-v="0.4">Few</button><button class="chk on" data-v="1">Normal</button><button class="chk" data-v="1.8">Lots</button></div></div>
+      <div class="btn-row"><button class="btn btn-go" id="rgGo" style="font-size:22px">Generate</button><button class="btn btn-line" id="rgNo">Cancel</button></div>`, { sticky: true });
+    const pick = (id, key, num) => m.querySelector('#' + id).onclick = e => { const b = e.target.closest('.chk'); if (!b) return; [...b.parentNode.children].forEach(c => c.classList.toggle('on', c === b)); o[key] = num ? +b.dataset.v : b.dataset.v; };
+    pick('rgLen', 'len', 1); pick('rgTw', 'twist', 1); pick('rgHi', 'hills', 1); pick('rgBi', 'biome', 0); pick('rgDe', 'dens', 1);
+    m.querySelector('#rgNo').onclick = closeModal;
+    m.querySelector('#rgGo').onclick = () => { closeModal(); setTimeout(() => randomTrack(o), 30); };
+  };
+
   $('edTest').onclick = () => {
     if (!ed.res.ok) return;
-    const custom = { id: ed.id, name: ed.name || 'Untitled track', biome: ed.biome, pts: ed.pts.map(p => [p[0], p[1]]) };
-    DL.customTracks[ed.id] = custom; ed.testKey = edKey();
+    const custom = customObj(); DL.customTracks[ed.id] = custom; ed.testKey = edKey();
     X.startRace(ed.id, [], custom, { test: true, leave: 'editor' });
   };
   $('edPublish').onclick = () => doPublish($('edPublish'));
@@ -366,9 +603,10 @@
   async function doPublish(btn) {
     const t = ed.tested; if (!t || t.key !== edKey()) { toast('Test drive this exact layout first'); return; }
     if (Net.mode !== 'online' || !Net.api) { toast('Publishing needs the online leaderboard. ' + Net.status); return; }
+    if (!ed.name.trim()) { toast('Give your track a name first'); closeModal(); return; }
     const old = btn && btn.textContent; if (btn) { btn.disabled = true; btn.textContent = 'Publishing…'; }
-    const custom = { id: ed.id, name: (ed.name || 'Untitled track').trim() || 'Untitled track', biome: ed.biome, pts: ed.pts.map(p => [p[0], p[1]]) };
-    const r = await Net.ctPublish({ id: custom.id, name: custom.name, biome: custom.biome, pts: custom.pts, time: Math.round(t.time * 1000) / 1000, ghost: t.ghost });
+    const custom = customObj();
+    const r = await Net.ctPublish({ id: custom.id, name: custom.name, biome: custom.biome, pts: custom.pts, ext: custom.ext, time: Math.round(t.time * 1000) / 1000, ghost: t.ghost });
     if (btn) { btn.disabled = false; btn.textContent = old; }
     if (!r.ok) { toast(r.error); return; }
     toast('<b>Track published</b>');

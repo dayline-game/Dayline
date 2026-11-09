@@ -8,12 +8,13 @@
   DL.SURF = SURF; DL.ROAD_HALF = HALF;
   // dailies from this day on get mud / snow / sand stretches on the road; earlier days stay exactly as they were raced
   DL.PATCH_FROM = '20261105';
-  DL.SHORT_FROM = '20261109';   // daily maps from this day on are short (~20-50 s laps) so reels need no speed-up
-  DL.TRACK_VER = 7;   // bump whenever track generation changes, then re-run `npm run digests`
+  DL.SHORT_FROM = '20261110';   // daily maps from this day on are short (~20-50 s laps) so reels need no speed-up
+  DL.TRACK_VER = 8;   // bump whenever track generation changes, then re-run `npm run digests`
 
   function Track(day, custom) {
     this.day = day; this.custom = custom || null;
-    this.seed = custom ? DL.hashStr('community:' + custom.id) : DL.seedFor(day);
+    this.ext = custom && custom.ext ? (DL.cleanExt(custom.ext, custom.pts.length).ext || null) : null;
+    this.seed = custom ? (DL.hashStr('community:' + custom.id) ^ (this.ext ? Math.imul(this.ext.seed, 40503) : 0)) : DL.seedFor(day);
     const rnd = this.rnd = DL.mulberry32(this.seed);
     this.biomeKey = custom ? (DL.BIOMES[custom.biome] ? custom.biome : 'country') : DL.BIOME_KEYS[Math.floor(rnd() * DL.BIOME_KEYS.length)];
     this.B = DL.BIOMES[this.biomeKey];
@@ -22,7 +23,7 @@
     this.water = this.B.water;
     this.seaDir = null;
     this._r = { i: 0, dist: 0, y: 0, lat: 0, t: 0, s: 0 };
-    if (custom) this._customCenterline(custom.pts);
+    if (custom) this._customCenterline(custom.pts);   // (ext, when present, is applied in _computeHeights, _terrain and the prop scatter)
     else for (let attempt = 0; attempt < 6; attempt++) {
       this._genRnd = DL.mulberry32(this.seed + attempt * 7919);
       this._generateCenterline();
@@ -170,6 +171,46 @@
     }
     return { xs, zs };
   };
+
+  // ---------- track creator data (v2 community tracks): elevation per waypoint, terrain sculpt blobs, props, seeds ----------
+  DL.PROP_TYPES = ['pine', 'snowpine', 'round', 'palm', 'cactus', 'bush', 'shrub', 'rock', 'boulder', 'haybale', 'house', 'barn', 'windmill', 'lighthouse', 'mesa', 'cabin', 'watchtower', 'tent', 'logpile', 'snowman', 'igloo', 'icespire', 'umbrella', 'lifeguard', 'cratestack', 'scarecrow', 'silo', 'watertower', 'tractor', 'billboard', 'tirestack', 'radiomast', 'pumpjack', 'rockarch'];
+  DL.EXT_LIM = { ELEV_MIN: -40, ELEV_MAX: 140, TERR: 260, PROPS: 700, H: 70, R_MIN: 20, R_MAX: 260, BYTES: 64000 };
+  // Returns { ok, ext } with every field clamped/rounded, or { ok:false, error }. Shared by the editor, the game and the server.
+  DL.cleanExt = function (e, nPts) {
+    if (e == null) return { ok: true, ext: null };
+    if (typeof e !== 'object' || Array.isArray(e)) return { ok: false, error: 'Bad track data' };
+    const L = DL.EXT_LIM, num = (v, a, b, d) => { v = +v; return isFinite(v) ? Math.max(a, Math.min(b, v)) : d; }, r1 = v => Math.round(v * 10) / 10;
+    const out = { v: 2 };
+    if (e.elev != null) {
+      if (!Array.isArray(e.elev) || e.elev.length !== nPts) return { ok: false, error: 'Elevation needs one value per waypoint' };
+      out.elev = e.elev.map(v => r1(num(v, L.ELEV_MIN, L.ELEV_MAX, 0)));
+    }
+    out.hills = r1(num(e.hills, 0, 2, 0.4)); out.rel = r1(num(e.rel, 0, 2.5, 1)); out.dens = r1(num(e.dens, 0, 2.5, 1));
+    out.seed = Math.round(num(e.seed, 0, 99999, 0)); out.pseed = Math.round(num(e.pseed, 0, 99999, 0));
+    out.unique = e.unique === false ? false : true;
+    if (e.terr != null) {
+      if (!Array.isArray(e.terr) || e.terr.length > L.TERR) return { ok: false, error: 'Too many terrain edits (max ' + L.TERR + ')' };
+      out.terr = e.terr.map(b => [Math.round(num(b[0], -2200, 2200, 0)), Math.round(num(b[1], -2200, 2200, 0)), Math.round(num(b[2], L.R_MIN, L.R_MAX, 60)), r1(num(b[3], -L.H, L.H, 0)), b[4] === 1 ? 1 : 0]);
+    }
+    if (e.props != null) {
+      if (!Array.isArray(e.props) || e.props.length > L.PROPS) return { ok: false, error: 'Too many props (max ' + L.PROPS + ')' };
+      const ps = [];
+      for (const p of e.props) { if (!Array.isArray(p) || DL.PROP_TYPES.indexOf(p[0]) < 0) return { ok: false, error: 'Unknown prop' }; ps.push([p[0], Math.round(num(p[1], -2200, 2200, 0)), Math.round(num(p[2], -2200, 2200, 0)), Math.round(num(p[3], 0, 6.3, 0) * 100) / 100, r1(num(p[4], 0.5, 2.2, 1))]); }
+      out.props = ps;
+    }
+    if (JSON.stringify(out).length > L.BYTES) return { ok: false, error: 'Track data is too large' };
+    return { ok: true, ext: out };
+  };
+  // index of each waypoint on the 4 m centreline (the line starts 28 m before the first waypoint)
+  DL.waypointIndex = function (pts, xs, zs) {
+    const idx = []; let from = 0;
+    for (const p of pts) {
+      let best = from, bd = 1e18;
+      for (let i = from; i < xs.length; i++) { const d = (xs[i] - p[0]) * (xs[i] - p[0]) + (zs[i] - p[1]) * (zs[i] - p[1]); if (d < bd) { bd = d; best = i; } else if (d > bd + 4000 && i > best + 40) break; }
+      idx.push(best); from = best;
+    }
+    return idx;
+  };
   DL.CUSTOM = { MIN_PTS: 3, MAX_PTS: 40, LIM: 1300, MIN_LEN: 500, MAX_LEN: 3800, MIN_R: 16 };
   DL.validateCustomTrack = function (pts) {
     const C = DL.CUSTOM;
@@ -194,6 +235,7 @@
   Track.prototype._customCenterline = function (pts) {
     const c = DL.customCenterline(pts);
     this._centerlineArrays(c.xs, c.zs);
+    this.wpIdx = DL.waypointIndex(pts, c.xs, c.zs);
   };
 
   Track.prototype._buildGrid = function () {
@@ -249,6 +291,24 @@
     limit(0.125, 3);
     // flatten the start grid
     for (let i = 0; i < 14; i++) y[i] = y[14];
+    if (this.ext && this.ext.elev && this.wpIdx) {
+      // creator tracks: the road follows the waypoint elevations (smooth curve through them), plus an amount of natural rolling hills
+      const wi = this.wpIdx, ev = this.ext.elev, prof = new Float32Array(N), y0 = y[14];
+      const knots = [[0, ev[0]]].concat(wi.map((k, j) => [k, ev[j]]), [[N - 1, ev[ev.length - 1]]]);
+      for (let i = 0; i < N; i++) {
+        let a = 0; while (a < knots.length - 2 && knots[a + 1][0] <= i) a++;
+        const k0 = knots[Math.max(0, a - 1)], k1 = knots[a], k2 = knots[a + 1], k3 = knots[Math.min(knots.length - 1, a + 2)];
+        const span = Math.max(1, k2[0] - k1[0]), t = DL.clamp((i - k1[0]) / span, 0, 1), t2 = t * t, t3 = t2 * t;
+        const m1 = (k2[1] - k0[1]) / Math.max(1, k2[0] - k0[0]) * span, m2 = (k3[1] - k1[1]) / Math.max(1, k3[0] - k1[0]) * span;
+        prof[i] = (2 * t3 - 3 * t2 + 1) * k1[1] + (t3 - 2 * t2 + t) * m1 + (-2 * t3 + 3 * t2) * k2[1] + (t3 - t2) * m2;
+      }
+      const hl = this.ext.hills;
+      for (let i = 0; i < N; i++) y[i] = y0 + prof[i] + off[i] * hl * 0.8;
+      if (this.water != null) for (let i = 0; i < N; i++) { const m = this.water + 2.2; if (y[i] < m) { off[i] += m - y[i]; y[i] = m; } }
+      smoothPass(3); limit(0.13, 4);
+      for (let i = 0; i < 14; i++) y[i] = y[14];
+      for (let i = 0; i < N; i++) off[i] = y[i] - this.baseTerrain(this.px[i], this.pz[i]);   // the ground beside the road rises and falls with it
+    }
     this.py = y;
   };
 
@@ -292,14 +352,24 @@
   Track.prototype._terrain = function (x, z, r) {
     let h = this.baseTerrain(x, z);
     const dist = r && r.i >= 0 ? r.dist : 999;
-    if (this.off && dist < 999) h += this.off[r.i] * (1 - DL.smooth(HALF + 8, HALF + 62, dist));
+    if (this.off && dist < 999) h += this.off[r.i] * (1 - DL.smooth(HALF + 8, this.ext && this.ext.elev ? 78 : HALF + 62, dist));
     const above = this.water == null ? 1 : DL.smooth(this.water + 1, this.water + 7, h);
     if (above > 0) {
+      const rel = this.ext ? this.ext.rel : 1;
       const fw = DL.smooth(HALF + 34, HALF + 100, dist) * above;   // landforms only well away from the road, so the driving line is unchanged
-      if (fw > 0) h += this._features(x, z, h) * fw;
+      if (fw > 0) h += this._features(x, z, h) * fw * rel;
       const H = 9 + Math.min(this.B.amp, 60) * 0.3;
       const hl = this.noise.fbm(x / 130 + 300, z / 130 - 200, 3);
-      h += (hl * 0.5 + 0.35) * H * DL.smooth(HALF + 16, HALF + 62, dist) * above;
+      h += (hl * 0.5 + 0.35) * H * DL.smooth(HALF + 16, HALF + 62, dist) * above * rel;
+    }
+    if (this.ext && this.ext.terr) {
+      // sculpted terrain: [x, z, radius, height, mode] blobs (0 = raise/lower, 1 = level off to that height above the road start); they fade out beside the road
+      const T = this.ext.terr, fade = dist < 999 ? DL.smooth(HALF + 10, HALF + 44, dist) : 1;
+      if (fade > 0) for (let k = 0; k < T.length; k++) {
+        const b = T[k], dx = x - b[0], dz = z - b[1], d2 = dx * dx + dz * dz, R = b[2]; if (d2 >= R * R) continue;
+        const w = 0.5 + 0.5 * Math.cos(Math.PI * Math.sqrt(d2) / R);
+        if (b[4] === 1) h = DL.lerp(h, (this.py ? this.py[14] : 0) + b[3], w * fade); else h += b[3] * w * fade;
+      }
     }
     return h;
   };
@@ -1166,8 +1236,9 @@
     }
 
     // ---- props ----
-    const pr = DL.mulberry32(track.seed ^ 0x3a3a);
-    const qmul = opts.lowQuality ? 0.5 : 1;
+    const pr = DL.mulberry32(track.seed ^ 0x3a3a ^ (track.ext ? Math.imul(track.ext.pseed, 7919) : 0));
+    const dens = track.ext ? track.ext.dens : 1;
+    const qmul = (opts.lowQuality ? 0.5 : 1) * dens;
     const ext = { x0: x0 + 20, z0: z0 + 20, w: nx * cs - 40, d: nz * cs - 40 };
     const shortcutNear = (x, z, d) => {
       if (!track.shortcut) return false;
@@ -1236,7 +1307,7 @@
         n++;
       }
     };
-    const bk = track.biomeKey, lq = opts.lowQuality ? 0.6 : 1;
+    const bk = track.biomeKey, lq = (opts.lowQuality ? 0.6 : 1) * dens;
     if (bk === 'country') { landmark('house', Math.round(5 * km * lq), 22, 80, 1); landmark('barn', Math.round(2 * km * lq), 26, 90, 1); landmark('windmill', Math.max(1, Math.round(1.2 * km * lq)), 40, 120, 1.1); }
     if (bk === 'forest' || bk === 'mountain') landmark('house', Math.round(1.5 * km * lq), 24, 80, 0.9);
     if (bk === 'coast') { landmark('lighthouse', 1, 40, 150, 1.2); landmark('house', Math.round(3 * km * lq), 22, 80, 1); }
@@ -1261,8 +1332,8 @@
       push('sign', { x, y: tmp.y - 0.05, z, s: 1.2, sy: 1.2, ry: Math.atan2(track.tx[i], track.tz[i]) + (side > 0 ? 0 : Math.PI) + Math.PI, d: 0 });
     }
     // v1.7 unique props: separate rng so older props never move; only on new days
-    if (!track.custom && track.day >= DL.PATCH_FROM) {
-      const p2 = DL.mulberry32(track.seed ^ 0x7e7e1d);
+    if ((!track.custom && track.day >= DL.PATCH_FROM) || (track.ext && track.ext.unique)) {
+      const p2 = DL.mulberry32(track.seed ^ 0x7e7e1d ^ (track.ext ? Math.imul(track.ext.pseed, 6151) : 0));
       const list2 = Object.assign({}, UNIQUE_PROPS.all, UNIQUE_PROPS[track.biomeKey] || {});
       for (const type in list2) {
         if (type === 'tirestack') {
@@ -1306,6 +1377,12 @@
         const j = 11 + k * 3, off = (HALF + 3.4) * (k % 2 ? 1 : -1);
         push('flagpole', { x: track.px[j] - track.tz[j] * off, y: track.groundAt(track.px[j] - track.tz[j] * off, track.pz[j] + track.tx[j] * off, tmp, true).y - 0.05, z: track.pz[j] + track.tx[j] * off, s: 1, sy: 1, ry: yaw + (k % 2 ? 0 : Math.PI), d: 0 });
       }
+    }
+    // props placed by hand in the creator
+    if (track.ext && track.ext.props) for (const p of track.ext.props) {
+      track.groundAt(p[1], p[2], tmp, true);
+      if (tmp.road.dist < HALF + 2.2 && tmp.road.dist < 999) continue;   // never on the tarmac
+      push(p[0], { x: p[1], y: tmp.y - 0.1, z: p[2], s: p[4], sy: p[4], ry: p[3], d: tmp.road.dist });
     }
     track.propItems = items;
     for (const type in items) {
