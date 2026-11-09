@@ -195,7 +195,7 @@
 
   // ---------------- track creator ----------------
   // Tabs: Layout (waypoints), Elevation (height per waypoint), Terrain (sculpt + relief + seed), Props (palette + scatter), Look (scenery).
-  const ed = { id: null, name: '', biome: 'country', pts: [], ext: null, tab: 'layout', sel: -1, v: { cx: 0, cz: 0, s: 0.3 }, tested: null, testKey: null, prob: null, spline: null, hist: [], res: { ok: false, error: '' }, W: 0, H: 0, tool: 'raise', brush: 70, str: 6, level: 6, propType: 'pine', propSize: 1, hand: false, tr: null, hm: null };
+  const ed = { id: null, name: '', biome: 'country', pts: [], ext: null, tab: 'layout', sel: -1, v: { cx: 0, cz: 0, s: 0.3 }, tested: null, testKey: null, prob: null, spline: null, hist: [], res: { ok: false, error: '' }, W: 0, H: 0, tool: 'raise', brush: 70, str: 6, level: 6, propType: 'pine', propSize: 1, hand: false, cam: '', tr: null, hm: null };
   const cv = $('edCanvas'), cx = cv.getContext('2d'), pcv = $('edProf'), pcx = pcv.getContext('2d');
   const newId = () => 'c_' + Array.from(crypto.getRandomValues(new Uint8Array(8)), b => (b % 36).toString(36)).join('');
   const STARTER = [[-460, 120], [-250, 120], [-40, 250], [200, 220]];
@@ -209,6 +209,7 @@
   const propCol = t => PROP_COL[t] || '#7a6bb0';
 
   UI.openEditor = function (d) {
+    if (!Game.edView || !Game.edCamera) { toast('Dayline updated. Reload the page to use the track creator'); return; }
     if (d) Object.assign(ed, { id: d.id, name: d.name || '', biome: d.biome || 'country', pts: d.pts.map(p => [p[0], p[1]]), ext: d.ext ? Object.assign(defExt(), cloneExt(d.ext)) : defExt(), sel: -1, tested: null, hist: [], tab: 'layout' });
     else Object.assign(ed, { id: newId(), name: '', biome: 'country', pts: STARTER.map(p => p.slice()), ext: defExt(), sel: -1, tested: null, hist: [], tab: 'layout' });
     if (!ed.ext.terr) ed.ext.terr = []; if (!ed.ext.props) ed.ext.props = [];
@@ -231,17 +232,17 @@
     const v = EV(); let x0 = 1e9, x1 = -1e9, z0 = 1e9, z1 = -1e9;
     ed.pts.forEach(p => { x0 = Math.min(x0, p[0]); x1 = Math.max(x1, p[0]); z0 = Math.min(z0, p[1]); z1 = Math.max(z1, p[1]); });
     if (!ed.pts.length) { x0 = z0 = -200; x1 = z1 = 200; }
-    v.tx = (x0 + x1) / 2; v.tz = (z0 + z1) / 2; v.ty = gY(v.tx, v.tz); v.dist = DL.clamp(Math.max(x1 - x0, z1 - z0) * 1.05 + 260, 320, 3600); v.ph = 0.85;
+    v.tx = (x0 + x1) / 2; v.tz = (z0 + z1) / 2; v.ty = gY(v.tx, v.tz); v.dist = DL.clamp(Math.max(x1 - x0, z1 - z0) * 1.3 + 420, 600, 4000); v.ph = 0.9;
   }
-  const proj = (x, y, z) => { const c = Game.edCamera(); c.updateMatrixWorld(); const q = new THREE.Vector3(x, y, z).project(c); return [(q.x + 1) / 2 * ed.W, (1 - q.y) / 2 * ed.H, q.z > -1 && q.z < 1]; };
+  const _pv = new THREE.Vector3(); const proj = (x, y, z) => { const c = Game.edCamera(); const q = _pv.set(x, y, z).project(c); return [(q.x + 1) / 2 * ed.W, (1 - q.y) / 2 * ed.H, q.z > -1 && q.z < 1]; };
   // ray from the camera through a screen point, marched down onto the terrain
   function rayHit(px, pz) {
     const c = Game.edCamera(); c.updateMatrixWorld(); const rc = new THREE.Raycaster(); rc.setFromCamera(new THREE.Vector2(px / ed.W * 2 - 1, -(pz / ed.H) * 2 + 1), c);
     const o = rc.ray.origin, d = rc.ray.direction, f = (t) => o.y + d.y * t - gY(o.x + d.x * t, o.z + d.z * t);
     let t = 0, pt = 0, pf = f(0);
     if (pf < 0) return null;
-    for (let i = 0; i < 700 && t < 9000; i++) {
-      t += Math.max(4, t * 0.012); const fv = f(t);
+    for (let i = 0; i < 500 && t < 9000; i++) {
+      t += Math.max(6, t * 0.02); const fv = f(t);
       if (fv < 0) { let a = pt, b = t; for (let k = 0; k < 14; k++) { const m = (a + b) / 2; if (f(m) < 0) b = m; else a = m; } const tt = (a + b) / 2; return [o.x + d.x * tt, o.y + d.y * tt, o.z + d.z * tt]; }
       pt = t;
     }
@@ -273,7 +274,7 @@
 
   // ----- tabs / side panel -----
   const TAB_HELP = {
-    layout: 'Click the ground to add waypoints, drag a handle to move it, click the road to insert one, double-click to remove. Right-drag orbits, shift+right-drag pans, scroll zooms.',
+    layout: 'Click the ground to add waypoints, drag a handle to move it, click the road to insert one, double-click to remove. Orbit: right-drag, Option+drag or the orbit button (or Q/E). Pan: shift+right-drag or the hand. Scroll zooms.',
     elev: 'Pick a waypoint and set its height, or drag its handle up and down in the 3D view. Drag the dots on the profile to shape hills and valleys. Red parts are too steep.',
     terr: 'Paint on the ground: raise or lower it, level it off, or erase edits. The road is never touched. The seed re-rolls the natural landforms.',
     props: 'Pick a prop and click or paint on the ground to place it. Scatter adds natural scenery on its own and its dice re-rolls it.',
@@ -355,7 +356,7 @@
     $('edTest').disabled = !ed.res.ok; $('edPublish').disabled = !(ed.res.ok && tested);
     $('edPublish').title = tested ? '' : 'Finish a test drive on this exact layout first';
     $('edUndo').disabled = !ed.hist.length;
-    if (ed.res.ok) { previewTrack(); scheduleWorld(); }
+    if (ed.res.ok) { previewTrack(); if (!drag) scheduleWorld(); }
     statsUpdate(); draw(); drawProf();
     if (!noSave) { clearTimeout(saveT); saveT = setTimeout(saveDraft, 400); }
   }
@@ -370,7 +371,7 @@
 
   // ----- overlay drawing (handles on top of the real 3D scene) -----
   function draw() {
-    const W = ed.W, H = ed.H, E = ed.ext; if (!W) return;
+    Game.edCamera().updateMatrixWorld(); const W = ed.W, H = ed.H, E = ed.ext; if (!W) return;
     cx.setTransform(ed.dpr, 0, 0, ed.dpr, 0, 0); cx.clearRect(0, 0, W, H);
     const tr = ed.tr, okTr = tr && ed.res.ok && tr.wpIdx && tr.wpIdx.length === ed.pts.length;
     // road line
@@ -459,8 +460,8 @@
   }
   cv.addEventListener('pointerdown', e => {
     cv.setPointerCapture(e.pointerId); const [px, pz] = evPos(e), V = EV();
-    const camBtn = e.button === 2 || e.button === 1 || (e.button === 0 && ed.hand);
-    if (camBtn) { drag = { kind: (e.shiftKey || (e.button === 0 && ed.hand) || e.button === 1) ? 'pan' : 'orbit', x: px, z: pz, th: V.th, ph: V.ph, tx: V.tx, tz: V.tz, moved: false }; ed.camDrag = true; return; }
+    const left = e.button === 0, camBtn = e.button === 2 || e.button === 1 || (left && (ed.cam || e.altKey || e.ctrlKey || e.metaKey));
+    if (camBtn) { drag = { kind: (e.shiftKey || ed.cam === 'pan' || e.button === 1) ? 'pan' : 'orbit', x: px, z: pz, th: V.th, ph: V.ph, tx: V.tx, tz: V.tz, moved: false }; ed.camDrag = true; return; }
     const i = hitPoint(px, pz), paint = ed.tab === 'terr' || ed.tab === 'props';
     if (i >= 0 && !(paint && false)) {
       ed.sel = i;
@@ -474,7 +475,7 @@
   });
   cv.addEventListener('pointermove', e => {
     const [px, pz] = evPos(e), V = EV();
-    if (!drag) { const h = rayHit(px, pz); ed.hit = h; return; }
+    if (!drag) { if (ed.tab === 'terr' || ed.tab === 'props') { ed.ptr = [px, pz]; if (!ed.hitQ) ed.hitQ = requestAnimationFrame(() => { ed.hitQ = 0; ed.hit = ed.ptr ? rayHit(ed.ptr[0], ed.ptr[1]) : null; }); } return; }
     if (drag.kind === 'pt') { const w = rayHit(px, pz); if (w) { ed.pts[drag.i] = inMap(w); drag.moved = true; changed(true, 'layout'); } }
     else if (drag.kind === 'elev') { const E = ed.ext; E.elev[drag.i] = Math.round(DL.clamp(drag.h0 + (drag.y - pz) * drag.mpp, DL.EXT_LIM.ELEV_MIN, DL.EXT_LIM.ELEV_MAX)); drag.moved = true; changed(true, 'terrain'); const hs = $('edHeight'); if (hs) { hs.value = E.elev[drag.i]; $('edHeightV').textContent = E.elev[drag.i] + ' m'; hs.disabled = false; } }
     else if (drag.kind === 'paint') { applyPaint(px, pz); }
@@ -507,7 +508,7 @@
       snap(); ed.pts.splice(at, 0, np); insertElev(at); ed.sel = at; changed(false, 'layout');
     }
   });
-  cv.addEventListener('pointerleave', () => { ed.hit = null; });
+  cv.addEventListener('pointerleave', () => { ed.hit = null; ed.ptr = null; });
   cv.addEventListener('dblclick', e => { if (ed.tab !== 'layout') return; const [px, pz] = evPos(e), i = hitPoint(px, pz); if (i >= 0) { snap(); ed.pts.splice(i, 1); if (ed.ext.elev) ed.ext.elev.splice(i, 1); ed.sel = -1; changed(false, 'layout'); } });
   cv.addEventListener('contextmenu', e => e.preventDefault());
   cv.addEventListener('wheel', e => { e.preventDefault(); const V = EV(); V.dist = DL.clamp(V.dist * Math.exp(e.deltaY * 0.0012), 40, 4200); }, { passive: false });
@@ -527,9 +528,12 @@
   window.addEventListener('keydown', e => {
     if ($('editor').hidden || /INPUT|TEXTAREA|SELECT/.test((e.target && e.target.tagName) || '')) return;
     if ((e.code === 'Delete' || e.code === 'Backspace') && ed.sel >= 0 && ed.tab === 'layout') { e.preventDefault(); $('edDel') && $('edDel').click(); }
+    else if (e.code === 'KeyQ' || e.code === 'KeyE') EV().th += e.code === 'KeyQ' ? 0.12 : -0.12;
+    else if (e.code === 'ArrowUp' || e.code === 'ArrowDown') { e.preventDefault(); EV().dist = DL.clamp(EV().dist * (e.code === 'ArrowUp' ? 0.88 : 1.14), 40, 4200); }
     else if ((e.ctrlKey || e.metaKey) && e.code === 'KeyZ') { e.preventDefault(); $('edUndo').click(); }
   });
-  $('edHand').onclick = () => { ed.hand = !ed.hand; $('edHand').classList.toggle('on', ed.hand); };
+  const setCam = m => { ed.cam = ed.cam === m ? '' : m; $('edHand').classList.toggle('on', ed.cam === 'pan'); $('edOrbit').classList.toggle('on', ed.cam === 'orbit'); cv.style.cursor = ed.cam === 'pan' ? 'grab' : ed.cam === 'orbit' ? 'move' : ''; };
+  $('edHand').onclick = () => setCam('pan'); $('edOrbit').onclick = () => setCam('orbit');
   $('edZoomIn').onclick = () => { const V = EV(); V.dist = DL.clamp(V.dist * 0.78, 40, 4200); }; $('edZoomOut').onclick = () => { const V = EV(); V.dist = DL.clamp(V.dist / 0.78, 40, 4200); };
 
   $('edName').addEventListener('input', e => { ed.name = e.target.value; clearTimeout(saveT); saveT = setTimeout(saveDraft, 400); });
