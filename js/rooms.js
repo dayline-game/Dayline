@@ -97,7 +97,7 @@
       const t0 = performance.now();
       const batch = Game.roomSamples ? Game.roomSamples(sentTs) : [], s = Game.roomState && Game.roomState();
       if (s) {
-        const full = (n++ % 5) === 0;
+        const full = (n++ % 8) === 0 || R.needFull; R.needFull = false;
         try {
           const r = await api('POST', '/' + R.room.code + '/tick', { s, b: batch, full });
           if (!R.racing || id !== loopId) return;
@@ -107,12 +107,13 @@
             const now = performance.now();
             Game.roomOthers(r.j.others || [], uid => {
               const p = R.room && R.room.players.find(x => x.uid === uid);
+              if (!p) R.needFull = true;
               return p ? { uid, label: p.tag, car: p.car, l: p.l, b: p.b, equip: p.equip } : null;
             }, now);
           }
         } catch (e) { }
       }
-      const wait = 140 - (performance.now() - t0);
+      const wait = 210 - (performance.now() - t0);
       await new Promise(res => setTimeout(res, Math.max(20, wait)));
     }
   }

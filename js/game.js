@@ -978,7 +978,7 @@
   // ---------------- live room opponents ----------------
   // Each driver samples their own car 20x/s with a timestamp and ships the recent samples in batches; every client plays the others back
   // ~0.3 s behind real time, interpolating between samples, so movement stays smooth whatever the network jitter.
-  const LIVE_DELAY = 320;
+  const LIVE_DELAY = 450;
   Game.inRoom = () => !!(race && race.room);
   Game.raceNow = () => race;
   function sampleRoom(r, v) {
@@ -1004,6 +1004,7 @@
         const sp = specOf(o.uid); if (!sp) continue;
         const model = DL.buildCar({ car: sp.car, livery: sp.l ? DL.decodeLivery(sp.l) : DL.defaultLivery(), base: sp.b, equip: sp.equip, ghost: true });
         const label = makeLabel(sp.label || 'Driver', false); model.add(label); scene.add(model);
+        try { renderer.compile(scene, camera); } catch (e) {}
         g = r.live[o.uid] = { model, label, buf: [], off: null, last: 0, seen: now, spin: 0 };
       }
       // map the sender's clock onto ours: the newest sample is about (age) old when it reaches us
