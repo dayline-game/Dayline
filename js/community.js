@@ -270,7 +270,7 @@
     try { ed.tr = new DL.Track(ed.id, customObj()); prevKey = k; } catch (e) { console.warn(e); }
     return ed.tr;
   }
-  function scheduleWorld(ms) { clearTimeout(wT); wT = setTimeout(() => { if ($('editor').hidden || !ed.res.ok) return; try { Game.loadDay(ed.id, customObj()); } catch (e) { console.warn(e); } }, ms == null ? 260 : ms); }
+  function scheduleWorld(ms) { clearTimeout(wT); wT = setTimeout(() => { if ($('editor').hidden || !ed.res.ok) return; if (drag && drag.kind !== 'sel' && Date.now() - (ed.lastMove || 0) < 300) return scheduleWorld(300); try { Game.loadDay(ed.id, customObj()); } catch (e) { console.warn(e); } }, ms == null ? 260 : ms); }
 
   // ----- tabs / side panel -----
   const TAB_HELP = {
@@ -356,7 +356,7 @@
     $('edTest').disabled = !ed.res.ok; $('edPublish').disabled = !(ed.res.ok && tested);
     $('edPublish').title = tested ? '' : 'Finish a test drive on this exact layout first';
     $('edUndo').disabled = !ed.hist.length;
-    if (ed.res.ok) { previewTrack(); if (!drag) scheduleWorld(); }
+    if (ed.res.ok) { previewTrack(); scheduleWorld(); }
     statsUpdate(); draw(); drawProf();
     if (!noSave) { clearTimeout(saveT); saveT = setTimeout(saveDraft, 400); }
   }
@@ -474,7 +474,7 @@
     drag = { kind: 'click', x: px, z: pz, th: V.th, ph: V.ph, moved: false };
   });
   cv.addEventListener('pointermove', e => {
-    const [px, pz] = evPos(e), V = EV();
+    const [px, pz] = evPos(e), V = EV(); ed.lastMove = Date.now();
     if (!drag) { if (ed.tab === 'terr' || ed.tab === 'props') { ed.ptr = [px, pz]; if (!ed.hitQ) ed.hitQ = requestAnimationFrame(() => { ed.hitQ = 0; ed.hit = ed.ptr ? rayHit(ed.ptr[0], ed.ptr[1]) : null; }); } return; }
     if (drag.kind === 'pt') { const w = rayHit(px, pz); if (w) { ed.pts[drag.i] = inMap(w); drag.moved = true; changed(true, 'layout'); } }
     else if (drag.kind === 'elev') { const E = ed.ext; E.elev[drag.i] = Math.round(DL.clamp(drag.h0 + (drag.y - pz) * drag.mpp, DL.EXT_LIM.ELEV_MIN, DL.EXT_LIM.ELEV_MAX)); drag.moved = true; changed(true, 'terrain'); const hs = $('edHeight'); if (hs) { hs.value = E.elev[drag.i]; $('edHeightV').textContent = E.elev[drag.i] + ' m'; hs.disabled = false; } }
@@ -483,7 +483,7 @@
     else if (drag.kind === 'pan') { const k = V.dist * 0.0012, c = Math.cos(V.th), s2 = Math.sin(V.th), dx = px - drag.x, dz = pz - drag.z; V.tx = drag.tx - dx * k * c - dz * k * s2 * -1 * -1; V.tz = drag.tz + dx * k * s2 - dz * k * c; V.ty = gY(V.tx, V.tz); drag.moved = true; }
     else if (drag.kind === 'click') { if (Math.hypot(px - drag.x, pz - drag.z) > 5) { drag.moved = true; V.th = drag.th - (px - drag.x) * 0.006; V.ph = DL.clamp(drag.ph + (pz - drag.z) * 0.006, 0.12, 1.5); ed.camDrag = true; } }
   });
-  cv.addEventListener('pointerup', e => {
+  const onUp = e => {
     if (!drag) return; const d = drag; drag = null; ed.camDrag = false; const [px, pz] = evPos(e);
     if (d.kind === 'pt') { if (!d.moved) ed.hist.pop(); else changed(); return; }
     if (d.kind === 'elev') { if (!d.moved) ed.hist.pop(); changed(false, 'terrain'); return; }
@@ -507,7 +507,12 @@
       }
       snap(); ed.pts.splice(at, 0, np); insertElev(at); ed.sel = at; changed(false, 'layout');
     }
-  });
+  };
+  cv.addEventListener('pointerup', onUp);
+  // a drag must never get stuck (lost pointer, released over the panel or outside the window)
+  const abort = () => { if (!drag) return; const d = drag; drag = null; ed.camDrag = false; if (d.kind === 'pt' || d.kind === 'elev' || d.kind === 'paint') { ed.dirtyPaint = false; changed(false, 'terrain'); } };
+  cv.addEventListener('pointercancel', abort); cv.addEventListener('lostpointercapture', abort); window.addEventListener('blur', abort);
+  window.addEventListener('pointerup', e => { if (drag && e.target !== cv) abort(); });
   cv.addEventListener('pointerleave', () => { ed.hit = null; ed.ptr = null; });
   cv.addEventListener('dblclick', e => { if (ed.tab !== 'layout') return; const [px, pz] = evPos(e), i = hitPoint(px, pz); if (i >= 0) { snap(); ed.pts.splice(i, 1); if (ed.ext.elev) ed.ext.elev.splice(i, 1); ed.sel = -1; changed(false, 'layout'); } });
   cv.addEventListener('contextmenu', e => e.preventDefault());
@@ -536,6 +541,7 @@
   $('edHand').onclick = () => setCam('pan'); $('edOrbit').onclick = () => setCam('orbit');
   $('edZoomIn').onclick = () => { const V = EV(); V.dist = DL.clamp(V.dist * 0.78, 40, 4200); }; $('edZoomOut').onclick = () => { const V = EV(); V.dist = DL.clamp(V.dist / 0.78, 40, 4200); };
 
+  document.addEventListener('scroll', e => { if ($('editor').hidden) return; const t = e.target; if (t === document || t === $('editor') || t === document.querySelector('.ed-wrap')) { window.scrollTo(0, 0); $('editor').scrollLeft = 0; document.querySelector('.ed-wrap').scrollLeft = 0; } }, true);
   $('edName').addEventListener('input', e => { ed.name = e.target.value; clearTimeout(saveT); saveT = setTimeout(saveDraft, 400); });
   $('edUndo').onclick = () => { const p = ed.hist.pop(); if (p) { const o = JSON.parse(p); ed.pts = o[0]; ed.ext = o[1]; ed.sel = -1; ed.tr = null; prevKey = ''; renderTabs(); changed(false, 'terrain'); } };
   $('edExit').onclick = () => { saveDraft(); show('community'); };

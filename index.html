@@ -347,7 +347,7 @@ input[type=range]{width:100%;accent-color:var(--coral);}
 .cm-x{position:absolute;top:10px;right:10px;}
 @media(max-width:760px){#community{padding-block:66px 0}.cm-side{top:auto;height:70%;right:0;left:0;width:auto;bottom:0;border-radius:var(--r) var(--r) 0 0}}
 #editor{padding:0;}
-.ed-wrap{position:absolute;inset:0;display:flex;background:transparent;pointer-events:none;} .ed-wrap>*{pointer-events:auto;}
+.ed-wrap{position:absolute;inset:0;overflow:hidden;display:flex;background:transparent;pointer-events:none;} .ed-wrap>*{pointer-events:auto;}
 .ed-bar{width:300px;flex:none;border-radius:0;border-width:0 1.5px 0 0;padding:16px 16px 18px;display:flex;flex-direction:column;gap:10px;overflow:auto;}
 .ed-bar h2{font-size:40px;line-height:.9;font-weight:900;}
 .ed-biomes{display:flex;flex-wrap:wrap;gap:5px;}
@@ -363,6 +363,7 @@ input[type=range]{width:100%;accent-color:var(--coral);}
 .ed-props{display:grid;grid-template-columns:1fr 1fr;gap:4px;max-height:200px;overflow:auto;} .ed-props .chk{display:flex;align-items:center;gap:6px;text-align:left;font-size:13px;padding:5px 7px;} .ed-props i{width:10px;height:10px;border-radius:50%;background:var(--pc);flex:none;border:1px solid rgba(0,0,0,.5);}
 .ed-tools{position:absolute;right:12px;top:12px;display:flex;flex-direction:column;gap:6px;} .ed-tools .icon-btn{font:800 20px var(--f-display);} .ed-tools .icon-btn.on{background:var(--navy);color:#fff;}
 .ed-prof{position:absolute;left:334px;right:0;bottom:0;height:170px;border-top:1.5px solid var(--navy);z-index:1;} #edProf{width:100%;height:100%;display:block;touch-action:none;cursor:ns-resize;}
+#editor{overflow:hidden;}
 #edTest{font-size:22px;padding:11px;}
 .ed-bar .btn-sm{font-size:14px;padding:7px 8px;}
 #edCanvas{position:absolute;inset:0;width:100%;height:100%;display:block;touch-action:none;cursor:crosshair;}
@@ -599,13 +600,13 @@ input[type=range]{width:100%;accent-color:var(--coral);}
 <div id="toasts"></div>
 
 <script src="https://cdn.jsdelivr.net/npm/three@0.158.0/build/three.min.js"></script>
-<script src="config.js?v=20261109b"></script>
-<script src="js/core.js?v=20261109b"></script>
-<script src="js/track.js?v=20261109b"></script>
-<script src="js/physics.js?v=20261109b"></script>
-<script src="js/vehicles.js?v=20261109b"></script>
-<script src="js/net.js?v=20261109b"></script>
-<script src="js/auth.js?v=20261109b"></script>
-<script src="js/game.js?v=20261109b"></script>
-<script src="js/ui.js?v=20261109b"></script>
-<script src="js/community.js?v=20261109b"></script>
+<script src="config.js?v=20261109c"></script>
+<script src="js/core.js?v=20261109c"></script>
+<script src="js/track.js?v=20261109c"></script>
+<script src="js/physics.js?v=20261109c"></script>
+<script src="js/vehicles.js?v=20261109c"></script>
+<script src="js/net.js?v=20261109c"></script>
+<script src="js/auth.js?v=20261109c"></script>
+<script src="js/game.js?v=20261109c"></script>
+<script src="js/ui.js?v=20261109c"></script>
+<script src="js/community.js?v=20261109c"></script>
