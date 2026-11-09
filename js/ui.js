@@ -7,7 +7,7 @@
   const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const h = (html) => { const t = document.createElement('template'); t.innerHTML = html.trim(); return t.content.firstElementChild; };
   let screen = 'loading';
-  const SCREENS = ['menu', 'garage', 'shop', 'board', 'archive', 'hud', 'replay', 'community', 'editor'];
+  const SCREENS = ['menu', 'garage', 'shop', 'board', 'archive', 'hud', 'replay', 'community', 'editor', 'room'];
   const today = () => DL.dayKey();
 
   DL.biomeOf = day => DL.BIOMES[DL.BIOME_KEYS[Math.floor(DL.mulberry32(DL.seedFor(day))() * DL.BIOME_KEYS.length)]];
@@ -131,6 +131,7 @@
   // where Quit / Menu go after a race: the menu, the community page or the editor
   function leaveRace() {
     const to = UI._leave || 'menu';
+    if (to === 'room' && DL.Rooms) DL.Rooms.quitRace();
     if (to === 'menu') Game.loadDay(today());
     show(to);
   }
@@ -263,6 +264,7 @@
       <div class="btn-row"><button class="btn btn-line" id="pSettings">Settings</button><button class="btn btn-line" id="pQuit">Quit</button></div>`, { sticky: true });
     m.querySelector('#pResume').onclick = () => Game.pause(false);
     m.querySelector('#pRestart').onclick = () => Game.restart();
+    if (Game.inRoom && Game.inRoom()) m.querySelector('#pRestart').style.display = 'none';
     m.querySelector('#pRecover').onclick = () => { Game.pause(false); Game.recover(); };
     m.querySelector('#pSettings').onclick = () => openSettings(true);
     m.querySelector('#pQuit').onclick = () => leaveRace();
@@ -281,6 +283,11 @@
     });
     return { html: `<div class="splits-wrap"><div class="lbl">Sector times${pb ? ' vs your best' : ''}</div><div class="splits" style="grid-template-columns:repeat(${cells.length},minmax(0,1fr))">${cells.join('')}</div></div>`, squares: sq.join('') };
   }
+  UI.roomFinished = function (r, t, valid) {
+    UI.checkpoint(r.track.checkpoints.length, r.track.checkpoints.length, null);
+    closeModal();
+    toast(valid ? 'Finished <b class="num">' + DL.fmtTime(t) + '</b>' : 'Lap not counted', 1800);
+  };
   UI.finished = function (r, t, res, valid) {
     UI.checkpoint(r.track.checkpoints.length, r.track.checkpoints.length, null);
     const day = r.track.day, isToday = day === today();

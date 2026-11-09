@@ -414,6 +414,22 @@ body.cb .sp.up em::before{content:'▼ ';} body.cb .sp.down em::before{content:'
 .sp.down{background:rgba(199,58,46,.1);border-color:rgba(199,58,46,.4);} .sp.down em{color:var(--bad);}
 .res-more summary{cursor:pointer;font-size:13px;color:var(--muted);font-weight:600;padding:6px 0;}
 .res-links{gap:8px;}
+.rm-main{width:min(560px,94vw);margin:auto;padding:18px;display:flex;flex-direction:column;gap:10px;max-height:92vh;overflow:auto}
+.rm-code{font-size:56px;letter-spacing:.18em;line-height:1;margin:0}
+.rm-info{display:flex;justify-content:space-between;gap:10px}
+.rm-head,.rm-row{display:grid;grid-template-columns:28px 1fr 82px 82px;gap:6px;align-items:center}
+.rm-head{font-size:12px;letter-spacing:.08em;text-transform:uppercase;opacity:.6}
+.rm-row{padding:8px 6px;border-radius:8px;background:rgba(17,21,29,.05)}
+.rm-row.me{background:rgba(240,90,53,.16)}
+.rm-row em{font-style:normal;font-size:11px;background:var(--navy);color:var(--cream);padding:1px 6px;border-radius:99px;margin-left:4px}
+.rm-list{display:flex;flex-direction:column;gap:4px}
+.rm-t,.rm-b{text-align:right}
+.rm-rounds{display:flex;flex-direction:column;gap:6px;font-size:14px}
+.rm-round span{display:inline-block;margin:0 10px 0 6px}
+.rm-wait,.empty-note{opacity:.7;font-size:14px;text-align:center}
+.rm-picks{display:flex;flex-direction:column;gap:4px;max-height:40vh;overflow:auto}
+.rm-pick{display:flex;justify-content:space-between;padding:10px;border:1px solid var(--line);border-radius:8px;background:transparent;cursor:pointer;font:inherit;color:inherit}
+.rm-pick:hover{background:rgba(17,21,29,.07)}
 </style>
 
 <canvas id="gl"></canvas>
@@ -456,6 +472,7 @@ body.cb .sp.up em::before{content:'▼ ';} body.cb .sp.down em::before{content:'
     <div class="menu-more">
       <button id="bArchive"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5h16v15H4zM4 10h16M9 3v4M15 3v4"/></svg><span>Past races</span></button>
       <button id="bShop"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 8h14l-1 12H6zM9 8a3 3 0 0 1 6 0"/></svg><span>Shop</span></button>
+      <button id="bRooms"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="9" r="3"/><circle cx="17" cy="10" r="2.5"/><path d="M2 20c0-3.3 2.7-6 6-6s6 2.7 6 6M15 15c3 0 5.5 2 5.5 5"/></svg>Race together</button>
       <button id="bCommunity"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM3 19c.6-3.4 3-5.2 6-5.2s5.4 1.8 6 5.2M17 10a2.5 2.5 0 1 0 0-5M16 14.2c2.6-.2 4.5 1.2 5 4.3"/></svg><span>Community</span></button>
       <button id="bPatch"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h9l4 4v14H6zM14 3v5h5M9 13h7M9 17h5"/></svg><span>What’s new</span><i class="newpip" id="patchPip" hidden>NEW</i></button>
     </div>
@@ -464,6 +481,21 @@ body.cb .sp.up em::before{content:'▼ ';} body.cb .sp.down em::before{content:'
       <span><kbd>W</kbd><kbd>S</kbd> drive</span><span><kbd>A</kbd><kbd>D</kbd> steer</span><span><kbd>Space</kbd> handbrake</span><span><kbd>⌫</kbd> restart</span><span><kbd>C</kbd> camera</span>
     </div>
     <div class="netline" id="mNet"><i></i><span>Connecting…</span></div>
+  </div>
+</section>
+
+<!-- LIVE ROOM -->
+<section id="room" class="screen" hidden>
+  <div class="panel rm-main">
+    <div class="side-head"><div><div class="lbl">Live room · share this code</div><h2 class="rm-code num" id="rmCode">----</h2></div><button class="btn btn-coral btn-sm" id="rmCopy">Invite</button></div>
+    <div class="rm-info"><div><div class="lbl">Map</div><b id="rmMap">—</b></div><div style="text-align:right"><div class="lbl">Status</div><b id="rmState">—</b></div></div>
+    <div class="rm-head"><span></span><span>Driver</span><span>Last</span><span>Best</span></div>
+    <div class="rm-list" id="rmPlayers"></div>
+    <div class="lbl">Rounds</div>
+    <div class="rm-rounds" id="rmRounds"></div>
+    <div class="rm-wait" id="rmWait" hidden></div>
+    <button class="btn btn-go" id="rmStart" hidden>Start race</button>
+    <div class="btn-row"><button class="btn btn-line" id="rmMapBtn" hidden>Change map</button><button class="btn btn-line" id="rmLeave">Leave room</button></div>
   </div>
 </section>
 
@@ -606,14 +638,15 @@ body.cb .sp.up em::before{content:'▼ ';} body.cb .sp.down em::before{content:'
 <div id="toasts"></div>
 
 <script src="https://cdn.jsdelivr.net/npm/three@0.158.0/build/three.min.js"></script>
-<script src="config.js?v=20261109u"></script>
-<script src="js/core.js?v=20261109u"></script>
-<script src="js/track.js?v=20261109u"></script>
-<script src="js/physics.js?v=20261109u"></script>
-<script src="js/vehicles.js?v=20261109u"></script>
-<script src="js/net.js?v=20261109u"></script>
-<script src="js/auth.js?v=20261109u"></script>
-<script src="js/game.js?v=20261109u"></script>
-<script src="js/ui.js?v=20261109u"></script>
-<script src="js/community.js?v=20261109u"></script>
-<script src="js/share.js?v=20261109u"></script>
+<script src="config.js?v=20261109v"></script>
+<script src="js/core.js?v=20261109v"></script>
+<script src="js/track.js?v=20261109v"></script>
+<script src="js/physics.js?v=20261109v"></script>
+<script src="js/vehicles.js?v=20261109v"></script>
+<script src="js/net.js?v=20261109v"></script>
+<script src="js/auth.js?v=20261109v"></script>
+<script src="js/game.js?v=20261109v"></script>
+<script src="js/ui.js?v=20261109v"></script>
+<script src="js/community.js?v=20261109v"></script>
+<script src="js/rooms.js?v=20261109v"></script>
+<script src="js/share.js?v=20261109v"></script>

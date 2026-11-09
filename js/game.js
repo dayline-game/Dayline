@@ -267,6 +267,7 @@
       camYaw: track.start.yaw, shake: 0, camMode: settings.cam, trailT: 0
     };
     race.test = !!(opts && opts.test); race.noPB = race.test;
+    if (opts && opts.room) { race.room = opts.room; race.noPB = true; race.live = {}; }
     trail.points.length = 0; clearSkids();
     resetCarToStart();
     DL.UI.raceStarted(race);
@@ -394,6 +395,7 @@
 
   Game.restart = function () {
     if (!race) return;
+    if (race.room) { DL.emit('toast', 'No restarts in a live room'); return; }
     race.paused = false; DL.UI.paused(false);
     // reload ghosts so a personal best set on the previous attempt becomes the new target
     race.ghosts.forEach(g => { scene.remove(g.model); g.model.userData.dispose(); });
@@ -480,6 +482,7 @@
     if (!race) return;
     if (!race.finished && race.running !== undefined) logAttempt(race, false);
     race.ghosts.forEach(g => { scene.remove(g.model); g.model.userData.dispose(); });
+    if (race.live) for (const k in race.live) { scene.remove(race.live[k].model); race.live[k].model.userData.dispose(); }
     race = null;
     DL.Audio.stopEngine();
     trail.points.length = 0; clearSkids(); trail.mesh.visible = false;
@@ -529,6 +532,10 @@
     const gh = DL.decodeGhost(enc);
     const valid = DL.validateRun(r.track, gh, t);
     const beatGhost = r.ghosts.some(g => !g.spec.mine && g.time > t) || r.ghosts.some(g => g.spec.mine && g.time > t + 0.001);
+    if (r.room) {
+      if (valid && !r.track.custom) { try { DL.Net.submitRun(r.track, t, enc, { recoveries: r.recoveries, airMax: r.airMax, beatGhost: false }); } catch (e) {} }
+      DL.UI.roomFinished(r, t, valid); DL.Rooms.finished(r, t, valid); return;
+    }
     if (r.track.custom) {
       if (r.test) { DL.UI.testFinished(r, t, valid, enc); return; }
       const cres = valid ? DL.Net.submitRun(r.track, t, enc, {}) : null;
@@ -922,7 +929,7 @@
     const r = race;
     if (r.paused) { placeCamera(false, 0); return; }
     if (!r.running && !r.finished) {
-      r.countdown -= dt;
+      if (r.room && DL.Rooms) r.countdown = (r.room.goAt - DL.Rooms.clock()) / 1000; else r.countdown -= dt;
       const n = Math.ceil(r.countdown);
       if (n < r.lastBeep && n >= 1 && n <= 3) { r.lastBeep = n; DL.Audio.beep([0, 440, 523, 659][n], 0.16, 'triangle', 0.18); DL.UI.count(n); startLamps(n); }
       if (r.countdown <= 0) { r.running = true; DL.Audio.beep(880, 0.4, 'triangle', 0.22); DL.Audio.beep(1320, 0.35, 'sine', 0.12); DL.UI.count(0); startLamps(0); }
@@ -950,6 +957,7 @@
     DL.poseCar(r.model, vw.x, vw.y, vw.z, vw.yaw, vw.pitch, vw.roll, vw.steerVis, vw.wheelSpin, input.brake > 0);
     r.model.updateMatrixWorld();
     const t = r.steps * DT, tg = t + (run && !r.finished ? al * DT : 0);
+    if (r.live) poseLive(r, dt);
     for (const g of r.ghosts) {
       DL.sampleGhost(g.gh, tg, gs);
       DL.poseCar(g.model, gs[0], gs[1], gs[2], gs[3], gs[4], gs[5], gs[6], tg * 20, gs[7] > 0.5);
@@ -962,6 +970,49 @@
     placeCamera(false, dt);
     carEffects(r, dt);
     DL.UI.hud(r, t);
+  }
+
+
+  // ---------------- live room opponents ----------------
+  Game.inRoom = () => !!(race && race.room);
+  Game.roomState = function () {
+    const r = race; if (!r || !r.room) return null;
+    const c = r.car, rd = v => Math.round(v * 100) / 100;
+    return [rd(c.x), rd(c.y), rd(c.z), rd(c.yaw * 100) / 100, rd(c.pitch), rd(c.roll), rd(c.steerVis), input.brake > 0 ? 1 : 0];
+  };
+  Game.roomOthers = function (others, specOf) {
+    const r = race; if (!r || !r.live) return;
+    const now = performance.now(), seen = {};
+    for (const o of others) {
+      if (o.uid === DL.Net.uid || !o.s || o.s.length < 8) continue;
+      seen[o.uid] = 1;
+      let g = r.live[o.uid];
+      if (!g) {
+        const sp = specOf(o.uid); if (!sp) continue;
+        const model = DL.buildCar({ car: sp.car, livery: sp.l ? DL.decodeLivery(sp.l) : DL.defaultLivery(), base: sp.b, equip: sp.equip, ghost: true });
+        const label = makeLabel(sp.label || 'Driver', false); model.add(label); scene.add(model);
+        g = r.live[o.uid] = { model, label, p: o.s.slice(), v: [0, 0, 0], t: now, spin: 0 };
+      } else {
+        const dtm = Math.max(0.05, (now - g.t) / 1000);
+        g.v = [(o.s[0] - g.tg[0]) / dtm, (o.s[1] - g.tg[1]) / dtm, (o.s[2] - g.tg[2]) / dtm];
+      }
+      g.tg = o.s.slice(); g.t = now;
+    }
+    for (const uid in r.live) if (!seen[uid]) { const g = r.live[uid]; if (now - g.t > 4000) { scene.remove(g.model); g.model.userData.dispose(); delete r.live[uid]; } }
+  };
+  function poseLive(r, dt) {
+    const now = performance.now();
+    for (const uid in r.live) {
+      const g = r.live[uid]; if (!g.tg) continue;
+      const age = Math.min(0.6, (now - g.t) / 1000), k = Math.min(1, dt * 9);
+      for (let i = 0; i < 3; i++) g.p[i] += (g.tg[i] + g.v[i] * age - g.p[i]) * k;
+      let dy = g.tg[3] - g.p[3]; while (dy > Math.PI) dy -= 2 * Math.PI; while (dy < -Math.PI) dy += 2 * Math.PI;
+      g.p[3] += dy * k; for (let i = 4; i < 7; i++) g.p[i] += (g.tg[i] - g.p[i]) * k;
+      g.spin += Math.hypot(g.v[0], g.v[2]) * dt * 2.6;
+      DL.poseCar(g.model, g.p[0], g.p[1], g.p[2], g.p[3], g.p[4], g.p[5], g.p[6], g.spin, g.tg[7] > 0.5);
+      const dd = Math.hypot(g.p[0] - camera.position.x, g.p[1] + 1.5 - camera.position.y, g.p[2] - camera.position.z);
+      g.label.material.opacity = DL.clamp((dd - 6) / 8, 0, 0.9);
+    }
   }
 
   Game.input = input;
