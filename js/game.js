@@ -535,7 +535,7 @@
       // room laps feed the normal leaderboard of that map (daily or community), exactly like a solo run
       let res = null;
       if (valid) { try { res = DL.Net.submitRun(r.track, t, enc, r.track.custom ? {} : { recoveries: r.recoveries, airMax: r.airMax, beatGhost: false }); } catch (e) { console.warn(e); } }
-      DL.UI.roomFinished(r, t, valid, res); DL.Rooms.finished(r, t, valid); return;
+      DL.Rooms.finished(r, t, valid); DL.UI.roomFinished(r, t, valid, res); return;
     }
     if (r.track.custom) {
       if (r.test) { DL.UI.testFinished(r, t, valid, enc); return; }
@@ -997,7 +997,7 @@
     const now = now0 || performance.now(), seen = {};
     for (const o of others) {
       if (o.uid === DL.Net.uid) continue;
-      const list = (o.b && o.b.length ? o.b : (o.s ? [[0].concat(o.s)] : [])); if (!list.length) continue;
+      const list = (o.b && o.b.length ? o.b : (o.s ? [[Math.round(now)].concat(o.s)] : [])); if (!list.length) continue;
       seen[o.uid] = 1;
       let g = r.live[o.uid];
       if (!g) {

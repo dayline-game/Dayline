@@ -52,7 +52,7 @@
   async function enter(room) {
     absorb(room); R.startedRound = room.state === 'lobby' ? room.round : room.round;
     try { await prepMap(room.day); } catch (e) { }
-    closeModal(); show('room'); render(); drive();
+    closeModal(); show('room'); render(); poll(true);
   }
   R.join = join; R.render = render;
   UI.joinFromLink = code => { if (code) setTimeout(() => join(code), 600); };
@@ -119,13 +119,19 @@
 
   // called by Game when the player's room race ends
   R.finished = async function (r, t, valid) {
-    const rc = r.room;
+    const rc = r.room, p = me();
+    if (valid && p) { p.secs = t; if (!p.best || t < p.best) p.best = t; }
     if (valid) {
-      try { const x = await api('POST', '/' + rc.code + '/finish', { secs: t }); if (x.j.ok) { absorb(x.j.room); hudBoard(); } } catch (e) { }
+      try { const x = await api('POST', '/' + rc.code + '/finish', { secs: t }); if (x.j.ok && x.j.room) { absorb(x.j.room); } } catch (e) { }
     }
-    // straight back to the line: no countdown, no lobby
-    setTimeout(() => { if (R.racing && Game.inRoom() && Game.raceNow() === r) Game.restart(); }, 2200);
   };
+  // standings table used in the finish panel and the in-race board
+  R.boardHtml = function () {
+    const rm = R.room; if (!rm) return '';
+    const rows = rm.players.slice().sort((a, b) => (a.best || 1e9) - (b.best || 1e9));
+    return rows.map((p, i) => `<div class="rm-row${p.uid === Net.uid ? ' me' : ''}"><span class="rm-pos">${p.best ? i + 1 : '·'}</span><span class="rm-name">${esc(p.tag)}</span><span class="rm-t num">${fmt(p.secs)}</span><span class="rm-b num">${fmt(p.best)}</span></div>`).join('');
+  };
+  R.backToLobby = function () { R.racing = false; loopId++; UI._leave = 'room'; X.leaveRace(); poll(true); };
   // quitting mid-race goes back to the lobby
   R.quitRace = function () { R.racing = false; loopId++; poll(true); };
 
@@ -199,7 +205,7 @@
   // ---------------- menu entry ----------------
   $('bRooms').onclick = () => {
     if (!online()) { toast('Live rooms need the online server'); return; }
-    if (R.room) { show('room'); render(); drive(); return; }
+    if (R.room) { show('room'); render(); poll(true); return; }
     const m = modal(`<div class="lbl">Live multiplayer</div><h2>Race together</h2>
       <button class="btn btn-go" id="rmNew">Create a room</button>
       <div class="lbl" style="text-align:center">or join with a code</div>

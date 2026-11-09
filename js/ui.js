@@ -284,8 +284,25 @@
   }
   UI.roomFinished = function (r, t, valid, res) {
     UI.checkpoint(r.track.checkpoints.length, r.track.checkpoints.length, null);
-    closeModal();
-    toast(valid ? (res && res.isPB ? 'New personal best ' : 'Finished ') + '<b class="num">' + DL.fmtTime(t) + '</b>' : 'Lap not counted', 1800);
+    const R = DL.Rooms, sp = sectorSplits(r, t), best = Net.save.best[r.track.day];
+    const prev = res ? res.prevBest : null, isPB = valid && res && res.isPB && prev;
+    const m = modal(`
+      <div class="lbl">Room ${esc(r.room.code)} · ${esc(r.track.B.name)}</div>
+      <h2>${!valid ? 'Lap not counted' : isPB ? 'New personal best' : 'Finished'}</h2>
+      <div class="res-time" ${!valid ? 'style="text-decoration:line-through;opacity:.5"' : ''}>${DL.fmtTime(t)}</div>
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">${r.recoveries ? `<span class="tag">${r.recoveries} recover${r.recoveries > 1 ? 'ies' : 'y'}</span>` : '<span class="tag">Clean run</span>'}${res && res.notes ? res.notes.map(n => `<span class="tag coral">${esc(n)}</span>`).join('') : ''}</div>
+      ${valid ? sp.html : ''}
+      <div class="lbl">Room standings</div>
+      <div class="rm-head"><span></span><span>Driver</span><span>Last</span><span>Best</span></div>
+      <div class="rm-list" id="rmFin">${R ? R.boardHtml() : ''}</div>
+      ${res && res.total ? `<div class="res-row" style="border:0"><span class="lbl">Coins earned</span><b class="price num" style="font-size:26px"><span class="coin"></span>+${res.total}</b></div>` : ''}
+      <button class="btn btn-go" id="rmAgain" style="font-size:24px">Restart</button>
+      <button class="btn btn-line btn-sm" id="rmLobby">Back to lobby</button>`, { sticky: true });
+    m.querySelector('#rmAgain').onclick = () => Game.restart();
+    m.querySelector('#rmLobby').onclick = () => R.backToLobby();
+    const iv = setInterval(() => { const el = $('rmFin'); if (!el) { clearInterval(iv); return; } el.innerHTML = R.boardHtml(); }, 700);
+    if (res && res.total) { DL.Audio.coin(); renderCoins(); }
+    if (isPB) { UI.confetti(); DL.Audio.chime(); }
   };
   UI.finished = function (r, t, res, valid) {
     UI.checkpoint(r.track.checkpoints.length, r.track.checkpoints.length, null);
