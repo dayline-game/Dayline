@@ -89,32 +89,42 @@
   }
   R.drive = drive;
 
-  // sequential tick loop: one request in flight at a time, newest samples batched, light replies most of the time
+  // sequential tick loop: one light request in flight at a time (positions only); the room table refreshes on its own slower timer
   let loopId = 0;
+  async function roomRefresh(id) {
+    while (R.racing && id === loopId && R.room) {
+      try {
+        const r = await api('GET', '/' + R.room.code);
+        if (!R.racing || id !== loopId) return;
+        if (r.j.ok) { absorb(r.j.room); hudBoard(); if (R.room.day !== R.day) { R.racing = false; drive(); return; } }
+      } catch (e) { }
+      for (let i = 0; i < 12 && R.racing && id === loopId && !R.needFull; i++) await new Promise(res => setTimeout(res, 250));
+      R.needFull = false;
+    }
+  }
   async function tickLoop(id) {
-    let n = 0, sentTs = 0;
+    let sentTs = 0, rtt = 300;
+    roomRefresh(id);
     while (R.racing && id === loopId && R.room) {
       const t0 = performance.now();
       const batch = Game.roomSamples ? Game.roomSamples(sentTs) : [], s = Game.roomState && Game.roomState();
       if (s) {
-        const full = (n++ % 8) === 0 || R.needFull; R.needFull = false;
         try {
-          const r = await api('POST', '/' + R.room.code + '/tick', { s, b: batch, full });
+          const r = await api('POST', '/' + R.room.code + '/tick', { s, b: batch, full: false });
           if (!R.racing || id !== loopId) return;
           if (r.j.ok) {
             sentTs = batch.length ? batch[batch.length - 1][0] : sentTs;
-            if (r.j.room) { absorb(r.j.room); hudBoard(); if (R.room.day !== R.day) { R.racing = false; drive(); return; } }
-            const now = performance.now();
+            rtt += (performance.now() - t0 - rtt) * 0.3;
+            if (Game.setLiveDelay) Game.setLiveDelay(Math.max(450, Math.min(2200, rtt * 1.25 + 250)));
             Game.roomOthers(r.j.others || [], uid => {
               const p = R.room && R.room.players.find(x => x.uid === uid);
               if (!p) R.needFull = true;
               return p ? { uid, label: p.tag, car: p.car, l: p.l, b: p.b, equip: p.equip } : null;
-            }, now);
+            }, performance.now());
           }
         } catch (e) { }
       }
-      const wait = 210 - (performance.now() - t0);
-      await new Promise(res => setTimeout(res, Math.max(20, wait)));
+      await new Promise(res => setTimeout(res, Math.max(20, 200 - (performance.now() - t0))));
     }
   }
 

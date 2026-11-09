@@ -978,7 +978,8 @@
   // ---------------- live room opponents ----------------
   // Each driver samples their own car 20x/s with a timestamp and ships the recent samples in batches; every client plays the others back
   // ~0.3 s behind real time, interpolating between samples, so movement stays smooth whatever the network jitter.
-  const LIVE_DELAY = 450;
+  let LIVE_DELAY = 450;
+  Game.setLiveDelay = v => { LIVE_DELAY += (v - LIVE_DELAY) * 0.2; };
   Game.inRoom = () => !!(race && race.room);
   Game.raceNow = () => race;
   function sampleRoom(r, v) {
