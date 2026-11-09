@@ -96,6 +96,22 @@
     for (let i = 0; i < livery.length; i++) if (livery[i]) { ctx.fillStyle = DL.PALETTE[livery[i]]; ctx.fillRect(i % W, (i / W) | 0, 1, 1); }
   };
 
+  DL.drawGridCanvas = function (canvas, livery, baseIdx) {
+    const S = 8, W = DL.ATLAS_W, H = DL.ATLAS_H;
+    if (canvas.width !== W * S) { canvas.width = W * S; canvas.height = H * S; }
+    const ctx = canvas.getContext('2d');
+    ctx.fillStyle = DL.PALETTE[baseIdx] || DL.PALETTE[DL.DEFAULT_BASE]; ctx.fillRect(0, 0, W * S, H * S);
+    for (let i = 0; i < livery.length; i++) if (livery[i]) { ctx.fillStyle = DL.PALETTE[livery[i]]; ctx.fillRect((i % W) * S, ((i / W) | 0) * S, S, S); }
+    ctx.lineWidth = 1; ctx.strokeStyle = 'rgba(20,28,40,.42)'; ctx.beginPath();
+    for (let x = 0; x <= W; x++) { ctx.moveTo(x * S + .5, 0); ctx.lineTo(x * S + .5, H * S); }
+    for (let y = 0; y <= H; y++) { ctx.moveTo(0, y * S + .5); ctx.lineTo(W * S, y * S + .5); }
+    ctx.stroke();
+    ctx.strokeStyle = 'rgba(255,255,255,.3)'; ctx.beginPath();
+    for (let x = 0; x <= W; x++) { ctx.moveTo(x * S + 1.5, 0); ctx.lineTo(x * S + 1.5, H * S); }
+    for (let y = 0; y <= H; y++) { ctx.moveTo(0, y * S + 1.5); ctx.lineTo(W * S, y * S + 1.5); }
+    ctx.stroke();
+  };
+
   const FINISH = {
     matte: { roughness: 0.85, metalness: 0.0 }, gloss: { roughness: 0.32, metalness: 0.05 },
     metal: { roughness: 0.28, metalness: 0.6 }, pearl: { roughness: 0.18, metalness: 0.32 }
@@ -622,8 +638,15 @@
       spec, equip, body, bodyMesh, wheels, tailMat, canvas, tex, bodyMat,
       exhaust: new THREE.Vector3(spec.W * 0.28, spec.lower[0][1] + 0.08, rearZ - 0.2), paintMat, deform: !opts.ghost,
       rearZ, frontZ, roofY,
-      setLivery(liv, base) { DL.drawLiveryCanvas(canvas, liv, base); if (paintMat.color) paintMat.color.set(DL.PALETTE[base == null ? DL.DEFAULT_BASE : base]); tex.needsUpdate = true; if (frameMat) frameMat.color.set(DL.PALETTE[base == null ? DL.DEFAULT_BASE : base]); },
-      dispose() { root.traverse(o => { if (o.geometry) o.geometry.dispose(); }); tex.dispose(); bodyMat.dispose(); }
+      // paint mode: swap in an 8x texture with a visible pixel grid so every paintable cell shows on the car
+      setGrid(on, liv, base) {
+        if (!on) { if (bodyMat.map !== tex) { bodyMat.map = tex; bodyMat.needsUpdate = true; } this.gridOn = false; return; }
+        if (!this.gridTex) { this.gridCv = document.createElement('canvas'); this.gridTex = new THREE.CanvasTexture(this.gridCv); this.gridTex.anisotropy = 4; if ('colorSpace' in this.gridTex) this.gridTex.colorSpace = THREE.SRGBColorSpace; }
+        this.gridOn = true; DL.drawGridCanvas(this.gridCv, liv, base); this.gridTex.needsUpdate = true;
+        if (bodyMat.map !== this.gridTex) { bodyMat.map = this.gridTex; bodyMat.needsUpdate = true; }
+      },
+      setLivery(liv, base) { DL.drawLiveryCanvas(canvas, liv, base); if (this.gridOn) this.setGrid(true, liv, base); if (paintMat.color) paintMat.color.set(DL.PALETTE[base == null ? DL.DEFAULT_BASE : base]); tex.needsUpdate = true; if (frameMat) frameMat.color.set(DL.PALETTE[base == null ? DL.DEFAULT_BASE : base]); },
+      dispose() { root.traverse(o => { if (o.geometry) o.geometry.dispose(); }); tex.dispose(); if (this.gridTex) this.gridTex.dispose(); bodyMat.dispose(); }
     };
     return root;
   };

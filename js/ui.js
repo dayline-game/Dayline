@@ -22,6 +22,7 @@
     document.querySelectorAll('#navTabs [data-go]').forEach(b => b.classList.toggle('on', b.dataset.go === tabFor));
     if (name !== 'shop' && shop.item) { shop.item = null; $('shop').classList.remove('inspecting'); }
     closeModal();
+    if (name !== 'garage') Game.setGarageGrid(false);
     if (name !== 'shop' && Game._preview) Game.showcase(null);
     if (name === 'menu' && Game.track() && Game.track().day !== today()) Game.loadDay(today());
     Game.setMode(name === 'hud' ? 'race' : name);
@@ -425,6 +426,7 @@
     renderPresets();
     const painting = gTab === 'paint' || gTab === 'designs';
     Game.paintView(gTab === 'paint' && paintMode === 'car');
+    Game.setGarageGrid(false);
     $('gDrawTitle').textContent = painting ? 'Paint' : DL.CAT_NAMES[gTab];
     $('gDrawSub').textContent = painting ? 'Livery for the ' + spec.name : 'Tap to equip';
     const tabs = $('gTabs'); tabs.hidden = !painting;
@@ -485,7 +487,7 @@
   const CELL = 12;
   function openEditor() {
     const s = Net.save, p = s.paint[s.car] || { l: DL.encodeLivery(DL.defaultLivery()), b: DL.DEFAULT_BASE };
-    ed = { liv: DL.decodeLivery(p.l), base: p.b == null ? DL.DEFAULT_BASE : p.b, color: ed ? ed.color : 13, tool: ed ? ed.tool : 'brush', stamp: 'roundel', mirror: ed ? ed.mirror : true, undo: [], redo: [], active: 'left', canv: {} };
+    ed = { liv: DL.decodeLivery(p.l), base: p.b == null ? DL.DEFAULT_BASE : p.b, color: ed ? ed.color : 13, tool: ed ? ed.tool : 'brush', stamp: 'roundel', mirror: ed ? ed.mirror : true, grid: ed ? ed.grid : true, undo: [], redo: [], active: 'left', canv: {} };
   }
   UI.paintActive = () => screen === 'garage' && gTab === 'paint' && !!ed && (paintMode === 'car' || paintMode === 'pro') && ed.tool !== 'look';
 
@@ -539,6 +541,7 @@
 
   function renderPaint(body) {
     if (!ed) openEditor();
+    Game.setGarageGrid(paintMode !== 'quick' && ed.grid !== false, ed.liv, ed.base);
     const modes = h('<div class="paint-tools qp-modes"><button class="tool">Paint on car</button><button class="tool">Quick</button><button class="tool">Panels</button></div>');
     ['car', 'quick', 'pro'].forEach((m, i) => { modes.children[i].classList.toggle('on', paintMode === m); modes.children[i].onclick = () => { paintMode = m; renderGarage(); }; });
     body.appendChild(modes);
@@ -547,6 +550,7 @@
     if (paintMode === 'car') tools.push(['look', 'Rotate']);
     const tb = h('<div class="paint-tools"></div>');
     tools.forEach(([id, nm]) => { const b = h(`<button class="tool ${ed.tool === id ? 'on' : ''}">${nm}</button>`); b.onclick = () => { ed.tool = id; renderGarage(); }; tb.appendChild(b); });
+    const gr = h(`<button class="tool ${ed.grid !== false ? 'on' : ''}" title="Show the pixel grid on the car">Grid</button>`); gr.onclick = () => { ed.grid = ed.grid === false; renderGarage(); }; tb.appendChild(gr);
     const mir = h(`<button class="tool ${ed.mirror ? 'on' : ''}" title="Paint both sides symmetrically">Mirror</button>`); mir.onclick = () => { ed.mirror = !ed.mirror; renderGarage(); }; tb.appendChild(mir);
     const un = h(`<button class="tool" ${ed.undo.length ? '' : 'disabled'}>Undo</button>`); un.onclick = () => undo(); tb.appendChild(un);
     const re = h(`<button class="tool" ${ed.redo.length ? '' : 'disabled'}>Redo</button>`); re.onclick = () => redo(); tb.appendChild(re);

@@ -243,10 +243,13 @@
     gModel = DL.buildCar(opts); idleN = -1;
     gModel.position.y = 0.24;
     gModel.traverse(o => { if (o.isMesh) o.castShadow = true; });
+    if (garageGrid && !opts.label && gModel.userData.setGrid) gModel.userData.setGrid(true, opts.livery, opts.base);
     gScene.add(gModel);
     return gModel;
   };
   Game.setGarageLivery = function (liv, base) { if (gModel) gModel.userData.setLivery(liv, base); };
+  let garageGrid = null;
+  Game.setGarageGrid = function (on, liv, base) { garageGrid = on ? { liv, base } : null; if (gModel && gModel.userData.setGrid) gModel.userData.setGrid(on, liv, base); };
 
   // paint mode: move in close and stop the slow spin; leaving it restores the normal view
   let paintZoomed = false;
