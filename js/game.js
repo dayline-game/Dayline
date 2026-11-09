@@ -248,6 +248,9 @@
   };
   Game.setGarageLivery = function (liv, base) { if (gModel) gModel.userData.setLivery(liv, base); };
 
+  // paint mode: move in close and stop the slow spin; leaving it restores the normal view
+  let paintZoomed = false;
+  Game.paintView = on => { if (on && !paintZoomed) { paintZoomed = true; orbit.auto = false; orbit.dist = 6.4; orbit.phi = 0.35; } else if (!on && paintZoomed) { paintZoomed = false; orbit.dist = 9; orbit.auto = true; } };
   Game.pickBodyUV = function (cx, cy) {
     if (!gModel) return null;
     const r = new THREE.Raycaster(), v = new THREE.Vector2((cx / window.innerWidth) * 2 - 1, -(cy / window.innerHeight) * 2 + 1);
@@ -587,24 +590,47 @@
     { const pb = document.getElementById('rpPhoto'); if (pb) pb.onclick = () => { Game.photoReq = true; }; }
     window.addEventListener('keyup', e => { keys[e.code] = false; });
     window.addEventListener('blur', () => { for (const k in keys) keys[k] = false; });
-    // garage orbit & body painting
+    // garage orbit & body painting: one pointer paints (or turns the car off the body), two pointers turn and zoom, right button always turns
+    const ptrs = new Map();
+    const hover = e => { if (mode === 'garage' && DL.UI.paintHover) DL.UI.paintHover(DL.UI.paintActive && DL.UI.paintActive() && e.pointerType !== 'touch' ? Game.pickBodyUV(e.clientX, e.clientY) : null); };
+    const startOrbit = e => { orbit.drag = { x: e.clientX, y: e.clientY, th: orbit.theta, ph: orbit.phi }; orbit.auto = false; };
     canvas.addEventListener('pointerdown', e => {
       if (mode !== 'garage' && mode !== 'shop') return;
-      if (mode === 'garage' && DL.UI.paintActive && DL.UI.paintActive()) {
-        const uv = Game.pickBodyUV(e.clientX, e.clientY);
-        if (uv) { orbit.paint = true; DL.UI.paintUV(uv, true); canvas.setPointerCapture(e.pointerId); return; }
-      }
-      orbit.drag = { x: e.clientX, y: e.clientY, th: orbit.theta, ph: orbit.phi }; orbit.auto = false;
+      ptrs.set(e.pointerId, { x: e.clientX, y: e.clientY });
       canvas.setPointerCapture(e.pointerId);
+      if (ptrs.size === 2) {          // second finger: stop painting, turn and pinch instead
+        if (orbit.paint) { DL.UI.paintEnd(); orbit.paint = false; }
+        const [a, b] = [...ptrs.values()]; orbit.pinch = { d: Math.hypot(a.x - b.x, a.y - b.y), dist: orbit.dist };
+        startOrbit({ clientX: (a.x + b.x) / 2, clientY: (a.y + b.y) / 2 }); return;
+      }
+      if (mode === 'garage' && e.button === 0 && DL.UI.paintActive && DL.UI.paintActive()) {
+        const uv = Game.pickBodyUV(e.clientX, e.clientY);
+        if (uv) { orbit.paint = true; DL.UI.paintUV(uv, true); return; }
+      }
+      startOrbit(e);
     });
     canvas.addEventListener('pointermove', e => {
+      const p = ptrs.get(e.pointerId); if (p) { p.x = e.clientX; p.y = e.clientY; }
+      if (ptrs.size >= 2 && orbit.pinch) {
+        const [a, b] = [...ptrs.values()], d = Math.hypot(a.x - b.x, a.y - b.y), mx = (a.x + b.x) / 2, my = (a.y + b.y) / 2;
+        orbit.dist = DL.clamp(orbit.pinch.dist * orbit.pinch.d / Math.max(20, d), 5, 16);
+        if (orbit.drag) { orbit.theta = orbit.drag.th - (mx - orbit.drag.x) * 0.008; orbit.phi = DL.clamp(orbit.drag.ph + (my - orbit.drag.y) * 0.005, 0.05, 1.2); }
+        return;
+      }
       if (orbit.paint) { const uv = Game.pickBodyUV(e.clientX, e.clientY); if (uv) DL.UI.paintUV(uv, false); return; }
-      if (!orbit.drag) return;
+      if (!orbit.drag) { hover(e); return; }
       orbit.theta = orbit.drag.th - (e.clientX - orbit.drag.x) * 0.008;
       orbit.phi = DL.clamp(orbit.drag.ph + (e.clientY - orbit.drag.y) * 0.005, 0.05, 1.2);
     });
-    const end = () => { if (orbit.paint) DL.UI.paintEnd(); orbit.drag = null; orbit.paint = false; };
+    const end = e => {
+      ptrs.delete(e.pointerId);
+      if (orbit.paint) DL.UI.paintEnd();
+      orbit.paint = false; orbit.drag = null; if (ptrs.size < 2) orbit.pinch = null;
+      if (ptrs.size === 1) { const r = [...ptrs.values()][0]; orbit.drag = { x: r.x, y: r.y, th: orbit.theta, ph: orbit.phi }; }
+    };
     canvas.addEventListener('pointerup', end); canvas.addEventListener('pointercancel', end);
+    canvas.addEventListener('pointerleave', e => { if (mode === 'garage' && DL.UI.paintHover && e.pointerType !== 'touch') DL.UI.paintHover(null); });
+    canvas.addEventListener('contextmenu', e => { if (mode === 'garage' || mode === 'shop') e.preventDefault(); });
     canvas.addEventListener('wheel', e => { if (mode === 'garage' || mode === 'shop') { orbit.dist = DL.clamp(orbit.dist + e.deltaY * 0.01, 5.5, 16); e.preventDefault(); } }, { passive: false });
   }
 

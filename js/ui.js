@@ -424,6 +424,7 @@
     });
     renderPresets();
     const painting = gTab === 'paint' || gTab === 'designs';
+    Game.paintView(gTab === 'paint' && paintMode === 'car');
     $('gDrawTitle').textContent = painting ? 'Paint' : DL.CAT_NAMES[gTab];
     $('gDrawSub').textContent = painting ? 'Livery for the ' + spec.name : 'Tap to equip';
     const tabs = $('gTabs'); tabs.hidden = !painting;
@@ -486,10 +487,10 @@
     const s = Net.save, p = s.paint[s.car] || { l: DL.encodeLivery(DL.defaultLivery()), b: DL.DEFAULT_BASE };
     ed = { liv: DL.decodeLivery(p.l), base: p.b == null ? DL.DEFAULT_BASE : p.b, color: ed ? ed.color : 13, tool: ed ? ed.tool : 'brush', stamp: 'roundel', mirror: ed ? ed.mirror : true, undo: [], redo: [], active: 'left', canv: {} };
   }
-  UI.paintActive = () => screen === 'garage' && gTab === 'paint' && !!ed && paintMode === 'pro';
+  UI.paintActive = () => screen === 'garage' && gTab === 'paint' && !!ed && (paintMode === 'car' || paintMode === 'pro') && ed.tool !== 'look';
 
   // ---- Quick paint: body colour + pattern + number, no pixels ----
-  let paintMode = 'quick';
+  let paintMode = 'car';
   const QP = { pat: 'none', col: 13, num: '' };
   const PATTERNS = [['none', 'Plain'], ['stripe', 'Stripe'], ['twin', 'Twin stripe'], ['band', 'Side band'], ['checker', 'Checker'], ['nose', 'Nose & tail']];
   function patHit(pat, key, x, y, p) {
@@ -538,12 +539,12 @@
 
   function renderPaint(body) {
     if (!ed) openEditor();
-    const modes = h('<div class="paint-tools qp-modes"><button class="tool">Quick</button><button class="tool">Advanced pixel editor</button></div>');
-    modes.children[0].classList.toggle('on', paintMode === 'quick'); modes.children[1].classList.toggle('on', paintMode === 'pro');
-    modes.children[0].onclick = () => { paintMode = 'quick'; renderGarage(); }; modes.children[1].onclick = () => { paintMode = 'pro'; renderGarage(); };
+    const modes = h('<div class="paint-tools qp-modes"><button class="tool">Paint on car</button><button class="tool">Quick</button><button class="tool">Panels</button></div>');
+    ['car', 'quick', 'pro'].forEach((m, i) => { modes.children[i].classList.toggle('on', paintMode === m); modes.children[i].onclick = () => { paintMode = m; renderGarage(); }; });
     body.appendChild(modes);
     if (paintMode === 'quick') { renderQuick(body); return; }
     const tools = [['brush', 'Brush'], ['big', 'Big brush'], ['fill', 'Fill'], ['erase', 'Eraser'], ['pick', 'Pick'], ['stamp', 'Stamp']];
+    if (paintMode === 'car') tools.push(['look', 'Rotate']);
     const tb = h('<div class="paint-tools"></div>');
     tools.forEach(([id, nm]) => { const b = h(`<button class="tool ${ed.tool === id ? 'on' : ''}">${nm}</button>`); b.onclick = () => { ed.tool = id; renderGarage(); }; tb.appendChild(b); });
     const mir = h(`<button class="tool ${ed.mirror ? 'on' : ''}" title="Paint both sides symmetrically">Mirror</button>`); mir.onclick = () => { ed.mirror = !ed.mirror; renderGarage(); }; tb.appendChild(mir);
@@ -588,12 +589,14 @@
       w.appendChild(c); ed.canv[key] = c; bindPanel(c, key);
       return w;
     };
-    body.appendChild(mk('left', 'front ←'));
-    body.appendChild(mk('right', 'front →'));
-    body.appendChild(mk('top', 'front →'));
-    const row = h('<div class="pgrid-row"></div>'); row.appendChild(mk('front')); row.appendChild(mk('rear')); body.appendChild(row);
-    const hint = h(`<p class="hint">Paint on the grids or straight onto the car in the showroom. Mirror keeps both sides symmetrical. Changes save automatically; store favourites under Designs.</p>`);
-    body.appendChild(hint);
+    if (paintMode === 'pro') {
+      body.appendChild(mk('left', 'front ←'));
+      body.appendChild(mk('right', 'front →'));
+      body.appendChild(mk('top', 'front →'));
+      const row = h('<div class="pgrid-row"></div>'); row.appendChild(mk('front')); row.appendChild(mk('rear')); body.appendChild(row);
+    }
+    const touch = DL.isTouch && DL.isTouch();
+    body.appendChild(h(`<p class="hint">${paintMode === 'car' ? (touch ? 'Touch the car to paint a pixel. Use the Rotate tool (or two fingers) to turn it, pinch to zoom.' : 'Click and drag on the car to paint pixels. Right-drag or the Rotate tool turns the car, scroll to zoom.') + ' Mirror keeps both sides symmetrical.' : 'Paint on the grids or straight onto the car in the showroom. Mirror keeps both sides symmetrical.'} Changes save automatically; store favourites under Designs.</p>`));
     drawPanels();
   }
 
@@ -700,21 +703,38 @@
   }
   function refreshUndoButtons() { if (screen === 'garage' && gTab === 'paint') { const tb = $('gBody').querySelectorAll('.paint-tools')[1]; if (tb) { const b = tb.querySelectorAll('button'); b[b.length - 2].disabled = !ed.undo.length; b[b.length - 1].disabled = !ed.redo.length; } } }
   // painting directly on the 3D body
-  let paintStroke = false;
+  let paintStroke = false, lastPx = null, hoverK = '';
+  const atlasCell = uv => {
+    const ax = Math.floor(uv.x * DL.ATLAS_W), ay = Math.floor((1 - uv.y) * DL.ATLAS_H);
+    for (const key in DL.PANELS) { const p = DL.PANELS[key]; if (ax >= p.x && ax < p.x + p.w && ay >= p.y && ay < p.y + p.h) return { key, x: ax - p.x, y: ay - p.y }; }
+    return null;
+  };
   UI.paintUV = function (uv, start) {
     if (!ed) return;
-    const ax = Math.floor(uv.x * DL.ATLAS_W), ay = Math.floor((1 - uv.y) * DL.ATLAS_H);
-    for (const key in DL.PANELS) {
-      const p = DL.PANELS[key];
-      if (ax >= p.x && ax < p.x + p.w && ay >= p.y && ay < p.y + p.h) {
-        if (start) { pushUndo(); paintStroke = true; }
-        else if (['fill', 'stamp', 'pick'].includes(ed.tool)) return;
-        applyTool(key, ax - p.x, ay - p.y, start); if (ed) commit();
-        return;
-      }
-    }
+    const c = atlasCell(uv); if (!c) return;
+    hoverK = '';
+    if (start) { pushUndo(); paintStroke = true; lastPx = null; }
+    else if (['fill', 'stamp', 'pick'].includes(ed.tool)) return;
+    // fill the gap when the pointer moves faster than one pixel per event
+    if (!start && lastPx && lastPx.key === c.key && ['brush', 'big', 'erase'].includes(ed.tool)) {
+      let x0 = lastPx.x, y0 = lastPx.y; const dx = Math.abs(c.x - x0), dy = Math.abs(c.y - y0), sx = x0 < c.x ? 1 : -1, sy = y0 < c.y ? 1 : -1; let err = dx - dy;
+      for (let n = 0; n < 64 && !(x0 === c.x && y0 === c.y); n++) { const e2 = 2 * err; if (e2 > -dy) { err -= dy; x0 += sx; } if (e2 < dx) { err += dx; y0 += sy; } applyTool(c.key, x0, y0, false); }
+    } else applyTool(c.key, c.x, c.y, start);
+    lastPx = c;
+    if (ed) commit();
   };
-  UI.paintEnd = () => { paintStroke = false; refreshUndoButtons(); };
+  UI.paintEnd = () => { paintStroke = false; lastPx = null; refreshUndoButtons(); };
+  // a faint preview of the brush on the car under the pointer
+  UI.paintHover = function (uv) {
+    if (!ed || paintStroke) return;
+    const c = uv && UI.paintActive() && ['brush', 'big', 'erase', 'stamp'].includes(ed.tool) ? atlasCell(uv) : null;
+    const k = c ? c.key + c.x + ',' + c.y + ed.tool + ed.color + ed.stamp + ed.mirror : '';
+    if (k === hoverK) return; hoverK = k;
+    if (!c) { Game.setGarageLivery(ed.liv, ed.base); return; }
+    const keep = ed.liv; ed.liv = keep.slice(); applyTool(c.key, c.x, c.y, true); const tmp = ed.liv; ed.liv = keep;
+    Game.setGarageLivery(tmp, ed.base);
+  };
+  UI.paintTool = () => ed && ed.tool;
 
   function liveryThumb(l, b) {
     const c = document.createElement('canvas');
