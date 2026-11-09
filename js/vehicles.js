@@ -298,11 +298,21 @@
     const W = spec.W, both = f => [-1, 1].forEach(f);
     const wheelFlares = (thick, up) => both(s => spec.wz.forEach(z => bx(thick, 0.16, spec.wr * 2.5, s * (W / 2 + thick / 2 - 0.02), spec.wr * 2 + up, z)));
     const f = spec.feat;
+    // real tailpipes on every paid car (the free starter keeps a plain rear). Pipe x matches the smoke emitter in userData.exhaust
+    if (spec.price > 0) {
+      const EX = { comet: { n: 2, r: 0.13 }, vintage: { n: 2, r: 0.1 }, rallye: { n: 1, r: 0.14 }, ridge: { n: 1, r: 0.15 }, mule: { n: 1, r: 0.13 }, bubble: { n: 1, r: 0.09 }, loaf: { n: 1, r: 0.12 } }[f] || { n: 1, r: 0.11 };
+      const py = spec.lower[0][1] + 0.02, xs = EX.n === 2 ? [-1, 1] : [1], r = EX.r;
+      xs.forEach(sx => {
+        const px = sx * W * 0.28;
+        cy(r, 0.55, px, py, rearZ - 0.02, chrome, 'z', 14);                          // pipe sticking out past the bumper
+        cy(r * 1.3, 0.07, px, py, rearZ - 0.3, chrome, 'z', 14);                     // rolled tip
+        cy(r * 0.75, 0.08, px, py, rearZ - 0.32, dark, 'z', 14);                     // dark opening
+        bx(0.07, 0.07, 0.35, px, py + r + 0.05, rearZ + 0.1, dark);                  // hanger up into the body
+      });
+    }
     if (f === 'comet') {
       wheelFlares(0.2, 0.0);
       both(s => bx(0.07, 0.2, 0.8, s * (W / 2 + 0.02), 0.58, -0.7, dark));                      // side intakes
-      bx(W * 0.96, 0.06, 0.55, 0, deckY + 0.3, rearZ + 0.3, coral, -0.12);                       // integrated rear wing
-      both(s => { bx(0.06, 0.3, 0.6, s * W * 0.49, deckY + 0.3, rearZ + 0.3, dark); bx(0.1, 0.34, 0.1, s * W * 0.3, deckY + 0.16, rearZ + 0.4, dark); });
       bx(W * 0.9, 0.07, 0.4, 0, 0.3, frontZ + 0.05, dark);                                         // front splitter
       bx(W * 0.5, 0.05, 0.7, 0, 0.9, 1.0, dark);                                                   // bonnet vent
       bx(W * 0.9, 0.09, 0.1, 0, lightY - 0.1, frontZ + 0.08, coral);                               // nose stripe
@@ -311,8 +321,6 @@
       bx(0.8, 0.2, 0.9, 0, 1.2, 1.0, dark, 0.12);                                                  // bonnet scoop
       for (let k = 0; k < 4; k++) cy(0.15, 0.14, (k - 1.5) * 0.4, roofY - 0.02, 0.95, headMat, 'z');   // roof light pods
       bx(W * 0.72, 0.06, 0.1, 0, roofY - 0.1, 0.78, dark);
-      bx(W * 0.9, 0.08, 0.5, 0, deckY + 0.35, rearZ + 0.35, coral, 0.1);                         // fixed wing
-      both(s => { bx(0.07, 0.4, 0.5, s * W * 0.4, deckY + 0.2, rearZ + 0.4, dark); bx(0.04, 0.34, 0.5, s * (W * 0.5 + 0.0), deckY + 0.35, rearZ + 0.35, dark); });
       both(s => spec.wz.forEach(z => bx(0.05, 0.3, 0.3, s * (W / 2 + 0.1), 0.35, z - Math.sign(z) * (spec.wr + 0.15), dark)));  // mud flaps
       cy(0.1, 0.1, 0.0, 0.62, frontZ + 0.04, coral, 'z', 8);
       cy(0.3, 0.14, 0, roofY + 0.28, -1.0, M('spare', () => new THREE.MeshLambertMaterial({ color: 0x1b1e24, flatShading: true })), 'y', 9);   // spare on roof
