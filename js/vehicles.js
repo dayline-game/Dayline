@@ -284,14 +284,15 @@
   }
   function sharedMat(key, make) { return shared[key] || (shared[key] = make()); }
 
-  function buildWheel(spec, style) {
+  function buildWheel(spec, style, col) {
     const g = new THREE.Group();
     const r = spec.wr * (style === 'knobby' ? 1.1 : 1);
     const tire = new THREE.Mesh(new THREE.CylinderGeometry(r, r, 0.34, style === 'knobby' ? 12 : 16), sharedMat('tire', () => new THREE.MeshLambertMaterial({ color: 0x1b1e24, flatShading: true })));
     tire.rotation.z = Math.PI / 2; tire.frustumCulled = false; tire.geometry = tire.geometry.clone(); g.add(tire);
     g.userData.tire = tire; g.userData.orig = Float32Array.from(tire.geometry.attributes.position.array); g.userData.r = r;
-    const rimCol = style === 'gold' ? 0xd9a441 : style === 'dish' ? 0xf4ecdc : style === 'spoke' ? 0xb5bfcb : 0x7c8a9e;
-    const rimMat = sharedMat('rim' + style, () => new THREE.MeshStandardMaterial({ color: rimCol, roughness: style === 'gold' ? 0.3 : 0.6, metalness: style === 'gold' ? 0.7 : 0.2, flatShading: true }));
+    const cc = col && DL.ITEM_COLORS[col], metal = style === 'gold' || (cc && DL.isMetalColor(col));
+    const rimCol = cc ? cc[1] : style === 'gold' ? 0xd9a441 : style === 'dish' ? 0xf4ecdc : style === 'spoke' ? 0xb5bfcb : 0x7c8a9e;
+    const rimMat = sharedMat('rim' + style + (cc ? '_' + col : ''), () => new THREE.MeshStandardMaterial({ color: rimCol, roughness: metal ? 0.3 : 0.6, metalness: metal ? 0.7 : 0.2, flatShading: true }));
     const rr = r * (style === 'dish' ? 0.78 : 0.62);
     const rim = new THREE.Mesh(new THREE.CylinderGeometry(rr, rr, 0.36, style === 'dish' ? 12 : 8), rimMat);
     rim.rotation.z = Math.PI / 2; g.add(rim);
@@ -464,7 +465,8 @@
     const body = new THREE.Group();          // pitch/roll
     root.add(body);
 
-    const knob = equip.wheels === 'knobby';
+    const [spB, spC] = DL.partBase(equip.spoiler), [whB, whC] = DL.partBase(equip.wheels), [buB, buC] = DL.partBase(equip.bumper);
+    const knob = whB === 'knobby';
     const prof = carProfile(spec, knob);
     const lower = extrudeProfile(prof, spec.W);
     const cab = extrudeProfile(spec.cabin, spec.W * spec.cw);
@@ -483,7 +485,7 @@
     const tex = new THREE.CanvasTexture(canvas);
     tex.magFilter = THREE.NearestFilter; tex.minFilter = THREE.NearestFilter; tex.generateMipmaps = false;
     if ('colorSpace' in tex) tex.colorSpace = THREE.SRGBColorSpace;
-    const fin = FINISH[equip.finish] || FINISH.matte;
+    const fx = DL.FINISH_EXTRA && DL.FINISH_EXTRA[equip.finish], fin = FINISH[equip.finish] || (fx ? { roughness: fx[1], metalness: fx[2] } : FINISH.matte);
     const bodyMat = new THREE.MeshStandardMaterial({ map: tex, flatShading: true, roughness: fin.roughness, metalness: fin.metalness });
     if (opts.ghost) { bodyMat.transparent = true; bodyMat.opacity = 0.72; bodyMat.depthWrite = false; }
     const bodyMesh = new THREE.Mesh(bodyGeo, bodyMat);
@@ -550,39 +552,41 @@
     };
     const roofYc = Math.max(...spec.cabin.map(p => p[1]));
     const hullTopCabin = z => { let t = -1e9; const c = spec.cabin; for (let k = 0; k < c.length; k++) { const a = c[k], b = c[(k + 1) % c.length]; if ((a[0] - z) * (b[0] - z) <= 0 && a[0] !== b[0]) t = Math.max(t, a[1] + (b[1] - a[1]) * (z - a[0]) / (b[0] - a[0])); } return t; };
-    // accessories
+    // accessories (a colour variant paints the part instead of using the body colour)
+    const partMat = c => opts.ghost ? glassMat : c && DL.ITEM_COLORS[c] ? sharedMat('pc_' + c, () => new THREE.MeshStandardMaterial({ color: DL.ITEM_COLORS[c][1], flatShading: true, roughness: DL.isMetalColor(c) ? 0.28 : 0.5, metalness: DL.isMetalColor(c) ? 0.75 : 0.05 })) : paintMat;
+    const spMat = partMat(spC);
     const topRear = spec.cabin.reduce((a, p) => p[0] < a[0] ? p : a, [9, 0]);
     const roofY = Math.max(...spec.cabin.map(p => p[1]));
     const deckY = spec.lower.reduce((m, p) => p[0] < rearZ + 0.6 ? Math.max(m, p[1]) : m, 0);
-    if (equip.spoiler === 'lip') {
+    if (spB === 'lip') {
       const zc = rearZ + 0.2, top = Math.max(hullTop(zc - 0.15), hullTop(zc + 0.15), hullTop(zc));
-      const m = new THREE.Mesh(new THREE.BoxGeometry(spec.W * 0.9, 0.08, 0.35), paintMat); m.position.set(0, top + 0.05, zc); m.rotation.x = -0.22; m.castShadow = !opts.ghost; body.add(m);
-    } else if (equip.spoiler === 'ducktail') {
+      const m = new THREE.Mesh(new THREE.BoxGeometry(spec.W * 0.9, 0.08, 0.35), spMat); m.position.set(0, top + 0.05, zc); m.rotation.x = -0.22; m.castShadow = !opts.ghost; body.add(m);
+    } else if (spB === 'ducktail') {
       const zc = rearZ + 0.26, top = Math.max(hullTop(zc - 0.22), hullTop(zc + 0.22), hullTop(zc));
-      const m = new THREE.Mesh(new THREE.BoxGeometry(spec.W * 0.95, 0.14, 0.5), paintMat); m.position.set(0, top + 0.1, zc); m.rotation.x = -0.4; m.castShadow = !opts.ghost; body.add(m);
-    } else if (equip.spoiler === 'wing') {
+      const m = new THREE.Mesh(new THREE.BoxGeometry(spec.W * 0.95, 0.14, 0.5), spMat); m.position.set(0, top + 0.1, zc); m.rotation.x = -0.4; m.castShadow = !opts.ghost; body.add(m);
+    } else if (spB === 'wing') {
       const zc = rearZ + 0.2, sx = spec.feat === 'loaf' ? 0.42 : spec.feat === 'vintage' ? 0.26 : 0.33, ww = spec.feat === 'vintage' ? 0.7 : 0.96;
       let top = -1e9; for (let k = -2; k <= 2; k++) top = Math.max(top, hullTop(zc + k * 0.13));
       const baseUnder = hullTop(zc) - 0.05, wingY = top + 0.34;
       [-1, 1].forEach(sd => { const h = wingY - baseUnder; const st = new THREE.Mesh(new THREE.BoxGeometry(0.07, h, 0.2), extraMat); st.position.set(sd * spec.W * sx, baseUnder + h / 2, zc); st.castShadow = !opts.ghost; body.add(st); });
-      const w = new THREE.Mesh(new THREE.BoxGeometry(spec.W * ww, 0.06, 0.52), paintMat); w.position.set(0, wingY, zc - 0.02); w.rotation.x = 0.1; w.castShadow = !opts.ghost; body.add(w);
+      const w = new THREE.Mesh(new THREE.BoxGeometry(spec.W * ww, 0.06, 0.52), spMat); w.position.set(0, wingY, zc - 0.02); w.rotation.x = 0.1; w.castShadow = !opts.ghost; body.add(w);
       [-1, 1].forEach(sd => { const e = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.24, 0.6), extraMat); e.position.set(sd * spec.W * ww / 2, wingY + 0.06, zc - 0.02); e.castShadow = !opts.ghost; body.add(e); });
-    } else if (equip.spoiler === 'rack') {
+    } else if (spB === 'rack') {
       // flat part of the roof: where the cabin is within a few cm of its highest point
       let z0 = 1e9, z1 = -1e9; for (let z = -3; z <= 3; z += 0.05) if (hullTopCabin(z) >= roofY - 0.06) { z0 = Math.min(z0, z); z1 = Math.max(z1, z); }
       const span = Math.max(0.6, z1 - z0 - 0.3), len = Math.min(1.5, span), zc = (z0 + z1) / 2;
       [-1, 1].forEach(sd => { const r = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.1, len), extraMat); r.position.set(sd * spec.W * spec.cw * 0.4, roofY + 0.08, zc); r.castShadow = !opts.ghost; body.add(r); });
-      const box = new THREE.Mesh(new THREE.BoxGeometry(spec.W * spec.cw * 0.66, 0.3, len * 0.8), sharedMat('cargo', () => new THREE.MeshLambertMaterial({ color: 0xc9ad7f, flatShading: true })));
+      const box = new THREE.Mesh(new THREE.BoxGeometry(spec.W * spec.cw * 0.66, 0.3, len * 0.8), spC ? spMat : sharedMat('cargo', () => new THREE.MeshLambertMaterial({ color: 0xc9ad7f, flatShading: true })));
       box.position.set(0, roofY + 0.28, zc); box.castShadow = !opts.ghost; body.add(box);
     }
-    if (equip.bumper === 'bullbar') {
-      const bm = extraMat;
+    if (buB === 'bullbar') {
+      const bm = buC ? partMat(buC) : extraMat;
       [-1, 1].forEach(s => { const p = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.6, 0.1), bm); p.position.set(s * spec.W * 0.3, spec.lower[0][1] + 0.35, frontZ + 0.3); body.add(p); });
       const t = new THREE.Mesh(new THREE.BoxGeometry(spec.W * 0.8, 0.1, 0.1), bm); t.position.set(0, spec.lower[0][1] + 0.65, frontZ + 0.3); body.add(t);
       const b = t.clone(); b.position.y -= 0.35; body.add(b);
-    } else if (equip.bumper === 'pods') {
+    } else if (buB === 'pods') {
       for (let k = 0; k < 4; k++) {
-        const p = new THREE.Mesh(new THREE.CylinderGeometry(0.13, 0.13, 0.12, 8), headMat);
+        const p = new THREE.Mesh(new THREE.CylinderGeometry(0.13, 0.13, 0.12, 8), buC && !opts.ghost ? sharedMat('pod_' + buC, () => new THREE.MeshStandardMaterial({ color: DL.ITEM_COLORS[buC][1], emissive: DL.ITEM_COLORS[buC][1], emissiveIntensity: 0.7 })) : headMat);
         p.rotation.x = Math.PI / 2; p.position.set((k - 1.5) * spec.W * 0.2, lightY + 0.06, frontZ + 0.2); body.add(p);
       }
     }
@@ -603,15 +607,15 @@
     const wheels = [];
     for (const z of spec.wz) for (const s of [-1, 1]) {
       const pivot = new THREE.Group();
-      pivot.position.set(s * (spec.W / 2 - 0.05) * spec.wx / 0.9, spec.wr * (equip.wheels === 'knobby' ? 1.1 : 1), z);
-      const w = buildWheel(spec, equip.wheels);
+      pivot.position.set(s * (spec.W / 2 - 0.05) * spec.wx / 0.9, spec.wr * (knob ? 1.1 : 1), z);
+      const w = buildWheel(spec, whB, whC);
       if (opts.ghost) w.traverse(o => { if (o.material) { o.material = glassMat; } });
       else w.traverse(o => { if (o.isMesh) o.castShadow = true; });
       pivot.add(w); body.add(pivot);
       wheels.push({ pivot, wheel: w, front: z > 0, side: s, baseY: pivot.position.y, c: 0.07, v: 0 });
     }
     if (!opts.ghost) wheels.forEach(w => deformTire(w, w.c, 0));
-    const lift = equip.wheels === 'knobby' ? spec.wr * 0.1 : 0;
+    const lift = knob ? spec.wr * 0.1 : 0;
     body.position.y = lift;
 
     root.userData = {

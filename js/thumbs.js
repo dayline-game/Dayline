@@ -18,7 +18,7 @@
     if (price < 100) return 'common';
     if (price < 160) return 'uncommon';
     if (price < 260) return 'rare';
-    if (price <= 800) return 'epic';
+    if (cat === 'cars' ? price <= 800 : price < 400) return 'epic';
     return 'legendary';
   };
   DL.itemInfo = function (cat, id) {
@@ -116,11 +116,12 @@
       g.fillStyle = '#2b3446'; g.beginPath(); g.ellipse(196, 170, 26, 18, 0, 0, 7); g.fill();
       g.fillStyle = '#11151d'; g.beginPath(); g.ellipse(196, 170, 15, 10, 0, 0, 7); g.fill();
       const puffs = [[150, 156, 30], [104, 136, 38], [60, 110, 44]];
-      if (id === 'flame') {
+      const xd = DL.EXHAUST[id] || DL.EXHAUST.smoke, rgba = (n, a) => 'rgba(' + (n >> 16) + ',' + ((n >> 8) & 255) + ',' + (n & 255) + ',' + a + ')';
+      if (xd.k === 'flame') {
         const fl = (x, y, r, a, b) => { const gr = g.createRadialGradient(x, y, 2, x, y, r); gr.addColorStop(0, a); gr.addColorStop(1, b); g.fillStyle = gr; g.beginPath(); g.ellipse(x, y, r * 1.5, r, -0.35, 0, 7); g.fill(); };
-        fl(132, 150, 46, '#fff4b8', 'rgba(240,90,53,0)'); fl(150, 158, 30, '#ffe066', 'rgba(242,193,78,0)'); fl(110, 140, 26, '#ffd84d', 'rgba(240,90,53,0)');
+        fl(132, 150, 46, '#fffbe8', rgba(xd.c[1], 0)); fl(150, 158, 30, hex(xd.c[0]), rgba(xd.c[1], 0)); fl(110, 140, 26, hex(xd.c[0]), rgba(xd.c[1], 0)); fl(96, 132, 34, rgba(xd.c[1], 0.9), rgba(xd.c[1], 0));
       } else {
-        const col = id === 'coral' ? ['#f05a35', '#f7a072'] : ['#ffffff', '#d9dde3'];
+        const col = [hex(xd.c[0]), hex(xd.c[1])];
         puffs.forEach(([x, y, r], i) => { g.fillStyle = col[i % 2]; g.globalAlpha = 0.95 - i * 0.18; g.beginPath(); g.arc(x, y, r, 0, 7); g.fill(); g.beginPath(); g.arc(x + r * 0.6, y - r * 0.4, r * 0.7, 0, 7); g.fill(); });
         g.globalAlpha = 1;
       }

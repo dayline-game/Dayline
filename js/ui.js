@@ -431,9 +431,11 @@
     if (gTab === 'paint') { renderPaint(body); return; }
     if (gTab === 'designs') { renderDesigns(body); return; }
     const cat = gTab;
-    const ids = cat === 'cars' ? DL.CAR_ORDER.concat(Net.owns('cars', 'ufo') ? ['ufo'] : []) : DL.PARTS[cat].map(p => p.id);
-    const list = ids.map(id => DL.itemInfo(cat, id)).filter(Boolean);
-    list.sort((a, b) => (Net.owns(cat, b.id) - Net.owns(cat, a.id)) || (a.price - b.price));
+    // only what you own (plus whatever is on the car right now)
+    const ids = cat === 'cars' ? DL.CAR_ORDER.concat(['ufo']) : DL.PARTS[cat].map(p => p.id);
+    const cur = cat === 'cars' ? s.car : s.equip[cat];
+    const list = ids.filter(id => Net.owns(cat, id) || id === cur).map(id => DL.itemInfo(cat, id)).filter(Boolean);
+    list.sort((a, b) => a.price - b.price);
     const grid = h('<div class="lk-grid"></div>');
     list.forEach(it => {
       const own = Net.owns(cat, it.id), eq = cat === 'cars' ? s.car === it.id : s.equip[cat] === it.id;
@@ -441,6 +443,8 @@
       t.onclick = () => { if (!own) { openShopItem(it); return; } if (!eq) { equip(cat, it.id); renderGarage(); } };
       grid.appendChild(t);
     });
+    const nOwn = list.length, nAll = ids.filter(id => DL.released(cat, id)).length;
+    $('gDrawSub').textContent = 'Tap to equip · ' + nOwn + ' owned';
     const more = h(`<button class="lk-more"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 8h14l-1 12H6zM9 8a3 3 0 0 1 6 0"/></svg>Get more in the shop</button>`);
     more.onclick = () => { shop.cat = cat; shop.item = null; show('shop'); };
     grid.appendChild(more);
@@ -745,17 +749,31 @@
   }
 
   // ---------------- shop ----------------
-  // ---------- item shop: featured + daily items that rotate for everyone at midnight, then the full catalogue ----------
+  // ---------- item shop: featured + daily items rotate for everyone at midnight; a new drop lands every Monday ----------
   const shop = { cat: 'all', q: '', item: null };
+  // this week's drop (in launch week: a fixed pick from the launch pool)
+  function weekDrop(day) {
+    const wk = DL.weekOf(day), parts = DL.allItems().filter(it => it.cat !== 'cars' && it.price > 0 && DL.released(it.cat, it.id, day));
+    let list = parts.filter(it => { const p = DL.PARTS[it.cat].find(x => x.id === it.id); return p.gen && p.wk === wk; });
+    if (wk === 0) { const r = DL.mulberry32(0x1a0c4), L = list.slice(); list = []; while (list.length < DL.WEEKLY_DROP && L.length) list.push(L.splice(Math.floor(r() * L.length), 1)[0]); }
+    return list.sort((x, y) => y.price - x.price);
+  }
   function shopRotation(day) {
     const r = DL.mulberry32((DL.seedFor(day) ^ 0x5eed1) >>> 0);
     const take = arr => arr.splice(Math.floor(r() * arr.length), 1)[0];
     const cars = DL.CAR_ORDER.filter(id => id !== 'pebble').map(id => DL.itemInfo('cars', id));
-    const parts = DL.allItems().filter(it => it.cat !== 'cars' && it.price > 0);
-    const bigPart = take(parts.filter(p => p.price >= 200));
+    const fresh = weekDrop(day), freshKeys = new Set(fresh.map(it => it.key));
+    const parts = DL.allItems().filter(it => it.cat !== 'cars' && it.price > 0 && DL.released(it.cat, it.id, day) && !freshKeys.has(it.key));
+    const big = parts.filter(p => p.price >= 240), bigPart = take(big);
     const rest = parts.filter(p => p.key !== bigPart.key);
-    const daily = []; while (daily.length < 6 && rest.length) daily.push(take(rest));
-    return { feat: [take(cars), bigPart], daily };
+    // daily: one per category where possible so the six slots feel varied
+    const daily = [], cats = ['spoiler', 'wheels', 'bumper', 'tint', 'plate', 'exhaust', 'trail', 'finish', 'stickers'];
+    while (daily.length < 6 && rest.length) {
+      const want = cats[Math.floor(r() * cats.length)], pickFrom = rest.filter(p => p.cat === want && !daily.some(d => d.cat === want));
+      const it = pickFrom.length ? pickFrom[Math.floor(r() * pickFrom.length)] : (daily.length >= 4 ? take(rest) : null);
+      if (it) { rest.splice(rest.indexOf(it), 1); daily.push(it); }
+    }
+    return { feat: [take(cars), bigPart], daily, fresh };
   }
   const SEARCH_WORDS = it => [it.name, it.sub, DL.CAT_NAMES[it.cat], DL.RARITIES[it.rarity].n, it.cat].join(' ').toLowerCase();
   function shopTile(it, big) {
@@ -767,6 +785,7 @@
   }
   function openShopItem(it) { shop.item = it; if (screen !== 'shop') show('shop'); else renderShop(); }
   function shopPip() { const p = $('shopPip'); if (p) p.hidden = DL.store.get('shopSeen', '') === today(); }
+  function weekTimer() { const el = $('isWeek'); if (!el) return; const ms = DL.msToNextWeek(), d = Math.floor(ms / 86400000), hh = Math.floor(ms / 3600000) % 24; el.textContent = d ? d + 'd ' + hh + 'h' : hh + 'h ' + Math.floor(ms / 60000) % 60 + 'm'; }
   function renderShop() {
     const sc = $('shop');
     DL.store.set('shopSeen', today()); shopPip();
@@ -774,30 +793,18 @@
     sc.classList.remove('inspecting'); $('isInspect').hidden = true;
     Game.showcase(null);
     const body = $('isBody'); body.innerHTML = '';
-    const q = shop.q.trim().toLowerCase();
-    if (!q) {
-      const rot = shopRotation(today());
-      const f = h('<section class="is-sec"><h3>Featured <small>Today only</small></h3><div class="is-feat"></div></section>');
-      rot.feat.forEach(it => f.lastElementChild.appendChild(shopTile(it, true)));
-      body.appendChild(f);
-      const d = h('<section class="is-sec"><h3>Daily <small>Same for every driver</small></h3><div class="is-grid"></div></section>');
-      rot.daily.forEach(it => d.lastElementChild.appendChild(shopTile(it)));
-      body.appendChild(d);
+    const rot = shopRotation(today());
+    const f = h('<section class="is-sec"><h3>Featured <small>Today only</small></h3><div class="is-feat"></div></section>');
+    rot.feat.forEach(it => f.lastElementChild.appendChild(shopTile(it, true)));
+    body.appendChild(f);
+    const d = h('<section class="is-sec"><h3>Daily <small>New items every day · same for every driver</small></h3><div class="is-grid"></div></section>');
+    rot.daily.forEach(it => d.lastElementChild.appendChild(shopTile(it)));
+    body.appendChild(d);
+    if (rot.fresh.length) {
+      const w = h(`<section class="is-sec is-new"><h3>New this week <small>Drop ${DL.weekOf(today()) + 1} · next drop in <b id="isWeek"></b></small></h3><div class="is-grid"></div></section>`);
+      rot.fresh.forEach(it => { const t = shopTile(it); if (!Net.owns(it.cat, it.id)) t.appendChild(h('<span class="badge new">New</span>')); w.lastElementChild.appendChild(t); });
+      body.appendChild(w); weekTimer();
     }
-    const b = h(`<section class="is-sec"><h3>${q ? 'Search results' : 'Browse everything'}</h3><div class="is-chips"></div><div class="is-grid"></div></section>`);
-    const chips = b.querySelector('.is-chips');
-    ['all'].concat(DL.CAT_ORDER).forEach(k => {
-      const c = h(`<button class="${shop.cat === k ? 'on' : ''}">${k === 'all' ? 'All' : esc(DL.CAT_NAMES[k])}</button>`);
-      c.onclick = () => { shop.cat = k; renderShop(); };
-      chips.appendChild(c);
-    });
-    const words = q.split(/\s+/).filter(Boolean);
-    const items = DL.allItems().filter(it => it.price > 0 && (shop.cat === 'all' || it.cat === shop.cat) && words.every(w => SEARCH_WORDS(it).includes(w)));
-    items.sort((a, b) => (Net.owns(a.cat, a.id) - Net.owns(b.cat, b.id)) || (b.price - a.price));
-    const g = b.querySelector('.is-grid');
-    items.forEach(it => g.appendChild(shopTile(it)));
-    if (!items.length) g.replaceWith(h(`<div class="is-empty">Nothing matches “${esc(shop.q)}”. Try a colour, a part or a rarity like epic.</div>`));
-    body.appendChild(b);
     body.appendChild(h('<p class="is-foot">You earn coins for finishing each daily, personal bests, streaks and achievements. Nothing here changes speed, grip or hitbox.</p>'));
   }
   const SHOW_3D = { cars: 1, spoiler: 1, wheels: 1, bumper: 1, finish: 1, tint: 1 };

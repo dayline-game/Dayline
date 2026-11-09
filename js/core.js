@@ -80,6 +80,9 @@ window.DL = window.DL || {};
 
   // ---------- patch notes (major releases only, newest first) ----------
   DL.PATCHES = [
+    { v: '2.3', date: 'November 2026', title: 'Daily Shop & Weekly Drops', art: 'community',
+      lead: 'Over 200 items to collect, a new shop every day and new items every week.',
+      items: ['Over 200 items at launch: coloured spoilers, wheels and bull bars, light pods, tints, plates, coloured smoke, flames, two-tone ribbons and new finishes', 'The shop changes every day: two Featured items and six Daily items, the same for every driver', 'New this week: a fresh drop of brand-new items lands every Monday at 12am', 'Items come and go: if you see something you like, grab it before it rotates out', 'Your Locker now only shows what you own', 'New finishes: Satin, Ceramic, Velvet, Candy, Mirror flake and Liquid chrome'] },
     { v: '2.2', date: 'November 2026', title: 'New Look, New Shop', art: 'community',
       lead: 'A cleaner game: a lobby, a Locker for your loadout and a proper Item Shop.',
       items: ['New top bar: Play, Locker, Shop, Ranks and Tracks are always one tap away (a bottom bar on phones)', 'A cleaner lobby: today’s track on the left, a big Play button on the right, your car in the middle', 'Item Shop: Featured and Daily items rotate at midnight, the same for every driver', 'Every item now has a rarity, from Common to Legendary, and its own picture', 'Search the shop by name, part or rarity, or browse by category', 'Tap any item to inspect it on your car in 3D before you buy', 'Locker: every slot of your loadout at a glance, tap one to swap it', 'Save up to three loadouts and switch between them in one tap'] },

@@ -821,10 +821,11 @@
     if (eq.exhaust !== 'none' && r.running && !r.finished) {
       const ex = m.userData.exhaust;
       tmpV.copy(ex).applyMatrix4(m.matrixWorld);
-      if (eq.exhaust === 'flame') {
-        if (input.throttle && Math.random() < 0.08) for (let k = 0; k < 4; k++) spawn(tmpV.x, tmpV.y, tmpV.z, -fx * 6 + (Math.random() - .5), Math.random(), -fz * 6 + (Math.random() - .5), 0.18, 0.5, k % 2 ? 0xf2c14e : 0xf05a35, 0.6);
+      const xd = DL.EXHAUST[eq.exhaust] || DL.EXHAUST.smoke;
+      if (xd.k === 'flame') {
+        if (input.throttle && Math.random() < 0.08) for (let k = 0; k < 4; k++) spawn(tmpV.x, tmpV.y, tmpV.z, -fx * 6 + (Math.random() - .5), Math.random(), -fz * 6 + (Math.random() - .5), 0.18, 0.5, xd.c[k % 2], 0.6);
       } else if (Math.random() < (input.throttle ? 0.6 : 0.15)) {
-        spawn(tmpV.x, tmpV.y, tmpV.z, -fx * 2 + (Math.random() - .5) * .5, 0.5, -fz * 2 + (Math.random() - .5) * .5, 0.8, 0.45, eq.exhaust === 'coral' ? 0xf7a072 : 0xf2efe8, 2.2);
+        spawn(tmpV.x, tmpV.y, tmpV.z, -fx * 2 + (Math.random() - .5) * .5, 0.5, -fz * 2 + (Math.random() - .5) * .5, 0.8, 0.45, xd.c[Math.random() < 0.5 ? 0 : 1], 2.2);
       }
     }
     // trail ribbon
