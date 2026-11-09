@@ -266,8 +266,9 @@
   function buildWheel(spec, style) {
     const g = new THREE.Group();
     const r = spec.wr * (style === 'knobby' ? 1.1 : 1);
-    const tire = new THREE.Mesh(new THREE.CylinderGeometry(r, r, 0.34, style === 'knobby' ? 8 : 10), sharedMat('tire', () => new THREE.MeshLambertMaterial({ color: 0x1b1e24, flatShading: true })));
-    tire.rotation.z = Math.PI / 2; g.add(tire);
+    const tire = new THREE.Mesh(new THREE.CylinderGeometry(r, r, 0.34, style === 'knobby' ? 12 : 16), sharedMat('tire', () => new THREE.MeshLambertMaterial({ color: 0x1b1e24, flatShading: true })));
+    tire.rotation.z = Math.PI / 2; tire.frustumCulled = false; tire.geometry = tire.geometry.clone(); g.add(tire);
+    g.userData.tire = tire; g.userData.orig = Float32Array.from(tire.geometry.attributes.position.array); g.userData.r = r;
     const rimCol = style === 'gold' ? 0xd9a441 : style === 'dish' ? 0xf4ecdc : style === 'spoke' ? 0xb5bfcb : 0x7c8a9e;
     const rimMat = sharedMat('rim' + style, () => new THREE.MeshStandardMaterial({ color: rimCol, roughness: style === 'gold' ? 0.3 : 0.6, metalness: style === 'gold' ? 0.7 : 0.2, flatShading: true }));
     const rr = r * (style === 'dish' ? 0.78 : 0.62);
@@ -285,6 +286,26 @@
   }
 
 
+  // Tyre deformation: the tyre keeps its shape in the car's frame while it spins, so the flat contact patch and the sidewall bulge
+  // are applied in that frame and mapped back into the spinning tyre mesh. c = compression 0..0.3 of the tyre radius.
+  function deformTire(w, c, spin) {
+    const g = w.wheel.userData, pos = g.tire.geometry.attributes.position, o = g.orig, r = g.r, flat = r * (1 - c), cs = Math.cos(spin), sn = Math.sin(spin), a = pos.array;
+    for (let i = 0; i < o.length; i += 3) {
+      const X0 = -o[i + 1], Y0 = o[i], Z0 = o[i + 2];
+      let Y = Y0 * cs - Z0 * sn, Z = Y0 * sn + Z0 * cs, X = X0;
+      if (c > 0.002) {
+        if (Y < -flat) { Y = -flat; Z *= 1 + c * 1.6; }                                   // flat contact patch, a little longer
+        const wb = Math.min(1, Math.max(0, (-Y / r - 0.25) / 0.75));
+        X *= 1 + c * 1.1 * wb * wb;                                                      // sidewall bulges out near the ground
+        Z *= 1 + c * 0.35 * wb;
+      }
+      const Yb = Y * cs + Z * sn, Zb = -Y * sn + Z * cs;
+      a[i] = Yb; a[i + 1] = -X; a[i + 2] = Zb;
+    }
+    pos.needsUpdate = true;
+    w.pivot.position.y = w.baseY - r * c * 0.95;                                         // keep the tread on the ground as it squashes
+  }
+
   // Signature parts so each car reads as a different machine, not just a different outline.
   function addFeatures(F) {
     const { body, spec, bodyMat, extraMat, headMat, tailMat, glassMat, glassSolid, frontZ, rearZ, roofY, lightY, deckY, ghost } = F;
@@ -300,14 +321,13 @@
     const f = spec.feat;
     // real tailpipes on every paid car (the free starter keeps a plain rear). Pipe x matches the smoke emitter in userData.exhaust
     if (spec.price > 0) {
-      const EX = { comet: { n: 2, r: 0.13 }, vintage: { n: 2, r: 0.1 }, rallye: { n: 1, r: 0.14 }, ridge: { n: 1, r: 0.15 }, mule: { n: 1, r: 0.13 }, bubble: { n: 1, r: 0.09 }, loaf: { n: 1, r: 0.12 } }[f] || { n: 1, r: 0.11 };
-      const py = spec.lower[0][1] + 0.02, xs = EX.n === 2 ? [-1, 1] : [1], r = EX.r;
+      const EX = { comet: { n: 2, r: 0.058 }, vintage: { n: 2, r: 0.05 }, rallye: { n: 1, r: 0.07 }, ridge: { n: 1, r: 0.075 }, mule: { n: 1, r: 0.068 }, bubble: { n: 1, r: 0.04 }, loaf: { n: 1, r: 0.06 } }[f] || { n: 1, r: 0.055 };
+      const r = EX.r, py = spec.lower[0][1] + r * 0.9, xs = EX.n === 2 ? [-1, 1] : [1];
       xs.forEach(sx => {
         const px = sx * W * 0.28;
-        cy(r, 0.55, px, py, rearZ - 0.02, chrome, 'z', 14);                          // pipe sticking out past the bumper
-        cy(r * 1.3, 0.07, px, py, rearZ - 0.3, chrome, 'z', 14);                     // rolled tip
-        cy(r * 0.75, 0.08, px, py, rearZ - 0.32, dark, 'z', 14);                     // dark opening
-        bx(0.07, 0.07, 0.35, px, py + r + 0.05, rearZ + 0.1, dark);                  // hanger up into the body
+        cy(r, 0.4, px, py, rearZ + 0.0, chrome, 'z', 12);                              // pipe, tucked up under the rear valance
+        cy(r * 1.18, 0.035, px, py, rearZ - 0.18, chrome, 'z', 12);                    // thin rolled lip
+        cy(r * 0.8, 0.04, px, py, rearZ - 0.19, dark, 'z', 12);                        // dark bore
       });
     }
     if (f === 'comet') {
@@ -410,6 +430,8 @@
       : sharedMat('glass18', () => new THREE.MeshStandardMaterial({ color: 0x2b3d58, roughness: 0.08, metalness: 0.45, flatShading: true, transparent: true, opacity: 0.4, depthWrite: false }));
     const glass = new THREE.Mesh(split.glass, glassMat); glass.castShadow = false; glass.renderOrder = 3; body.add(glass);
     const extraMat = opts.ghost ? glassMat : sharedMat('trim', () => new THREE.MeshLambertMaterial({ color: 0x1f2a3d, flatShading: true }));
+    // solid paint for add-on bodywork (wings, bed rails): box UVs would smear the livery texture across them
+    const paintMat = opts.ghost ? glassMat : new THREE.MeshStandardMaterial({ color: new THREE.Color(DL.PALETTE[opts.base == null ? DL.DEFAULT_BASE : opts.base]), flatShading: true, roughness: fin.roughness, metalness: fin.metalness });
     let frameMat = null;
     if (!opts.ghost) {
       const intMesh = new THREE.Mesh(interiorGeo(spec, spec.paintCabin ? null : split.roof, prof, knob), sharedMat('interior', () => new THREE.MeshLambertMaterial({ vertexColors: true, flatShading: true })));
@@ -430,8 +452,8 @@
       });
     }
     if (spec.bed) {
-      [-1, 1].forEach(s => { const r = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.35, 1.3), bodyMat); r.position.set(s * (spec.W / 2 - 0.02), 1.45, -1.55); body.add(r); });
-      const tg = new THREE.Mesh(new THREE.BoxGeometry(spec.W, 0.35, 0.1), bodyMat); tg.position.set(0, 1.45, -2.2); body.add(tg);
+      [-1, 1].forEach(s => { const r = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.35, 1.3), paintMat); r.position.set(s * (spec.W / 2 - 0.02), 1.45, -1.55); body.add(r); });
+      const tg = new THREE.Mesh(new THREE.BoxGeometry(spec.W, 0.35, 0.1), paintMat); tg.position.set(0, 1.45, -2.2); body.add(tg);
     }
 
     // lights
@@ -444,23 +466,45 @@
       const t = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.14, 0.08), tailMat); t.position.set(s * spec.W * 0.33, lightY + 0.05, rearZ - 0.08); body.add(t);
     });
 
+    // top of the hull (body + cabin + roof gear) at a given z, so add-ons sit on it instead of cutting through it
+    const hullTop = z => {
+      let top = -1e9;
+      for (const poly of [prof, spec.cabin]) for (let k = 0; k < poly.length; k++) { const a = poly[k], b = poly[(k + 1) % poly.length]; if ((a[0] - z) * (b[0] - z) <= 0 && a[0] !== b[0]) top = Math.max(top, a[1] + (b[1] - a[1]) * (z - a[0]) / (b[0] - a[0])); }
+      if (spec.bed && z > -2.3 && z < -0.85) top = Math.max(top, 1.64);
+      if (spec.feat === 'mule' && z > -2.2 && z < 1.8) top = Math.max(top, roofYc + 0.22);
+      if (spec.feat === 'loaf' && z > -1.9 && z < 1.7) top = Math.max(top, roofYc + 0.1);
+      if (spec.feat === 'vintage' && z > rearZ + 0.1 && z < rearZ + 0.6) top = Math.max(top, deckY + 0.58);        // tail-light bars
+      if (spec.feat === 'ridge' && z > -2.12 && z < -1.88) top = Math.max(top, 2.28);                           // roll bar
+      if (spec.feat === 'ridge' && z > -2.06 && z < -1.04) top = Math.max(top, 2.3);                            // spare wheel
+      if (spec.feat === 'bubble' && z > rearZ + 0.02 && z < rearZ + 0.58) top = Math.max(top, 1.17);            // engine hump
+      return top;
+    };
+    const roofYc = Math.max(...spec.cabin.map(p => p[1]));
+    const hullTopCabin = z => { let t = -1e9; const c = spec.cabin; for (let k = 0; k < c.length; k++) { const a = c[k], b = c[(k + 1) % c.length]; if ((a[0] - z) * (b[0] - z) <= 0 && a[0] !== b[0]) t = Math.max(t, a[1] + (b[1] - a[1]) * (z - a[0]) / (b[0] - a[0])); } return t; };
     // accessories
     const topRear = spec.cabin.reduce((a, p) => p[0] < a[0] ? p : a, [9, 0]);
     const roofY = Math.max(...spec.cabin.map(p => p[1]));
     const deckY = spec.lower.reduce((m, p) => p[0] < rearZ + 0.6 ? Math.max(m, p[1]) : m, 0);
     if (equip.spoiler === 'lip') {
-      const m = new THREE.Mesh(new THREE.BoxGeometry(spec.W * 0.9, 0.08, 0.35), bodyMat); m.position.set(0, deckY + 0.08, rearZ + 0.2); m.rotation.x = -0.25; body.add(m);
+      const zc = rearZ + 0.2, top = Math.max(hullTop(zc - 0.15), hullTop(zc + 0.15), hullTop(zc));
+      const m = new THREE.Mesh(new THREE.BoxGeometry(spec.W * 0.9, 0.08, 0.35), paintMat); m.position.set(0, top + 0.05, zc); m.rotation.x = -0.22; m.castShadow = !opts.ghost; body.add(m);
     } else if (equip.spoiler === 'ducktail') {
-      const m = new THREE.Mesh(new THREE.BoxGeometry(spec.W * 0.95, 0.18, 0.5), bodyMat); m.position.set(0, deckY + 0.1, rearZ + 0.25); m.rotation.x = -0.45; body.add(m);
+      const zc = rearZ + 0.26, top = Math.max(hullTop(zc - 0.22), hullTop(zc + 0.22), hullTop(zc));
+      const m = new THREE.Mesh(new THREE.BoxGeometry(spec.W * 0.95, 0.14, 0.5), paintMat); m.position.set(0, top + 0.1, zc); m.rotation.x = -0.4; m.castShadow = !opts.ghost; body.add(m);
     } else if (equip.spoiler === 'wing') {
-      [-1, 1].forEach(s => { const st = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.45, 0.2), extraMat); st.position.set(s * spec.W * 0.3, deckY + 0.25, rearZ + 0.3); body.add(st); });
-      const w = new THREE.Mesh(new THREE.BoxGeometry(spec.W * 1.02, 0.07, 0.55), bodyMat); w.position.set(0, deckY + 0.5, rearZ + 0.25); w.rotation.x = 0.12; body.add(w);
-      [-1, 1].forEach(s => { const e = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.25, 0.6), extraMat); e.position.set(s * spec.W * 0.51, deckY + 0.5, rearZ + 0.25); body.add(e); });
+      const zc = rearZ + 0.2, sx = spec.feat === 'loaf' ? 0.42 : spec.feat === 'vintage' ? 0.26 : 0.33, ww = spec.feat === 'vintage' ? 0.7 : 0.96;
+      let top = -1e9; for (let k = -2; k <= 2; k++) top = Math.max(top, hullTop(zc + k * 0.13));
+      const baseUnder = hullTop(zc) - 0.05, wingY = top + 0.34;
+      [-1, 1].forEach(sd => { const h = wingY - baseUnder; const st = new THREE.Mesh(new THREE.BoxGeometry(0.07, h, 0.2), extraMat); st.position.set(sd * spec.W * sx, baseUnder + h / 2, zc); st.castShadow = !opts.ghost; body.add(st); });
+      const w = new THREE.Mesh(new THREE.BoxGeometry(spec.W * ww, 0.06, 0.52), paintMat); w.position.set(0, wingY, zc - 0.02); w.rotation.x = 0.1; w.castShadow = !opts.ghost; body.add(w);
+      [-1, 1].forEach(sd => { const e = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.24, 0.6), extraMat); e.position.set(sd * spec.W * ww / 2, wingY + 0.06, zc - 0.02); e.castShadow = !opts.ghost; body.add(e); });
     } else if (equip.spoiler === 'rack') {
-      const zc = spec.cabin.reduce((a, p) => a + p[0], 0) / spec.cabin.length;
-      [-1, 1].forEach(s => { const r = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.08, 1.4), extraMat); r.position.set(s * spec.W * spec.cw * 0.42, roofY + 0.12, zc); body.add(r); });
-      const box = new THREE.Mesh(new THREE.BoxGeometry(spec.W * spec.cw * 0.7, 0.32, 0.9), sharedMat('cargo', () => new THREE.MeshLambertMaterial({ color: 0xc9ad7f, flatShading: true })));
-      box.position.set(0, roofY + 0.32, zc); body.add(box);
+      // flat part of the roof: where the cabin is within a few cm of its highest point
+      let z0 = 1e9, z1 = -1e9; for (let z = -3; z <= 3; z += 0.05) if (hullTopCabin(z) >= roofY - 0.06) { z0 = Math.min(z0, z); z1 = Math.max(z1, z); }
+      const span = Math.max(0.6, z1 - z0 - 0.3), len = Math.min(1.5, span), zc = (z0 + z1) / 2;
+      [-1, 1].forEach(sd => { const r = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.1, len), extraMat); r.position.set(sd * spec.W * spec.cw * 0.4, roofY + 0.08, zc); r.castShadow = !opts.ghost; body.add(r); });
+      const box = new THREE.Mesh(new THREE.BoxGeometry(spec.W * spec.cw * 0.66, 0.3, len * 0.8), sharedMat('cargo', () => new THREE.MeshLambertMaterial({ color: 0xc9ad7f, flatShading: true })));
+      box.position.set(0, roofY + 0.28, zc); box.castShadow = !opts.ghost; body.add(box);
     }
     if (equip.bumper === 'bullbar') {
       const bm = extraMat;
@@ -485,16 +529,17 @@
       if (opts.ghost) w.traverse(o => { if (o.material) { o.material = glassMat; } });
       else w.traverse(o => { if (o.isMesh) o.castShadow = true; });
       pivot.add(w); body.add(pivot);
-      wheels.push({ pivot, wheel: w, front: z > 0 });
+      wheels.push({ pivot, wheel: w, front: z > 0, side: s, baseY: pivot.position.y, c: 0.07, v: 0 });
     }
+    if (!opts.ghost) wheels.forEach(w => deformTire(w, w.c, 0));
     const lift = equip.wheels === 'knobby' ? spec.wr * 0.1 : 0;
     body.position.y = lift;
 
     root.userData = {
       spec, equip, body, bodyMesh, wheels, tailMat, canvas, tex, bodyMat,
-      exhaust: new THREE.Vector3(spec.W * 0.28, spec.lower[0][1] + 0.12, rearZ - 0.1),
+      exhaust: new THREE.Vector3(spec.W * 0.28, spec.lower[0][1] + 0.08, rearZ - 0.2), paintMat, deform: !opts.ghost,
       rearZ, frontZ, roofY,
-      setLivery(liv, base) { DL.drawLiveryCanvas(canvas, liv, base); tex.needsUpdate = true; if (frameMat) frameMat.color.set(DL.PALETTE[base == null ? DL.DEFAULT_BASE : base]); },
+      setLivery(liv, base) { DL.drawLiveryCanvas(canvas, liv, base); if (paintMat.color) paintMat.color.set(DL.PALETTE[base == null ? DL.DEFAULT_BASE : base]); tex.needsUpdate = true; if (frameMat) frameMat.color.set(DL.PALETTE[base == null ? DL.DEFAULT_BASE : base]); },
       dispose() { root.traverse(o => { if (o.geometry) o.geometry.dispose(); }); tex.dispose(); bodyMat.dispose(); }
     };
     return root;
@@ -507,9 +552,16 @@
     const u = model.userData;
     u.body.rotation.order = 'YXZ';
     u.body.rotation.x = pitch; u.body.rotation.z = roll;
+    // tyre load: braking/accel pitch, cornering roll, and landings/bumps (sudden change of vertical speed)
+    const dy = u.py == null ? 0 : y - u.py, impact = DL.clamp(dy - (u.pdy || 0), 0, 0.5); u.py = y; u.pdy = dy;
     for (const w of u.wheels) {
       if (w.front) w.pivot.rotation.y = -steer * 0.45;
       w.wheel.rotation.x = spin || 0;
+      if (u.deform) {
+        const T = DL.clamp(0.07 + (w.front ? 1 : -1) * pitch * 1.8 + (w.side < 0 ? 1 : -1) * roll * 1.8, 0, 0.26);
+        w.v += (T - w.c) * 0.4 + impact * 0.9; w.v *= 0.72; w.c = DL.clamp(w.c + w.v, 0, 0.3);
+        deformTire(w, w.c, spin || 0);
+      }
     }
     if (u.tailMat && u.tailMat.emissiveIntensity !== undefined) u.tailMat.emissiveIntensity = brake ? 1.4 : 0.15;
   };
