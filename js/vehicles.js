@@ -599,7 +599,7 @@
     model.rotation.set(0, yaw, 0);
     const u = model.userData;
     if (u.ufo) {
-      const t = performance.now() / 1000, hv = 0.95 + Math.sin(t * 2.2) * 0.06;
+      const t = DL.vehTime != null ? DL.vehTime : performance.now() / 1000, hv = 0.95 + Math.sin(t * 2.2) * 0.06;
       u.body.position.y = hv; u.ufoRing.emissiveIntensity = 1.5 + Math.sin(t * 5) * 0.5; u.ufoSpin.rotation.y = t * 1.6;
       // keep the light pool on the road: it follows the hover height, and the cone stretches to meet it
       u.ufoPool.position.y = -hv + 0.04; u.ufoPool.scale.setScalar(0.95 + Math.sin(t * 3) * 0.05);

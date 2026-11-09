@@ -858,6 +858,7 @@
       updateReplay(dt);
       setOffset(camera, 'none');
       sun.position.set(race.car.x + 60, race.car.y + 110, race.car.z + 40); sun.target.position.set(race.car.x, race.car.y, race.car.z);
+      if (Game.camHook) Game.camHook(camera, race, scene);
       renderer.render(scene, camera);
       if (Game.onReplayFrame) Game.onReplayFrame(renderer.domElement);
       if (Game.photoReq) { Game.photoReq = false; renderer.domElement.toBlob(b => { if (!b) return; const a = document.createElement('a'); a.href = URL.createObjectURL(b); a.download = 'dayline-photo.png'; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 4000); DL.UI.toast && DL.UI.toast('Photo saved'); }, 'image/png'); }

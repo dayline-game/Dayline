@@ -516,7 +516,7 @@
   cv.addEventListener('pointermove', e => {
     const [px, pz] = evPos(e), V = EV(); ed.lastMove = Date.now();
     if (!drag) { if (ed.tab === 'terr' || ed.tab === 'props') { ed.ptr = [px, pz]; if (!ed.hitQ) ed.hitQ = requestAnimationFrame(() => { ed.hitQ = 0; ed.hit = ed.ptr ? rayHit(ed.ptr[0], ed.ptr[1]) : null; }); } return; }
-    if (drag.kind === 'pt') { const w = rayHit(px, pz); if (w) { ed.pts[drag.i] = inMap(w); drag.moved = true; changed(true, 'layout'); } }
+    if (drag.kind === 'pt') { const w = rayHit(px, pz); if (w) { ed.pts[drag.i] = inMap([w[0], w[2]]); drag.moved = true; changed(true, 'layout'); } }
     else if (drag.kind === 'elev') { const E = ed.ext; E.elev[drag.i] = Math.round(DL.clamp(drag.h0 + (drag.y - pz) * drag.mpp, DL.EXT_LIM.ELEV_MIN, DL.EXT_LIM.ELEV_MAX)); drag.moved = true; changed(true, 'terrain'); const hs = $('edHeight'); if (hs) { hs.value = E.elev[drag.i]; $('edHeightV').textContent = E.elev[drag.i] + ' m'; hs.disabled = false; } }
     else if (drag.kind === 'paint') { applyPaint(px, pz); }
     else if (drag.kind === 'orbit' || (drag.kind === 'click' && Math.hypot(px - drag.x, pz - drag.z) > 5 && false)) { V.th = drag.th - (px - drag.x) * 0.006; V.ph = DL.clamp(drag.ph + (pz - drag.z) * 0.006, 0.3, 1.5); drag.moved = true; }
