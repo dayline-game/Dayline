@@ -555,8 +555,12 @@
         else if (e.code === 'KeyG') Game.toggleGhosts();
         else if (e.code === 'Escape' || e.code === 'KeyP') { if (race.finished) return; Game.togglePause(); }
         else if (e.code === 'Enter' && race.finished) Game.restart();
-      } else if (e.code === 'Escape') DL.UI.back();
+      } else if (mode === 'replay' && (e.code === 'KeyH' || e.code === 'KeyF')) {
+        if (e.code === 'KeyH') { const rp = document.getElementById('replay'); rp.style.visibility = rp.style.visibility === 'hidden' ? '' : 'hidden'; }
+        else Game.photoReq = true;
+      } else if (e.code === 'Escape') { const rp = document.getElementById('replay'); if (rp) rp.style.visibility = ''; DL.UI.back(); }
     });
+    { const pb = document.getElementById('rpPhoto'); if (pb) pb.onclick = () => { Game.photoReq = true; }; }
     window.addEventListener('keyup', e => { keys[e.code] = false; });
     window.addEventListener('blur', () => { for (const k in keys) keys[k] = false; });
     // touch buttons
@@ -856,6 +860,7 @@
       sun.position.set(race.car.x + 60, race.car.y + 110, race.car.z + 40); sun.target.position.set(race.car.x, race.car.y, race.car.z);
       renderer.render(scene, camera);
       if (Game.onReplayFrame) Game.onReplayFrame(renderer.domElement);
+      if (Game.photoReq) { Game.photoReq = false; renderer.domElement.toBlob(b => { if (!b) return; const a = document.createElement('a'); a.href = URL.createObjectURL(b); a.download = 'dayline-photo.png'; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 4000); DL.UI.toast && DL.UI.toast('Photo saved'); }, 'image/png'); }
     } else if (mode === 'garage' || mode === 'shop') {
       if (orbit.auto) orbit.theta += dt * 0.18;
       const cy = 0.9;
