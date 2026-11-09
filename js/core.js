@@ -80,6 +80,9 @@ window.DL = window.DL || {};
 
   // ---------- patch notes (major releases only, newest first) ----------
   DL.PATCHES = [
+    { v: '2.1', date: 'November 2026', title: 'Built for Phones', art: 'community',
+      lead: 'Dayline now plays properly on your phone, full screen.',
+      items: ['Full screen when you race (Android and tablets), with a full screen button in the top bar', 'iPhone: add Dayline to your home screen and it opens full screen like an app', 'New touch controls: bigger buttons, slide your thumbs between them without lifting', 'Three steering styles: left/right buttons, smooth thumb slide, or tilt the phone', 'Options for auto accelerate, button size, swapping sides and vibration', 'A back-on-track button, and the race pauses if you leave the app', 'Menus, garage and leaderboards fit phone screens, upright or sideways', 'Wider view when you play upright', 'Smoother frame rate: the game lowers its resolution a little when your phone struggles', 'Track creator: two fingers to move, pinch to zoom, twist to turn'] },
     { v: '2.0', date: 'November 2026', title: 'The BIG Update', art: 'community',
       lead: 'Race together, win a UFO, and a lot more.',
       items: ['Live rooms: share a 4-letter code and race the daily or any community map together, no countdown, endless laps', 'Weekly Cup: the winner drives a floating, wheel-less UFO for the whole week', 'Community: likes, Trending and Most liked tabs, Creator of the Week, six track templates', 'Friends and weekly leaderboards, invite links with coin rewards, shareable liveries', 'Daily weather, gear-shift and exhaust sounds, photo mode in replays', 'Streak freezes and new streak rewards, colour-blind mode and a camera-shake slider', 'New cosmetics: number plates with your own text, and window tints', 'Rebuilt track creator: drag points and heights in 3D, place your own ramps and mud, snow or sand, mirror, rotate and scale, redo, much smoother editing'] },
@@ -287,4 +290,6 @@ window.DL = window.DL || {};
     coin() { this.beep(988, 0.08, 'square', 0.06); setTimeout(() => this.beep(1319, 0.18, 'square', 0.06), 70); }
   };
 
+  // phones and tablets: a coarse pointer or touch support, ignoring touch laptops that also have a mouse
+  DL.isTouch = () => matchMedia('(pointer:coarse)').matches || (('ontouchstart' in window) && !matchMedia('(pointer:fine)').matches);
 })(window.DL);

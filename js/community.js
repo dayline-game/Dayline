@@ -667,9 +667,10 @@
   let drag = null;
   const evPos = e => [e.clientX, e.clientY];
   const wpScreen = i => { const p = ed.pts[i]; return proj(p[0], wpY(i) + 6, p[1]); };
-  const hitPoint = (px, pz) => { let best = -1, bd = 26; ed.pts.forEach((p, i) => { const q = wpScreen(i), d = Math.hypot(q[0] - px, q[1] - pz); if (q[2] && d < bd) { bd = d; best = i; } }); return best; };
-  const hitArrow = (px, pz) => { if (ed.sel < 0) return false; const a = arrowPos(ed.sel); return a && Math.hypot(a[0] - px, a[1] - pz) < 18; };
-  const hitFeat = (px, pz) => { let best = null, bd = 18; (ed.fmark || []).forEach(m => { const d = Math.hypot(m.p[0] - px, m.p[1] - pz); if (d < bd) { bd = d; best = m; } }); return best; };
+  const TR = () => DL.isTouch() ? 1.6 : 1;   // fingers are fatter than cursors
+  const hitPoint = (px, pz) => { let best = -1, bd = 26 * TR(); ed.pts.forEach((p, i) => { const q = wpScreen(i), d = Math.hypot(q[0] - px, q[1] - pz); if (q[2] && d < bd) { bd = d; best = i; } }); return best; };
+  const hitArrow = (px, pz) => { if (ed.sel < 0) return false; const a = arrowPos(ed.sel); return a && Math.hypot(a[0] - px, a[1] - pz) < 18 * TR(); };
+  const hitFeat = (px, pz) => { let best = null, bd = 18 * TR(); (ed.fmark || []).forEach(m => { const d = Math.hypot(m.p[0] - px, m.p[1] - pz); if (d < bd) { bd = d; best = m; } }); return best; };
   // nearest road sample to the cursor, on screen
   function hitRoad(px, pz, maxPx) {
     const R = road(); if (!R) return -1; let best = -1, bd = maxPx || 22;
@@ -715,7 +716,27 @@
     }
     featEdited(); renderTabs();
   }
+  // touch: two fingers pan, pinch to zoom and twist to turn the view; a stray first-finger edit is cancelled
+  const tps = new Map();
+  function gestState() {
+    const [a, b] = [...tps.values()]; return { mx: (a[0] + b[0]) / 2, my: (a[1] + b[1]) / 2, d: Math.max(20, Math.hypot(a[0] - b[0], a[1] - b[1])), ang: Math.atan2(b[1] - a[1], b[0] - a[0]) };
+  }
+  function startGest() {
+    if (drag) {
+      const d = drag;
+      if ((d.kind === 'pt' || d.kind === 'elev' || d.kind === 'feat' || d.kind === 'paint') && ed.hist.length) { const prev = ed.hist.pop(); if (d.moved) restore(prev); }
+    }
+    const c = CT(), g = gestState();
+    drag = { kind: 'gest', g0: g, x: g.mx, z: g.my, th: c.th, ph: c.ph, tx: c.tx, tz: c.tz, dist: c.dist, moved: true }; ed.camDrag = true;
+  }
+  function moveGest() {
+    const c = CT(), g = gestState(), d = drag;
+    c.dist = DL.clamp(d.dist * d.g0.d / g.d, 40, 4200);
+    c.th = d.th - (g.ang - d.g0.ang);
+    panTo(d, g.mx, g.my);
+  }
   cv.addEventListener('pointerdown', e => {
+    if (e.pointerType === 'touch') { tps.set(e.pointerId, [e.clientX, e.clientY]); if (tps.size === 2) { cv.setPointerCapture(e.pointerId); startGest(); return; } if (tps.size > 2) return; }
     cv.setPointerCapture(e.pointerId); const [px, pz] = evPos(e), c = CT();
     const left = e.button === 0, camBtn = e.button === 2 || e.button === 1 || (left && (ed.cam || e.altKey || e.ctrlKey || e.metaKey || ed.space));
     if (camBtn) { drag = { kind: (e.shiftKey || ed.cam === 'pan' || e.button === 1 || ed.space) ? 'pan' : 'orbit', x: px, z: pz, th: c.th, ph: c.ph, tx: c.tx, tz: c.tz, moved: false }; ed.camDrag = true; return; }
@@ -739,6 +760,7 @@
   function panTo(d, px, pz) { const c = CT(), v = EV(), k = v.dist * 0.0012, cs = Math.cos(c.th), sn = Math.sin(c.th), dx = px - d.x, dz = pz - d.z; c.tx = d.tx - dx * k * cs - dz * k * sn; c.tz = d.tz + dx * k * sn - dz * k * cs; c.ty = gY(c.tx, c.tz); v.tx = c.tx; v.tz = c.tz; }
   let hoverQ = 0;
   cv.addEventListener('pointermove', e => {
+    if (e.pointerType === 'touch' && tps.has(e.pointerId)) { tps.set(e.pointerId, [e.clientX, e.clientY]); if (drag && drag.kind === 'gest') { if (tps.size >= 2) moveGest(); return; } }
     const [px, pz] = evPos(e), c = CT(); ed.lastMove = Date.now();
     if (!drag) {
       if (ed.tab === 'terr' || ed.tab === 'props') { ed.ptr = [px, pz]; if (!ed.hitQ) ed.hitQ = requestAnimationFrame(() => { ed.hitQ = 0; ed.hit = ed.ptr ? rayHit(ed.ptr[0], ed.ptr[1]) : null; }); }
@@ -760,6 +782,8 @@
     else if (drag.kind === 'click') { if (Math.hypot(px - drag.x, pz - drag.z) > 5) { drag.moved = true; ed.camDrag = true; panTo(drag, px, pz); } }
   });
   const onUp = e => {
+    if (e.pointerType === 'touch') { tps.delete(e.pointerId); if (drag && drag.kind === 'gest') { if (tps.size < 2) { drag = tps.size ? { kind: 'gestEnd' } : null; ed.camDrag = false; } return; } }
+    if (drag && drag.kind === 'gestEnd') { drag = null; return; }
     if (!drag) return; const d = drag; drag = null; ed.camDrag = false; const [px, pz] = evPos(e);
     if (d.kind === 'pt' || d.kind === 'elev' || d.kind === 'feat') { if (!d.moved) ed.hist.pop(); else { changed(); rebuild(true); } if (d.kind === 'feat') ed.ext.ramps && ed.ext.ramps.sort((a, b) => a[0] - b[0]); renderTabs(); return; }
     if (d.kind === 'paint') { if (!d.dirty) ed.hist.pop(); changed(false); renderTabs(); rebuild(true); return; }
@@ -778,7 +802,7 @@
   };
   cv.addEventListener('pointerup', onUp);
   // a drag must never get stuck (lost pointer, released over the panel or outside the window)
-  const abort = () => { if (!drag) return; const d = drag; drag = null; ed.camDrag = false; if (d.kind === 'pt' || d.kind === 'elev' || d.kind === 'paint' || d.kind === 'feat') { changed(false); rebuild(true); } };
+  const abort = e => { if (e && e.pointerId != null) tps.delete(e.pointerId); if (!drag) return; if (drag.kind === 'gest' || drag.kind === 'gestEnd') { if (!tps.size) { drag = null; ed.camDrag = false; } return; } const d = drag; drag = null; ed.camDrag = false; if (d.kind === 'pt' || d.kind === 'elev' || d.kind === 'paint' || d.kind === 'feat') { changed(false); rebuild(true); } };
   cv.addEventListener('pointercancel', abort); cv.addEventListener('lostpointercapture', abort); window.addEventListener('blur', abort);
   window.addEventListener('pointerup', e => { if (drag && e.target !== cv) abort(); });
   cv.addEventListener('pointerleave', () => { ed.hit = null; ed.ptr = null; ed.hover = null; });

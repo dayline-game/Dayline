@@ -1,4 +1,16 @@
+<!doctype html>
+<html lang="en">
+<head>
 <meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Dayline">
+<meta name="format-detection" content="telephone=no">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-180.png">
 <title>Dayline — a new 3D racing time-trial every day</title>
 <meta name="description" content="A new 3D time-trial every day, the same for everyone. Chase the leaderboard, race ghosts and paint your own car. Free, in your browser.">
 <meta name="theme-color" content="#1c2536">
@@ -13,7 +25,6 @@
 <meta name="twitter:description" content="A new 3D time-trial every day. Chase the leaderboard, race ghosts and paint your own car.">
 <meta name="twitter:image" content="https://dayline-game.github.io/Dayline/cover.png">
 
-<meta name="claude:viewport-fit-sides" content="cover">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700;800;900&family=Barlow:wght@400;500;600;700&display=swap">
 <style>
@@ -436,6 +447,98 @@ body.cb .sp.up em::before{content:'▼ ';} body.cb .sp.down em::before{content:'
 #rmHud div{display:grid;grid-template-columns:16px 1fr auto;gap:6px}
 #rmHud .me{color:#ffb199}
 
+
+/* ================= phones & tablets ================= */
+html,body{overscroll-behavior:none;}
+body{-webkit-text-size-adjust:100%;text-size-adjust:100%;}
+input,select,textarea{font-size:16px;} /* stops iOS zooming into fields */
+@media (pointer:coarse){
+  .keys{display:none!important;}
+  .btn-sm{min-height:40px;}
+  .tab{min-height:40px;}
+  .chk{min-height:36px;min-width:56px;}
+  select{min-height:38px;}
+}
+/* touch pads */
+#touch{position:absolute;inset:0;height:auto;display:none;pointer-events:none;padding:0;}
+#touch.on{display:block;}
+.tpad{position:absolute;bottom:calc(14px + env(safe-area-inset-bottom,0px));pointer-events:auto;touch-action:none;-webkit-touch-callout:none;}
+.tpad b{display:grid;place-items:center;border-radius:22px;background:rgba(243,234,215,.5);border:2px solid rgba(28,37,54,.5);font-family:var(--f-display);font-weight:800;font-size:calc(19px * var(--tscale,1));letter-spacing:.08em;text-transform:uppercase;color:var(--navy);transition:transform .06s,background .08s;-webkit-backdrop-filter:blur(3px);backdrop-filter:blur(3px);}
+#tSteer{left:max(14px,env(safe-area-inset-left,0px));width:calc(260px * var(--tscale,1));height:calc(128px * var(--tscale,1));display:flex;gap:10px;}
+#tSteer b{flex:1;}
+#tSteer b svg{width:46%;max-width:52px;height:auto;fill:none;stroke:var(--navy);stroke-width:3.4;stroke-linecap:round;stroke-linejoin:round;}
+#tSteer.l .tl,#tSteer.r .tr{background:var(--navy);transform:scale(.97);} #tSteer.l .tl svg,#tSteer.r .tr svg{stroke:var(--cream);}
+.tknob,.thint{display:none;}
+body.tslide #tSteer{border-radius:64px;background:rgba(243,234,215,.32);border:2px dashed rgba(28,37,54,.45);}
+body.tslide #tSteer b{display:none;}
+body.tslide .tknob{display:block;position:absolute;left:50%;top:50%;width:78px;height:78px;margin:-39px 0 0 -39px;border-radius:50%;background:var(--navy);border:3px solid var(--cream);box-shadow:0 6px 18px -6px rgba(17,21,29,.6);pointer-events:none;}
+body.tslide .thint{display:block;position:absolute;left:0;right:0;top:-24px;text-align:center;font:700 12px var(--f-display);letter-spacing:.14em;text-transform:uppercase;color:var(--navy);text-shadow:0 1px 0 rgba(243,234,215,.8);pointer-events:none;}
+body.tslide #tSteer.held .thint{opacity:0;}
+body.ttilt #tSteer{display:none;}
+#tPedals{right:max(14px,env(safe-area-inset-right,0px));width:calc(260px * var(--tscale,1));height:calc(150px * var(--tscale,1));display:grid;grid-template-columns:1fr 1.2fr;grid-template-rows:.72fr 1fr;gap:10px;}
+#tPedals .tgas{grid-column:2;grid-row:1/3;background:rgba(240,90,53,.86);border-color:rgba(28,37,54,.6);color:#fff;font-size:calc(24px * var(--tscale,1));}
+#tPedals .tdrift{grid-column:1;grid-row:1;font-size:calc(15px * var(--tscale,1));}
+#tPedals .tbrake{grid-column:1;grid-row:2;}
+#tPedals b.down{background:var(--navy);color:var(--cream);transform:scale(.96);}
+#tPedals .tgas.down{background:var(--coral-dk);color:#fff;}
+body.tswap #tSteer{left:auto;right:max(14px,env(safe-area-inset-right,0px));}
+body.tswap #tPedals{right:auto;left:max(14px,env(safe-area-inset-left,0px));grid-template-columns:1.2fr 1fr;}
+body.tswap #tPedals .tgas{grid-column:1;} body.tswap #tPedals .tdrift,body.tswap #tPedals .tbrake{grid-column:2;}
+.tside{display:none;}
+body.touch .tside{display:flex;flex-direction:column;gap:6px;position:absolute;right:max(14px,env(safe-area-inset-right,0px));top:calc(62px + env(safe-area-inset-top,0px));pointer-events:auto;}
+body.touch #hud .speedo{right:max(20px,env(safe-area-inset-right,0px));bottom:calc(150px * var(--tscale,1) + 26px + env(safe-area-inset-bottom,0px));font-size:42px;}
+body.touch.tswap #hud .speedo{right:auto;left:max(20px,env(safe-area-inset-left,0px));text-align:left;}
+body.touch #hud .speedo small{font-size:11px;}
+body.touch .hud-right{gap:6px;}
+body.touch #hud .icon-btn{width:42px;height:42px;}
+/* phone held upright: two pads share the width, speed sits above them */
+@media (orientation:portrait){
+  #tSteer{width:min(calc(46vw - 10px), calc(230px * var(--tscale,1)));height:calc(118px * var(--tscale,1));}
+  #tPedals{width:min(calc(48vw - 10px), calc(240px * var(--tscale,1)));height:calc(138px * var(--tscale,1));}
+  body.touch #hud .speedo{bottom:calc(138px * var(--tscale,1) + 26px + env(safe-area-inset-bottom,0px));font-size:36px;}
+}
+/* short landscape phones: everything slimmer so the road gets the screen */
+@media (max-height:500px) and (orientation:landscape){
+  .hud-top{top:calc(8px + env(safe-area-inset-top,0px));gap:3px;}
+  .timer{font-size:30px;min-width:150px;padding:2px 12px 0;}
+  .subtimer{font-size:12px;padding:1px 8px;}
+  .delta{font-size:18px;}
+  .hud-left{top:calc(8px + env(safe-area-inset-top,0px));}
+  .hud-left .cpbox{padding:4px 9px;} .hud-left .cpbox b{font-size:20px;}
+  .hud-right{top:calc(8px + env(safe-area-inset-top,0px));}
+  body.touch .tside{top:calc(58px + env(safe-area-inset-top,0px));}
+  .banner{font-size:28px;top:28%;}
+  #tSteer{height:calc(112px * var(--tscale,1));width:calc(240px * var(--tscale,1));}
+  #tPedals{height:calc(132px * var(--tscale,1));width:calc(240px * var(--tscale,1));}
+  body.touch #hud .speedo{font-size:34px;bottom:calc(132px * var(--tscale,1) + 22px + env(safe-area-inset-bottom,0px));}
+  /* menu: a slim column with the race button always in view */
+  #menu{align-items:stretch;padding-block:8px;}
+  #menu .panel{width:min(400px,58vw);padding:14px 16px;gap:10px;max-height:calc(100% - 16px);align-self:center;}
+  .logo h1{font-size:44px;} .logo svg{width:30px;height:30px;}
+  .tagline{display:none;}
+  .dayrow{padding:6px 0;} .dayrow .big,.dayrow .count{font-size:22px;}
+  .btn-go{font-size:22px;padding:10px;}
+  .btn-line{font-size:15px;padding:8px;}
+  .side{padding-block:60px 8px;}
+  .side .panel{height:100%;}
+  .center{padding-block:60px 8px;}
+  #community{padding-block:60px 8px;}
+  .ed-prof{height:104px;} .ed-keys{bottom:112px;}
+  .modal{max-height:calc(100vh - 16px);padding:16px;}
+  .modal h2{font-size:32px;} .res-time{font-size:48px;}
+  #topnav .coins{height:40px;font-size:18px;} #topnav .icon-btn{width:40px;height:40px;}
+}
+#menu #bRace{position:sticky;bottom:0;z-index:2;}
+/* bottom sheets on narrow screens */
+@media (max-width:760px){
+  .modal-bg{align-items:flex-end;padding:0;}
+  .modal{width:100%;max-height:92%;border-radius:18px 18px 0 0;padding:20px 18px calc(18px + env(safe-area-inset-bottom,0px));}
+}
+@media (pointer:coarse){.ed-keys{font-size:11px;max-width:60%;}}
+@media (max-height:500px),(max-width:760px){.modal .btn-row:has(#rRetry){position:sticky;bottom:0;background:var(--cream);padding:8px 0;z-index:2;margin:-8px 0;}}
+#toasts{left:12px;right:12px;transform:none;} .toast{max-width:min(560px,100%);}
+body.racing #toasts{top:calc(96px + env(safe-area-inset-top,0px));bottom:auto;}
+body.fs #navFull{background:var(--cream-2);}
 </style>
 
 <canvas id="gl"></canvas>
@@ -444,7 +547,7 @@ body.cb .sp.up em::before{content:'▼ ';} body.cb .sp.down em::before{content:'
 
 <div id="topnav" hidden>
   <div class="coins" title="Coins"><span class="coin"></span><span id="coinCount" class="num">0</span></div>
-  <button class="icon-btn" id="navSettings" aria-label="Settings"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3.2"/><path d="M12 2.5v3M12 18.5v3M2.5 12h3M18.5 12h3M5.3 5.3l2.1 2.1M16.6 16.6l2.1 2.1M5.3 18.7l2.1-2.1M16.6 7.4l2.1-2.1"/></svg></button>
+  <button class="icon-btn" id="navFull" aria-label="Full screen" title="Full screen" hidden><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9V4h5M15 4h5v5M20 15v5h-5M9 20H4v-5"/></svg></button><button class="icon-btn" id="navSettings" aria-label="Settings"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3.2"/><path d="M12 2.5v3M12 18.5v3M2.5 12h3M18.5 12h3M5.3 5.3l2.1 2.1M16.6 16.6l2.1 2.1M5.3 18.7l2.1-2.1M16.6 7.4l2.1-2.1"/></svg></button>
   <button class="icon-btn" id="navProfile" aria-label="Profile"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6"/></svg></button>
   <button class="icon-btn" id="navShare" aria-label="Community and sharing"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 5h16v11H9l-5 4z"/><circle cx="9" cy="10.5" r="1" fill="currentColor"/><circle cx="15" cy="10.5" r="1" fill="currentColor"/></svg></button>
 </div>
@@ -632,10 +735,11 @@ body.cb .sp.up em::before{content:'▼ ';} body.cb .sp.down em::before{content:'
   </div>
   <div class="banner" id="hBanner">Checkpoint</div>
   <div class="countdown" id="hCount" hidden>3</div>
-  <div id="touch">
-    <button id="tLeft" aria-label="Steer left">◀</button><button id="tRight" aria-label="Steer right">▶</button>
-    <button id="tBrake">Brake</button><button id="tGas">Gas</button><button id="tDrift">Drift</button>
+  <div id="touch" aria-hidden="true">
+    <div class="tpad" id="tSteer"><b class="tl" data-c="left"><svg viewBox="0 0 24 24"><path d="M15 4L7 12l8 8" /></svg></b><b class="tr" data-c="right"><svg viewBox="0 0 24 24"><path d="M9 4l8 8-8 8" /></svg></b><i class="tknob"></i><span class="thint">Slide to steer</span></div>
+    <div class="tpad" id="tPedals"><b class="tbrake" data-c="brake">Brake</b><b class="tdrift" data-c="drift">Drift</b><b class="tgas" data-c="gas">Gas</b></div>
   </div>
+  <div class="tside" id="tSide"><button class="icon-btn" id="tReset" aria-label="Back on track" title="Back on track (R)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v4M12 17v4M3 12h4M17 12h4"/><circle cx="12" cy="12" r="4"/></svg></button><button class="icon-btn" id="tFull" aria-label="Full screen" title="Full screen"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9V4h5M15 4h5v5M20 15v5h-5M9 20H4v-5"/></svg></button></div>
   <div class="speedo"><span id="hSpeed" class="num">0</span><small id="hUnit">km/h</small></div>
 </section>
 
@@ -645,15 +749,16 @@ body.cb .sp.up em::before{content:'▼ ';} body.cb .sp.down em::before{content:'
 <div id="toasts"></div>
 
 <script src="https://cdn.jsdelivr.net/npm/three@0.158.0/build/three.min.js"></script>
-<script src="config.js?v=20261109zg"></script>
-<script src="js/core.js?v=20261109zg"></script>
-<script src="js/track.js?v=20261109zg"></script>
-<script src="js/physics.js?v=20261109zg"></script>
-<script src="js/vehicles.js?v=20261109zg"></script>
-<script src="js/net.js?v=20261109zg"></script>
-<script src="js/auth.js?v=20261109zg"></script>
-<script src="js/game.js?v=20261109zg"></script>
-<script src="js/ui.js?v=20261109zg"></script>
-<script src="js/community.js?v=20261109zg"></script>
-<script src="js/rooms.js?v=20261109zg"></script>
-<script src="js/share.js?v=20261109zg"></script>
+<script src="config.js?v=20261109mb"></script>
+<script src="js/core.js?v=20261109mb"></script>
+<script src="js/track.js?v=20261109mb"></script>
+<script src="js/physics.js?v=20261109mb"></script>
+<script src="js/vehicles.js?v=20261109mb"></script>
+<script src="js/net.js?v=20261109mb"></script>
+<script src="js/auth.js?v=20261109mb"></script>
+<script src="js/game.js?v=20261109mb"></script>
+<script src="js/ui.js?v=20261109mb"></script>
+<script src="js/community.js?v=20261109mb"></script>
+<script src="js/rooms.js?v=20261109mb"></script>
+<script src="js/share.js?v=20261109mb"></script>
+<script src="js/mobile.js?v=20261109mb"></script>

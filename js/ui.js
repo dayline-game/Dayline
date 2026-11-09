@@ -126,6 +126,7 @@
     show('hud');
     const touchOn = Game.settings.touch === 'on' || (Game.settings.touch === 'auto' && (matchMedia('(pointer:coarse)').matches || 'ontouchstart' in window));
     $('touch').classList.toggle('on', touchOn);
+    if (DL.Mobile) DL.Mobile.raceStart();
     Game.startRace(day, ghosts, custom, opts);
   }
   // where Quit / Menu go after a race: the menu, the community page or the editor
@@ -1085,6 +1086,17 @@
       <div class="toggle-row"><label for="sCam">Default camera</label><select id="sCam"><option value="0">Chase</option><option value="1">Far chase</option><option value="2">Bonnet</option><option value="3">Low rally</option><option value="4">Drone</option></select></div>
       <div class="toggle-row"><label for="sUnits">Speed units</label><select id="sUnits"><option value="kmh">km/h</option><option value="mph">mph</option></select></div>
       <div class="toggle-row"><label for="sTouch">Touch controls</label><select id="sTouch"><option value="auto">Automatic</option><option value="on">Always</option><option value="off">Never</option></select></div>
+      <div class="mob-set" id="mobSet">
+        <div class="lbl" style="margin-top:6px">Phone and tablet</div>
+        <div class="toggle-row"><label for="sSteer">Steering</label><select id="sSteer"><option value="buttons">Left / right buttons</option><option value="slide">Slide thumb (smooth)</option><option value="tilt">Tilt the phone</option></select></div>
+        <div class="toggle-row"><span>Accelerate automatically</span><button class="chk ${s.autoGas ? 'on' : ''}" id="sAuto">${s.autoGas ? 'On' : 'Off'}</button></div>
+        <div class="toggle-row"><span>Swap sides (pedals on the left)</span><button class="chk ${s.swap ? 'on' : ''}" id="sSwap">${s.swap ? 'On' : 'Off'}</button></div>
+        <div class="field"><label class="lbl" for="sTs">Button size</label><input type="range" id="sTs" min="0.8" max="1.3" step="0.05" value="${s.tScale || 1}"></div>
+        <div class="toggle-row"><span>Vibrate on taps and checkpoints</span><button class="chk ${s.haptics ? 'on' : ''}" id="sHap">${s.haptics ? 'On' : 'Off'}</button></div>
+        <div class="toggle-row" id="fsRow"><span>Full screen when racing</span><button class="chk ${s.fsRace ? 'on' : ''}" id="sFs">${s.fsRace ? 'On' : 'Off'}</button></div>
+        <div class="toggle-row" id="orRow"><label for="sOr">Screen direction in full screen</label><select id="sOr"><option value="any">Follow the phone</option><option value="landscape">Always sideways</option></select></div>
+        <p class="hint" id="iosHint" hidden>On iPhone, full screen works from the home screen: tap Share, then Add to Home Screen.</p>
+      </div>
       <div id="acctBox"></div>
       <div class="field" id="invBox"></div>
       <p class="hint">${esc(Net.status)}. Gamepads work too: right trigger accelerates, left trigger brakes, X or RB handbrake, Y recovers.</p>
@@ -1103,7 +1115,15 @@
     tog('#sHq', 'hq', () => toast('Scenery density changes on the next track load'));
     m.querySelector('#sCam').onchange = e => { s.cam = +e.target.value; Game.applySettings(); };
     m.querySelector('#sUnits').onchange = e => { s.units = e.target.value; Game.applySettings(); $('hUnit').textContent = s.units === 'mph' ? 'mph' : 'km/h'; };
-    m.querySelector('#sTouch').onchange = e => { s.touch = e.target.value; Game.applySettings(); };
+    m.querySelector('#sTouch').onchange = e => { s.touch = e.target.value; Game.applySettings(); if (DL.Mobile) DL.Mobile.refresh(); };
+    { const Mo = DL.Mobile, q = x => m.querySelector(x), after = () => { if (Mo) Mo.refresh(); };
+      q('#sSteer').value = s.steerMode || 'buttons'; q('#sOr').value = s.orient || 'any';
+      q('#sSteer').onchange = async e => { s.steerMode = e.target.value; Game.applySettings(); after(); if (s.steerMode === 'tilt' && Mo) { if (await Mo.enableTilt()) toast('<b>Tilt steering on</b> Hold the phone how you like: it centres when the race starts'); else q('#sSteer').value = s.steerMode; } };
+      tog('#sAuto', 'autoGas'); tog('#sSwap', 'swap', after); tog('#sHap', 'haptics', () => { if (s.haptics && Mo) Mo.buzz(20); }); tog('#sFs', 'fsRace');
+      q('#sTs').oninput = e => { s.tScale = +e.target.value; Game.applySettings(); after(); };
+      q('#sOr').onchange = e => { s.orient = e.target.value; Game.applySettings(); if (Mo) Mo.lockOrient(); };
+      if (Mo && !Mo.canFs) { q('#fsRow').hidden = true; q('#orRow').hidden = true; q('#iosHint').hidden = !(Mo.iOS && !Mo.standalone); }
+      if (!DL.isTouch() && s.touch !== 'on') q('#mobSet').hidden = true; }
     m.querySelector('#sDone').onclick = () => { if (fromPause === true) UI.paused(true); else closeModal(); };
   }
 

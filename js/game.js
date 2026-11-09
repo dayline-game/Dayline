@@ -51,7 +51,10 @@
   };
 
   Game.applySettings = function () {
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, settings.hq ? 2 : 1));
+    const mob = DL.isTouch && DL.isTouch(), cap = mob ? (settings.hq ? 1.5 : 1) : (settings.hq ? 2 : 1);
+    Game.baseRatio = Math.min(window.devicePixelRatio || 1, cap);
+    renderer.setPixelRatio(Game.baseRatio * (Game.resScale || 1));
+    if (mob && sun.shadow.mapSize.x !== 1024) { sun.shadow.mapSize.set(1024, 1024); if (sun.shadow.map) { sun.shadow.map.dispose(); sun.shadow.map = null; } }
     renderer.shadowMap.enabled = !!settings.shadows;
     sun.castShadow = !!settings.shadows;
     scene.traverse(o => { if (o.material) o.material.needsUpdate = true; });
@@ -60,6 +63,13 @@
     DL.store.set('settings', settings);
     resize();
   };
+
+  // phones: drop the render resolution a step when frames run long, raise it again when there is headroom
+  Game.setResScale = function (k) {
+    k = DL.clamp(k, 0.55, 1); if (Math.abs(k - (Game.resScale || 1)) < 0.01) return;
+    Game.resScale = k; renderer.setPixelRatio(Game.baseRatio * k); resize();
+  };
+  Game.renderer = () => renderer;
 
   function buildEnv() {
     const s = new THREE.Scene();
@@ -571,14 +581,6 @@
     { const pb = document.getElementById('rpPhoto'); if (pb) pb.onclick = () => { Game.photoReq = true; }; }
     window.addEventListener('keyup', e => { keys[e.code] = false; });
     window.addEventListener('blur', () => { for (const k in keys) keys[k] = false; });
-    // touch buttons
-    const tb = { tLeft: 'left', tRight: 'right', tGas: 'gas', tBrake: 'brake', tDrift: 'drift' };
-    for (const id in tb) {
-      const el = document.getElementById(id); if (!el) continue;
-      const down = e => { e.preventDefault(); touch[tb[id]] = 1; el.classList.add('down'); DL.Audio.init(); };
-      const up = e => { e.preventDefault(); touch[tb[id]] = 0; el.classList.remove('down'); };
-      el.addEventListener('pointerdown', down); el.addEventListener('pointerup', up); el.addEventListener('pointercancel', up); el.addEventListener('pointerleave', up);
-    }
     // garage orbit & body painting
     canvas.addEventListener('pointerdown', e => {
       if (mode !== 'garage' && mode !== 'shop') return;
@@ -605,6 +607,12 @@
     let brk = (keys.KeyS || keys.ArrowDown || touch.brake) ? 1 : 0;
     let target = ((keys.KeyD || keys.ArrowRight || touch.right) ? 1 : 0) - ((keys.KeyA || keys.ArrowLeft || touch.left) ? 1 : 0);
     let hb = !!(keys.Space || touch.drift);
+    const M = DL.Mobile && DL.Mobile.state;
+    if (M && M.on) {
+      if (M.gas) thr = 1; if (M.brake) brk = 1; if (M.drift) hb = true;
+      if (M.analog != null) target = M.analog; else if (M.steer) target = M.steer;
+      if (settings.autoGas && !brk && !M.brake) thr = 1;
+    }
     // gamepad
     const pads = navigator.getGamepads ? navigator.getGamepads() : [];
     const p = pads && Array.from(pads).find(x => x && x.connected);
@@ -643,6 +651,8 @@
   const tmpV = new THREE.Vector3(), tmpL = new THREE.Vector3(), gTmp = {};
   const wrapA = d => { while (d > Math.PI) d -= 2 * Math.PI; while (d < -Math.PI) d += 2 * Math.PI; return d; };
   function setFov(f, dt) {
+    // portrait screens: keep roughly the same sideways view instead of a narrow letterbox
+    if (camera.aspect < 0.95) f = Math.min(92, 2 * Math.atan(Math.tan(f * Math.PI / 360) * 0.95 / camera.aspect) * 180 / Math.PI);
     if (Math.abs(camera.fov - f) > 0.05) { camera.fov += (f - camera.fov) * Math.min(1, dt * 4); camera.updateProjectionMatrix(); }
   }
   // replay-only orbiting shots: a new angle every few seconds, always circling the car
