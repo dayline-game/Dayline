@@ -166,6 +166,7 @@
   };
   UI.ghostsChanged = r => { $('hGhost').classList.toggle('off', !r.ghostsOn || !r.ghosts.length); $('hGhost').title = r.ghosts.length ? `${r.ghosts.length} ghost${r.ghosts.length > 1 ? 's' : ''} (G)` : 'No ghosts loaded'; };
   UI.count = function (n) {
+    if (n === 3 && !DL.store.get('driftHint', 0)) { DL.store.set('driftHint', 1); setTimeout(() => toast('<b>New:</b> hold ' + (DL.isTouch && DL.isTouch() ? 'the drift button' : 'Space') + ' and steer to slide the car', 5000), 600); }
     const el = $('hCount');
     if (!el._cd) { el.innerHTML = '<i class="cd-flash"></i><i class="cd-ring"></i><b class="cd-num"></b>'; el._cd = 1; }
     const num = el.querySelector('.cd-num'), ring = el.querySelector('.cd-ring'), flash = el.querySelector('.cd-flash');

@@ -22,6 +22,7 @@
     this.aLong = 0; this.aS = 0; this.pitch = 0; this.roll = 0; this.slip = 0; this.speed = 0; this.vF = 0;
     this.surf = SURF.ROAD; this.inWater = false; this.wheelSpin = 0;
     this.steerVis = 0;
+    this.slideK = 0; this.slideAng = 0;     // handbrake slide: 0 = full grip, 1 = rear tyres let go; angle between heading and travel
   };
 
   // grip, top-speed scale and extra rolling drag per surface: tarmac and kerbs are fast, gravel and grass bog the car down
@@ -58,7 +59,12 @@
         if (vF > 0.6) brakeF = BRAKE * inp.brake * grip;
         else if (vF > -REV_MAX) drive -= 9 * inp.brake;
       }
-      if (inp.handbrake) brakeF += 6 * grip;
+      // the handbrake locks the rear tyres: it scrubs a little speed, less if you keep the throttle down
+      if (inp.handbrake) brakeF += (inp.throttle > 0.3 ? 2.2 : 6) * grip;
+      // rear grip: drops fast when the handbrake is pulled, and comes back slowly while you stay on the power in a slide
+      { const sp0 = Math.abs(vF), sliding = Math.abs(vR) > 1.2;
+        if (inp.handbrake && sp0 > 8) this.slideK = Math.min(1, this.slideK + 7 * dt);
+        else this.slideK = Math.max(0, this.slideK - dt * (!sliding || sp0 < 6 ? 6 : inp.throttle > 0.5 ? 0.85 : 2.2)); }
       // tyres can only give so much: drive/brake force is capped by grip (wheelspin / lock-up)
       const mu = 0.95 * G * grip;
       drive = DL.clamp(drive, -mu, mu * 0.8);
@@ -79,14 +85,17 @@
       // friction circle: lateral grip left over after accelerating or braking
       const longUse = Math.min(1, Math.abs(drive - Math.sign(vF) * brakeF) / mu) * 0.75;
       let latAvail = mu * Math.sqrt(Math.max(0.05, 1 - longUse * longUse));
-      if (inp.handbrake) latAvail *= 0.32;
+      const latFull = latAvail;
+      latAvail *= 1 - 0.93 * this.slideK;
 
       // steering: bicycle model, speed-sensitive lock, limited by available grip (understeer)
       const sp = Math.abs(vF);
       const lock = 0.6 / (1 + sp / 22);
       let target = (vF >= 0 ? 1 : -1) * -inp.steer * sp * Math.tan(lock) / 2.6;
-      const yawCap = (latAvail / Math.max(sp, 3)) * (inp.handbrake ? 2.4 : 1.12);
+      const yawCap = (this.slideK > 0 ? latFull * (1 - 0.25 * this.slideK) : latAvail) / Math.max(sp, 3) * (1.12 + 1.2 * this.slideK);
       target = DL.clamp(target, -yawCap, yawCap);
+      // already sideways enough: stop adding rotation so a drift can be held instead of spinning out
+      if (this.slideK > 0 && target * this.slideAng > 0 && Math.abs(this.slideAng) > 0.75) target *= Math.max(0, 1 - (Math.abs(this.slideAng) - 0.75) / 0.45);
       // braking shifts weight forward and helps the nose turn in; throttle pushes it wide
       // (weight transfer) off-throttle / braking loads the nose; hard throttle unloads it
       const wt = DL.clamp(this.aLong / (G * 0.7), -1, 1);
@@ -99,13 +108,19 @@
       const corr = Math.min(Math.abs(vR), latAvail * dt);
       vR -= Math.sign(vR) * corr;
       vR *= Math.exp(-0.8 * dt);
-      this.slip = DL.clamp(Math.abs(vR) / 5 + (inp.handbrake && sp > 8 ? 0.4 : 0), 0, 1.5);
+      this.slip = DL.clamp(Math.abs(vR) / 5 + this.slideK * 0.4, 0, 1.5);
+      this.slideAng = Math.atan2(vR, Math.max(Math.abs(vF), 1));
     } else {
       this.yawRate *= Math.exp(-1.2 * dt);
       this.yawRate += -inp.steer * 0.6 * dt;
       this.slip = 0;
     }
     this.yaw += this.yawRate * dt;
+    // inertia: while the rear is loose the car turns but its travel direction mostly does not, so the nose points away from where it is going
+    if (this.slideK > 0 && this.grounded) {
+      const a = this.yawRate * dt * this.slideK, ca = Math.cos(a), sa = Math.sin(a), nF = vF * ca - vR * sa;
+      vR = vR * ca + vF * sa; vF = nF;
+    }
     const nfx = Math.sin(this.yaw), nfz = Math.cos(this.yaw);
     // rotate a share of velocity with the body (keeps momentum believable)
     const nrx = -nfz, nrz = nfx;
