@@ -362,6 +362,8 @@ input[type=range]{width:100%;accent-color:var(--coral);}
 .ed-sl{display:flex;flex-direction:column;gap:3px;font-weight:600;font-size:13px;} .ed-sl span{display:flex;justify-content:space-between;} .ed-sl input{width:100%;accent-color:var(--orange,#f05a35);}
 .ed-ck{display:flex;gap:8px;align-items:center;font-size:13px;font-weight:600;}
 .ed-props{display:grid;grid-template-columns:1fr 1fr;gap:4px;max-height:200px;overflow:auto;} .ed-props .chk{display:flex;align-items:center;gap:6px;text-align:left;font-size:13px;padding:5px 7px;} .ed-props i{width:10px;height:10px;border-radius:50%;background:var(--pc);flex:none;border:1px solid rgba(0,0,0,.5);}
+.ed-grid{display:grid;grid-template-columns:1fr 1fr;gap:5px;} .fdot{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:6px;border:1px solid rgba(17,21,29,.4);vertical-align:-1px}
+.ed-keys{position:absolute;right:12px;bottom:182px;font:600 12px var(--f-body,Barlow),sans-serif;color:#fff;background:rgba(17,21,29,.55);padding:5px 9px;border-radius:8px;pointer-events:none} @media(max-width:760px){.ed-keys{display:none}}
 .ed-tools{position:absolute;right:12px;top:12px;display:flex;flex-direction:column;gap:6px;} .ed-tools .icon-btn{font:800 20px var(--f-display);} .ed-tools .icon-btn.on{background:var(--navy);color:#fff;}
 .ed-prof{position:absolute;left:334px;right:0;bottom:0;height:170px;border-top:1.5px solid var(--navy);z-index:1;} #edProf{width:100%;height:100%;display:block;touch-action:none;cursor:ns-resize;}
 #editor{overflow:hidden;}
@@ -569,7 +571,7 @@ body.cb .sp.up em::before{content:'▼ ';} body.cb .sp.down em::before{content:'
     <div class="panel ed-bar">
       <div class="ed-top"><div><div class="lbl">Track creator</div><h2>Create</h2></div><button class="btn btn-line btn-sm" id="edRandom">🎲 Random</button></div>
       <div class="field"><label class="lbl" for="edName">Name</label><input type="text" id="edName" maxlength="24" placeholder="Name your track" autocomplete="off"></div>
-      <div class="ed-tabs" id="edTabs"><button data-t="layout" class="on">Layout</button><button data-t="elev">Elevation</button><button data-t="terr">Terrain</button><button data-t="props">Props</button><button data-t="look">Look</button></div>
+      <div class="ed-tabs" id="edTabs"><button data-t="road" class="on" title="1">Road</button><button data-t="feat" title="2">Features</button><button data-t="terr" title="3">Terrain</button><button data-t="props" title="4">Props</button><button data-t="look" title="5">Look</button></div>
       <p class="hint" id="edHint"></p>
       <div class="ed-pane" id="edPane"></div>
       <div class="ed-stats">
@@ -579,13 +581,14 @@ body.cb .sp.up em::before{content:'▼ ';} body.cb .sp.down em::before{content:'
         <div><span class="lbl">Max slope</span><b class="num" id="edSteep">-</b></div>
       </div>
       <div class="ed-status" id="edStatus"></div>
-      <div class="btn-row"><button class="btn btn-line btn-sm" id="edUndo">Undo</button><button class="btn btn-line btn-sm" id="edExit">← Back</button></div>
+      <div class="btn-row"><button class="btn btn-line btn-sm" id="edUndo" title="Ctrl+Z">↶ Undo</button><button class="btn btn-line btn-sm" id="edRedo" title="Ctrl+Shift+Z">↷ Redo</button><button class="btn btn-line btn-sm" id="edExit">← Back</button></div>
       <button class="btn btn-navy" id="edTest">Test drive</button>
       <button class="btn btn-go" id="edPublish" style="font-size:24px">Publish</button>
     </div>
     <div class="ed-stage">
       <canvas id="edCanvas"></canvas>
-      <div class="ed-tools"><button class="icon-btn" id="edZoomIn" title="Zoom in">+</button><button class="icon-btn" id="edZoomOut" title="Zoom out">−</button><button class="icon-btn" id="edOrbit" title="Orbit mode (drag to rotate)">⟳</button><button class="icon-btn" id="edHand" title="Pan mode">✋</button></div>
+      <div class="ed-tools"><button class="icon-btn" id="edZoomIn" title="Zoom in">+</button><button class="icon-btn" id="edZoomOut" title="Zoom out">−</button><button class="icon-btn" id="edOrbit" title="Orbit mode (drag to rotate)">⟳</button><button class="icon-btn" id="edHand" title="Pan mode (drag to move)">✋</button><button class="icon-btn" id="edTop" title="Top-down view">⊤</button><button class="icon-btn" id="edFitB" title="Fit the track (R)">⤢</button></div>
+      <div class="ed-keys">WASD pan · Q/E rotate · scroll zoom · F focus point · I insert · Del delete · 1–5 tabs</div>
       <div class="ed-prof" id="edProfWrap" hidden><canvas id="edProf"></canvas></div>
     </div>
   </div>
@@ -642,15 +645,15 @@ body.cb .sp.up em::before{content:'▼ ';} body.cb .sp.down em::before{content:'
 <div id="toasts"></div>
 
 <script src="https://cdn.jsdelivr.net/npm/three@0.158.0/build/three.min.js"></script>
-<script src="config.js?v=20261109zf"></script>
-<script src="js/core.js?v=20261109zf"></script>
-<script src="js/track.js?v=20261109zf"></script>
-<script src="js/physics.js?v=20261109zf"></script>
-<script src="js/vehicles.js?v=20261109zf"></script>
-<script src="js/net.js?v=20261109zf"></script>
-<script src="js/auth.js?v=20261109zf"></script>
-<script src="js/game.js?v=20261109zf"></script>
-<script src="js/ui.js?v=20261109zf"></script>
-<script src="js/community.js?v=20261109zf"></script>
-<script src="js/rooms.js?v=20261109zf"></script>
-<script src="js/share.js?v=20261109zf"></script>
+<script src="config.js?v=20261109zg"></script>
+<script src="js/core.js?v=20261109zg"></script>
+<script src="js/track.js?v=20261109zg"></script>
+<script src="js/physics.js?v=20261109zg"></script>
+<script src="js/vehicles.js?v=20261109zg"></script>
+<script src="js/net.js?v=20261109zg"></script>
+<script src="js/auth.js?v=20261109zg"></script>
+<script src="js/game.js?v=20261109zg"></script>
+<script src="js/ui.js?v=20261109zg"></script>
+<script src="js/community.js?v=20261109zg"></script>
+<script src="js/rooms.js?v=20261109zg"></script>
+<script src="js/share.js?v=20261109zg"></script>

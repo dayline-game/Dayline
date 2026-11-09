@@ -174,7 +174,7 @@
 
   // ---------- track creator data (v2 community tracks): elevation per waypoint, terrain sculpt blobs, props, seeds ----------
   DL.PROP_TYPES = ['pine', 'snowpine', 'round', 'palm', 'cactus', 'bush', 'shrub', 'rock', 'boulder', 'haybale', 'house', 'barn', 'windmill', 'lighthouse', 'mesa', 'cabin', 'watchtower', 'tent', 'logpile', 'snowman', 'igloo', 'icespire', 'umbrella', 'lifeguard', 'cratestack', 'scarecrow', 'silo', 'watertower', 'tractor', 'billboard', 'tirestack', 'radiomast', 'pumpjack', 'rockarch'];
-  DL.EXT_LIM = { ELEV_MIN: -40, ELEV_MAX: 140, TERR: 260, PROPS: 700, H: 70, R_MIN: 20, R_MAX: 260, BYTES: 64000 };
+  DL.EXT_LIM = { ELEV_MIN: -40, ELEV_MAX: 140, TERR: 260, PROPS: 700, H: 70, R_MIN: 20, R_MAX: 260, BYTES: 64000, RAMPS: 8, SURFS: 10 };
   // Returns { ok, ext } with every field clamped/rounded, or { ok:false, error }. Shared by the editor, the game and the server.
   DL.cleanExt = function (e, nPts) {
     if (e == null) return { ok: true, ext: null };
@@ -197,6 +197,15 @@
       const ps = [];
       for (const p of e.props) { if (!Array.isArray(p) || DL.PROP_TYPES.indexOf(p[0]) < 0) return { ok: false, error: 'Unknown prop' }; ps.push([p[0], Math.round(num(p[1], -2200, 2200, 0)), Math.round(num(p[2], -2200, 2200, 0)), Math.round(num(p[3], 0, 6.3, 0) * 100) / 100, r1(num(p[4], 0.5, 2.2, 1))]); }
       out.props = ps;
+    }
+    // creator road features: ramps [s, height] and loose surfaces [s, length, kind], positioned by distance along the road
+    if (e.ramps != null) {
+      if (!Array.isArray(e.ramps) || e.ramps.length > L.RAMPS) return { ok: false, error: 'Too many ramps (max ' + L.RAMPS + ')' };
+      out.ramps = e.ramps.map(r => [Math.round(num(r && r[0], 0, 4000, 0)), r1(num(r && r[1], 1.5, 4, 2.4))]).sort((a, b) => a[0] - b[0]);
+    }
+    if (e.surf != null) {
+      if (!Array.isArray(e.surf) || e.surf.length > L.SURFS) return { ok: false, error: 'Too many surface patches (max ' + L.SURFS + ')' };
+      out.surf = e.surf.map(p => [Math.round(num(p && p[0], 0, 4000, 0)), Math.round(num(p && p[1], 24, 240, 80)), ['mud', 'snow', 'sand'].indexOf(p && p[2]) >= 0 ? p[2] : 'mud']).sort((a, b) => a[0] - b[0]);
     }
     if (JSON.stringify(out).length > L.BYTES) return { ok: false, error: 'Track data is too large' };
     return { ok: true, ext: out };
@@ -507,6 +516,15 @@
 
   Track.prototype._placeRamps = function () {
     this.ramps = [];
+    if (this.ext && Array.isArray(this.ext.ramps)) {
+      // creator ramps: exactly where the creator put them (kept clear of the start and finish)
+      for (const r of this.ext.ramps) {
+        const i0 = DL.clamp(Math.round(r[0] / STEP), 24, this.N - 30);
+        if (this.ramps.some(q => Math.abs(q.i0 - i0) < 12)) continue;
+        this.ramps.push({ i0, i1: i0 + 4, s0: this.s[i0], s1: this.s[i0 + 4], h: r[1] });
+      }
+      return;
+    }
     const rnd = DL.mulberry32(this.seed ^ 0x51ed);
     const want = 1 + Math.floor(rnd() * 2);
     const cand = [];
@@ -523,7 +541,18 @@
   // loose-surface stretches across the full road width: mud on most maps, packed snow on snowy maps, sand in the desert
   Track.prototype._placePatches = function () {
     this.patches = [];
-    if (this.custom || !(this.day >= DL.PATCH_FROM)) return;
+    if (this.custom) {
+      if (!this.ext || !Array.isArray(this.ext.surf)) return;
+      const SK = { mud: SURF.MUD, snow: SURF.SNOW, sand: SURF.SAND };
+      for (const p of this.ext.surf) {
+        const i0 = DL.clamp(Math.round(p[0] / STEP), 16, this.N - 20), i1 = DL.clamp(i0 + Math.round(p[1] / STEP), i0 + 4, this.N - 12);
+        if (this.patches.some(q => i1 > q.i0 - 3 && i0 < q.i1 + 3)) continue;
+        this.patches.push({ i0, i1, s0: this.s[i0], s1: this.s[i1], kind: p[2], surf: SK[p[2]] });
+      }
+      this.patches.sort((a, b) => a.i0 - b.i0);
+      return;
+    }
+    if (!(this.day >= DL.PATCH_FROM)) return;
     const rnd = DL.mulberry32(this.seed ^ 0x6d7564);       // own stream: other features are unaffected
     const kind = this.biomeKey === 'snow' ? 'snow' : this.biomeKey === 'desert' ? 'sand' : 'mud';
     const want = (kind === 'snow' ? 3 : 2) + (rnd() < 0.35 ? 1 : 0);

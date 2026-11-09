@@ -225,13 +225,20 @@
     }
   };
 
-  // ---------------- track creator ----------------
-  // Tabs: Layout (waypoints), Elevation (height per waypoint), Terrain (sculpt + relief + seed), Props (palette + scatter), Look (scenery).
-  const ed = { id: null, name: '', biome: 'country', pts: [], ext: null, tab: 'layout', sel: -1, v: { cx: 0, cz: 0, s: 0.3 }, tested: null, testKey: null, prob: null, spline: null, hist: [], res: { ok: false, error: '' }, W: 0, H: 0, tool: 'raise', brush: 70, str: 6, level: 6, propType: 'pine', propSize: 1, hand: false, cam: '', tr: null, hm: null };
+  // ---------------- track creator (v3) ----------------
+  // One 3D workspace. Road: place, move and lift waypoints right in the world. Features: ramps and loose surfaces on the road.
+  // Terrain and Props paint on the ground. Every edit redraws a light live preview at once; the full 3D world only rebuilds
+  // when a drag ends, so dragging stays smooth.
+  const HALFW = DL.ROAD_HALF || 6.5, STEPM = 4;
+  const ed = {
+    id: null, name: '', biome: 'country', pts: [], ext: null, tab: 'road', sel: -1, fsel: null, feat: 'ramp', tested: null, testKey: null,
+    prob: null, spline: null, hist: [], redo: [], res: { ok: false, error: '' }, W: 0, H: 0, tool: 'raise', brush: 70, str: 6, level: 6,
+    propType: 'pine', propSize: 1, cam: '', tr: null, dirty: false, live: null, showProf: true, ct: null
+  };
   const cv = $('edCanvas'), cx = cv.getContext('2d'), pcv = $('edProf'), pcx = pcv.getContext('2d');
   const newId = () => 'c_' + Array.from(crypto.getRandomValues(new Uint8Array(8)), b => (b % 36).toString(36)).join('');
   const STARTER = [[-460, 120], [-250, 120], [-40, 250], [200, 220]];
-  const defExt = () => ({ v: 2, hills: 0.4, rel: 1, dens: 1, seed: 0, pseed: 0, unique: true, terr: [], props: [] });
+  const defExt = () => ({ v: 2, hills: 0.4, rel: 1, dens: 1, seed: 0, pseed: 0, unique: true, terr: [], props: [], ramps: [], surf: [] });
   const cloneExt = e => JSON.parse(JSON.stringify(e));
   const customObj = () => ({ id: ed.id, name: (ed.name || 'Untitled track').trim() || 'Untitled track', biome: ed.biome, pts: ed.pts.map(p => [p[0], p[1]]), ext: cleanExt() });
   function cleanExt() { const c = DL.cleanExt(ed.ext, ed.pts.length); return c.ok ? c.ext : null; }
@@ -239,40 +246,54 @@
   const PROP_NAMES = { pine: 'Pine', snowpine: 'Snow pine', round: 'Oak', palm: 'Palm', cactus: 'Cactus', bush: 'Bush', shrub: 'Shrub', rock: 'Rock', boulder: 'Boulder', haybale: 'Hay bale', house: 'House', barn: 'Barn', windmill: 'Windmill', lighthouse: 'Lighthouse', mesa: 'Mesa', cabin: 'Cabin', watchtower: 'Watch tower', tent: 'Tent', logpile: 'Log pile', snowman: 'Snowman', igloo: 'Igloo', icespire: 'Ice spire', umbrella: 'Umbrella', lifeguard: 'Lifeguard', cratestack: 'Crates', scarecrow: 'Scarecrow', silo: 'Silo', watertower: 'Water tower', tractor: 'Tractor', billboard: 'Billboard', tirestack: 'Tyres', radiomast: 'Radio mast', pumpjack: 'Pump jack', rockarch: 'Rock arch' };
   const PROP_COL = { pine: '#2f6b46', snowpine: '#5e8f86', round: '#5c9a4a', palm: '#3e9a5e', cactus: '#4d8a4a', bush: '#6aa05a', shrub: '#a39a55', rock: '#8c8f98', boulder: '#6f737c', haybale: '#d9b45a', house: '#d9705a', barn: '#b9473a', windmill: '#e9e2cf', lighthouse: '#f3ead7', mesa: '#c98a5a' };
   const propCol = t => PROP_COL[t] || '#7a6bb0';
+  const FEAT = { ramp: { name: 'Ramp', col: '#f2c14e' }, mud: { name: 'Mud', col: '#7a5230' }, snow: { name: 'Snow', col: '#e6f0f5' }, sand: { name: 'Sand', col: '#e1bf73' } };
 
+  // ---------------- open / layout ----------------
   UI.openEditor = function (d) {
     if (!Game.edView || !Game.edCamera) { toast('Dayline updated. Reload the page to use the track creator'); return; }
-    if (d) Object.assign(ed, { id: d.id, name: d.name || '', biome: d.biome || 'country', pts: d.pts.map(p => [p[0], p[1]]), ext: d.ext ? Object.assign(defExt(), cloneExt(d.ext)) : defExt(), sel: -1, tested: null, hist: [], tab: 'layout' });
-    else Object.assign(ed, { id: newId(), name: '', biome: 'country', pts: STARTER.map(p => p.slice()), ext: defExt(), sel: -1, tested: null, hist: [], tab: 'layout' });
+    if (d) Object.assign(ed, { id: d.id, name: d.name || '', biome: d.biome || 'country', pts: d.pts.map(p => [p[0], p[1]]), ext: d.ext ? Object.assign({ v: 2, hills: 0.4, rel: 1, dens: 1, seed: 0, pseed: 0, unique: true, terr: [], props: [] }, cloneExt(d.ext)) : defExt() });
+    else Object.assign(ed, { id: newId(), name: '', biome: 'country', pts: STARTER.map(p => p.slice()), ext: defExt() });
+    Object.assign(ed, { sel: -1, fsel: null, tested: null, hist: [], redo: [], tab: 'road', tr: null, dirty: false, live: null });
     if (!ed.ext.terr) ed.ext.terr = []; if (!ed.ext.props) ed.ext.props = [];
-    ed.tr = null; ed.fitNext = true; show('editor');
+    ed.fitNext = true; show('editor');
   };
   UI.renderEditor = function () {
     if (!ed.id) { Object.assign(ed, { id: newId(), pts: STARTER.map(p => p.slice()), ext: defExt() }); }
     $('edName').value = ed.name;
-    requestAnimationFrame(() => { sizeCanvas(); renderTabs(); changed(true); if (ed.fitNext) { previewTrack(true); fit(); ed.fitNext = false; } scheduleWorld(0); });
+    requestAnimationFrame(() => { sizeCanvas(); renderTabs(); changed(true); if (ed.fitNext) { rebuild(true); fit(true); ed.fitNext = false; } else rebuild(); });
   };
   function sizeCanvas() {
-    const dpr = Math.min(2, window.devicePixelRatio || 1), W = window.innerWidth, Hh = window.innerHeight;   // same size the 3D renderer uses, so handles and rays line up exactly
+    const dpr = Math.min(2, window.devicePixelRatio || 1), W = window.innerWidth, Hh = window.innerHeight;   // same size as the 3D renderer, so handles and rays line up
     ed.W = W; ed.H = Hh; ed.dpr = dpr; cv.style.width = W + 'px'; cv.style.height = Hh + 'px'; cv.width = Math.max(1, W * dpr); cv.height = Math.max(1, Hh * dpr);
     const pr = pcv.getBoundingClientRect(); ed.PW = pr.width; ed.PH = pr.height; pcv.width = Math.max(1, pr.width * dpr); pcv.height = Math.max(1, pr.height * dpr);
   }
   window.addEventListener('resize', () => { if (!$('editor').hidden) { sizeCanvas(); draw(); drawProf(); } });
   const EV = () => Game.edView;
   const gY = (x, z) => ed.tr ? ed.tr.groundAt(x, z, {}, true).y : 0;
-  function fit() {
-    const v = EV(); let x0 = 1e9, x1 = -1e9, z0 = 1e9, z1 = -1e9;
+
+  // ---------------- camera: everything moves a target, the view eases toward it ----------------
+  const CT = () => ed.ct || (ed.ct = Object.assign({}, EV()));
+  function fit(snapNow) {
+    let x0 = 1e9, x1 = -1e9, z0 = 1e9, z1 = -1e9;
     ed.pts.forEach(p => { x0 = Math.min(x0, p[0]); x1 = Math.max(x1, p[0]); z0 = Math.min(z0, p[1]); z1 = Math.max(z1, p[1]); });
     if (!ed.pts.length) { x0 = z0 = -200; x1 = z1 = 200; }
-    v.tx = (x0 + x1) / 2; v.tz = (z0 + z1) / 2; v.ty = gY(v.tx, v.tz); v.dist = DL.clamp(Math.max(x1 - x0, z1 - z0) * 1.3 + 420, 600, 4000); v.ph = 0.9;
+    const c = CT(); c.tx = (x0 + x1) / 2; c.tz = (z0 + z1) / 2; c.ty = gY(c.tx, c.tz); c.dist = DL.clamp(Math.max(x1 - x0, z1 - z0) * 1.05 + 220, 300, 4000); c.ph = 0.95;
+    if (c.th == null) c.th = 0.8;
+    if (snapNow) Object.assign(EV(), c);
   }
-  const _pv = new THREE.Vector3(); const proj = (x, y, z) => { const c = Game.edCamera(); const q = _pv.set(x, y, z).project(c); return [(q.x + 1) / 2 * ed.W, (1 - q.y) / 2 * ed.H, q.z > -1 && q.z < 1]; };
+  function focus(x, z, dist) { const c = CT(); c.tx = x; c.tz = z; c.ty = gY(x, z); if (dist) c.dist = dist; }
+  function easeCam() {
+    const v = EV(), c = CT(), k = 0.22;
+    let dth = c.th - v.th; while (dth > Math.PI) dth -= 2 * Math.PI; while (dth < -Math.PI) dth += 2 * Math.PI;
+    v.th += dth * k; v.ph += (c.ph - v.ph) * k; v.dist += (c.dist - v.dist) * k; v.tx += (c.tx - v.tx) * k; v.tz += (c.tz - v.tz) * k; v.ty += (c.ty - v.ty) * k;
+  }
+  const _pv = new THREE.Vector3();
+  const proj = (x, y, z) => { const c = Game.edCamera(); const q = _pv.set(x, y, z).project(c); return [(q.x + 1) / 2 * ed.W, (1 - q.y) / 2 * ed.H, q.z > -1 && q.z < 1]; };
   // ray from the camera through a screen point, marched down onto the terrain
   function rayHit(px, pz) {
     const c = Game.edCamera(); c.updateMatrixWorld(); const rc = new THREE.Raycaster(); rc.setFromCamera(new THREE.Vector2(px / ed.W * 2 - 1, -(pz / ed.H) * 2 + 1), c);
-    const o = rc.ray.origin, d = rc.ray.direction, f = (t) => o.y + d.y * t - gY(o.x + d.x * t, o.z + d.z * t);
-    let t = 0, pt = 0, pf = f(0);
-    if (pf < 0) return null;
+    const o = rc.ray.origin, d = rc.ray.direction, f = t => o.y + d.y * t - gY(o.x + d.x * t, o.z + d.z * t);
+    let t = 0, pt = 0; if (f(0) < 0) return null;
     for (let i = 0; i < 500 && t < 9000; i++) {
       t += Math.max(6, t * 0.02); const fv = f(t);
       if (fv < 0) { let a = pt, b = t; for (let k = 0; k < 14; k++) { const m = (a + b) / 2; if (f(m) < 0) b = m; else a = m; } const tt = (a + b) / 2; return [o.x + d.x * tt, o.y + d.y * tt, o.z + d.z * tt]; }
@@ -280,10 +301,15 @@
     }
     return null;
   }
-  const snap = () => { ed.hist.push(JSON.stringify([ed.pts, ed.ext])); if (ed.hist.length > 50) ed.hist.shift(); };
-  const hex = n => '#' + ('000000' + n.toString(16)).slice(-6);
 
-  // ----- keeping the elevation list in step with the waypoints -----
+  // ---------------- undo / redo ----------------
+  const state = () => JSON.stringify([ed.pts, ed.ext, ed.biome]);
+  const snap = () => { ed.hist.push(state()); if (ed.hist.length > 80) ed.hist.shift(); ed.redo = []; };
+  function restore(s) { const o = JSON.parse(s); ed.pts = o[0]; ed.ext = o[1]; ed.biome = o[2] || ed.biome; ed.sel = -1; ed.fsel = null; ed.tr = null; prevKey = ''; renderTabs(); changed(false); rebuild(); }
+  function undo() { const p = ed.hist.pop(); if (!p) return; ed.redo.push(state()); restore(p); }
+  function redo() { const p = ed.redo.pop(); if (!p) return; ed.hist.push(state()); restore(p); }
+
+  // ---------------- elevation list kept in step with the waypoints ----------------
   function ensureElev() {
     if (ed.ext.elev && ed.ext.elev.length === ed.pts.length) return;
     const tr = previewTrack(true); const e = [];
@@ -293,65 +319,132 @@
   }
   function insertElev(at) { if (!ed.ext.elev) return; const e = ed.ext.elev, a = e[Math.max(0, at - 1)], b = e[Math.min(e.length - 1, at)]; e.splice(at, 0, Math.round((a + b) / 2 * 10) / 10); }
 
-  // ----- preview track (same terrain code the race uses) + 3D world refresh -----
+  // ---------------- full preview (same code the race uses) and the light live preview ----------------
   let prevKey = '', wT = 0;
   function previewTrack(force) {
-    const k = edKey() + '|' + ed.name;
+    const k = edKey();
     if (!force && ed.tr && prevKey === k) return ed.tr;
     if (!ed.res.ok) return ed.tr;
     try { ed.tr = new DL.Track(ed.id, customObj()); prevKey = k; } catch (e) { console.warn(e); }
     return ed.tr;
   }
-  function scheduleWorld(ms) { clearTimeout(wT); wT = setTimeout(() => { if ($('editor').hidden || !ed.res.ok) return; if (drag && drag.kind !== 'sel' && Date.now() - (ed.lastMove || 0) < 300) return scheduleWorld(300); try { Game.loadDay(ed.id, customObj()); } catch (e) { console.warn(e); } }, ms == null ? 260 : ms); }
+  // rebuild the real track + 3D world. Never while a drag is in progress.
+  function rebuild(now) {
+    clearTimeout(wT);
+    wT = setTimeout(() => {
+      if ($('editor').hidden) return;
+      if (drag && drag.kind !== 'click' && drag.kind !== 'pan' && drag.kind !== 'orbit') return rebuild();
+      if (!ed.res.ok) { ed.dirty = !!ed.spline; draw(); return; }
+      previewTrack(true); ed.dirty = false; ed.live = null;
+      try { Game.loadDay(ed.id, customObj()); } catch (e) { console.warn(e); }
+      statsUpdate(); draw(); drawProf();
+    }, now ? 0 : 140);
+  }
+  // live road: the new centreline with heights from the waypoint elevations (or the old road / ground), no terrain or scenery work
+  function liveRoad() {
+    if (ed.live) return ed.live;
+    if (!ed.spline || ed.spline.xs.length < 2) return null;
+    const sp = ed.spline, n = sp.xs.length, ys = new Float32Array(n), E = ed.ext, tr = ed.tr;
+    const wi = DL.waypointIndex(ed.pts, sp.xs, sp.zs);
+    if (E.elev && E.elev.length === ed.pts.length) {
+      const y0 = tr ? tr.py[14] : gY(sp.xs[14] || sp.xs[0], sp.zs[14] || sp.zs[0]);
+      const kn = [[0, E.elev[0]]].concat(wi.map((k, j) => [k, E.elev[j]]), [[n - 1, E.elev[E.elev.length - 1]]]);
+      let a = 0;
+      for (let i = 0; i < n; i++) {
+        while (a < kn.length - 2 && kn[a + 1][0] <= i) a++;
+        const k1 = kn[a], k2 = kn[a + 1], t = DL.clamp((i - k1[0]) / Math.max(1, k2[0] - k1[0]), 0, 1), e = t * t * (3 - 2 * t);
+        ys[i] = y0 + k1[1] + (k2[1] - k1[1]) * e;
+      }
+    } else {
+      for (let i = 0; i < n; i += 4) ys[i] = gY(sp.xs[i], sp.zs[i]);
+      for (let i = 0; i < n; i++) if (i % 4) { const a = i - i % 4, b = Math.min(n - 1, a + 4); if (b % 4) ys[b] = gY(sp.xs[b], sp.zs[b]); ys[i] = ys[a] + (ys[b] - ys[a]) * (i - a) / Math.max(1, b - a); }
+    }
+    return (ed.live = { xs: sp.xs, zs: sp.zs, ys, n, wi });
+  }
+  // the road to draw: the real one when it is up to date, otherwise the live one
+  function road() {
+    const tr = ed.tr;
+    if (!ed.dirty && tr && ed.res.ok && tr.wpIdx && tr.wpIdx.length === ed.pts.length) return { xs: tr.px, zs: tr.pz, ys: tr.py, n: tr.N, wi: tr.wpIdx, real: true };
+    return liveRoad();
+  }
+  const wpY = i => { const R = road(); return R && R.wi && R.wi[i] != null ? R.ys[R.wi[i]] : gY(ed.pts[i][0], ed.pts[i][1]); };
 
-  // ----- tabs / side panel -----
+  // ---------------- side panel ----------------
   const TAB_HELP = {
-    layout: 'Click the ground to add waypoints, drag a handle to move it, click the road to insert one, double-click to remove. Drag empty ground to pan. Orbit: right-drag, Option+drag or the orbit button (or Q/E). Scroll zooms.',
-    elev: 'Pick a waypoint and set its height, or drag its handle up and down in the 3D view. Drag the dots on the profile to shape hills and valleys. Red parts are too steep.',
+    road: 'Click the ground to add a point, click the road to insert one. Drag a point to move it; drag its ↕ arrow (or Shift+drag the point) to raise or lower the road there. Right-drag or Alt+drag orbits, drag empty ground to pan, scroll zooms to the cursor.',
+    feat: 'Pick a feature and click the road to place it. Drag a marker along the road to move it. Select one to change it or delete it.',
     terr: 'Paint on the ground: raise or lower it, level it off, or erase edits. The road is never touched. The seed re-rolls the natural landforms.',
     props: 'Pick a prop and click or paint on the ground to place it. Scatter adds natural scenery on its own and its dice re-rolls it.',
     look: 'Pick the biome: it sets the colours, trees, water and weather of your track.'
   };
+  const slider = (id, label, min, max, step, val, fmt) => `<label class="ed-sl"><span>${label}<b id="${id}V">${fmt ? fmt(val) : val}</b></span><input type="range" id="${id}" min="${min}" max="${max}" step="${step}" value="${val}"></label>`;
+  const bind = (id, fn, fmt) => { const el = $(id); if (!el) return; el.oninput = () => { const v = +el.value; $(id + 'V').textContent = fmt ? fmt(v) : v; fn(v); }; };
+  const ptName = i => i === 0 ? 'Start' : i === ed.pts.length - 1 ? 'Finish' : 'Point ' + i;
   function renderTabs() {
     [...$('edTabs').children].forEach(b => b.classList.toggle('on', b.dataset.t === ed.tab));
-    $('edProfWrap').hidden = ed.tab !== 'elev'; if (ed.tab === 'elev') sizeCanvas(); $('edHint').textContent = TAB_HELP[ed.tab];
+    $('edProfWrap').hidden = !(ed.tab === 'road' && ed.showProf); if (ed.tab === 'road') sizeCanvas();
+    $('edHint').textContent = TAB_HELP[ed.tab];
     const P = $('edPane'), E = ed.ext; P.innerHTML = '';
-    const slider = (id, label, min, max, step, val, fmt) => `<label class="ed-sl"><span>${label}<b id="${id}V">${fmt ? fmt(val) : val}</b></span><input type="range" id="${id}" min="${min}" max="${max}" step="${step}" value="${val}"></label>`;
-    const bind = (id, fn, fmt) => { const el = $(id); if (!el) return; el.oninput = () => { const v = +el.value; $(id + 'V').textContent = fmt ? fmt(v) : v; fn(v); }; };
-    if (ed.tab === 'layout') {
-      P.innerHTML = '<div class="btn-row"><button class="btn btn-line btn-sm" id="edDel">Delete point</button><button class="btn btn-line btn-sm" id="edFit">Fit view</button></div><div class="btn-row"><button class="btn btn-line btn-sm" id="edClear">Clear track</button><button class="btn btn-line btn-sm" id="edRev">Reverse</button></div>';
-      $('edDel').onclick = () => { if (ed.sel >= 0) { snap(); ed.pts.splice(ed.sel, 1); if (E.elev) E.elev.splice(ed.sel, 1); ed.sel = -1; changed(); } };
-      $('edFit').onclick = () => { fit(); draw(); };
-      $('edClear').onclick = () => { if (!ed.pts.length) return; snap(); ed.pts = []; E.elev = null; ed.sel = -1; changed(); };
-      $('edRev').onclick = () => { if (ed.pts.length < 2) return; snap(); ed.pts.reverse(); if (E.elev) E.elev.reverse(); ed.sel = -1; changed(); };
-    } else if (ed.tab === 'elev') {
-      const sel = ed.sel >= 0 && E.elev ? E.elev[ed.sel] : 0;
-      P.innerHTML = `<div class="ed-sel">${ed.sel >= 0 ? 'Waypoint ' + (ed.sel === 0 ? 'S (start)' : ed.sel === ed.pts.length - 1 ? 'F (finish)' : ed.sel) : 'Select a waypoint'}</div>` +
-        slider('edHeight', 'Height', DL.EXT_LIM.ELEV_MIN, DL.EXT_LIM.ELEV_MAX, 1, sel, v => v + ' m') +
-        slider('edHills', 'Natural hills along the road', 0, 2, 0.1, E.hills, v => Math.round(v * 100) + '%') +
-        '<div class="btn-row"><button class="btn btn-line btn-sm" id="edFlat">Flatten</button><button class="btn btn-line btn-sm" id="edSmooth">Smooth</button></div><div class="btn-row"><button class="btn btn-line btn-sm" id="edHillRand">🎲 Random hills</button><button class="btn btn-line btn-sm" id="edLegacy">Reset</button></div>';
-      $('edHeight').disabled = ed.sel < 0;
-      bind('edHeight', v => { if (ed.sel < 0) return; ensureElev(); E.elev[ed.sel] = v; changed(true, 'terrain'); }, v => v + ' m');
-      $('edHeight').onchange = () => { snap(); };
-      bind('edHills', v => { E.hills = v; changed(true, 'terrain'); }, v => Math.round(v * 100) + '%');
-      $('edFlat').onclick = () => { snap(); ensureElev(); E.elev = E.elev.map(() => 0); changed(false, 'terrain'); renderTabs(); };
-      $('edSmooth').onclick = () => { snap(); ensureElev(); const a = E.elev.slice(); E.elev = a.map((v, i) => Math.round(((a[Math.max(0, i - 1)] + v * 2 + a[Math.min(a.length - 1, i + 1)]) / 4) * 10) / 10); changed(false, 'terrain'); renderTabs(); };
-      $('edHillRand').onclick = () => { snap(); E.elev = randomElev(Math.random, 1); changed(false, 'terrain'); renderTabs(); };
-      $('edLegacy').onclick = () => { snap(); E.elev = null; changed(false, 'terrain'); renderTabs(); };
+    if (ed.tab === 'road') {
+      const has = ed.sel >= 0, Rr = has ? road() : null, hv = !has ? 0 : E.elev && E.elev[ed.sel] != null ? E.elev[ed.sel] : Rr ? Math.round(wpY(ed.sel) - Rr.ys[Math.min(14, Rr.n - 1)]) : 0;
+      P.innerHTML = `<div class="ed-sel">${has ? ptName(ed.sel) : 'No point selected'}</div>` +
+        (has ? slider('edHeight', 'Road height here', DL.EXT_LIM.ELEV_MIN, DL.EXT_LIM.ELEV_MAX, 1, hv, v => v + ' m') +
+          '<div class="btn-row"><button class="btn btn-line btn-sm" id="edIns">+ Insert after</button><button class="btn btn-line btn-sm" id="edDel">Delete</button></div>' : '') +
+        '<span class="lbl">Shape</span><div class="ed-grid">' +
+        '<button class="btn btn-line btn-sm" id="edRev" title="Swap start and finish">⇄ Reverse</button><button class="btn btn-line btn-sm" id="edMx" title="Mirror left-right">◧ Mirror</button>' +
+        '<button class="btn btn-line btn-sm" id="edRot" title="Rotate 90°">⟳ Rotate</button><button class="btn btn-line btn-sm" id="edFlip" title="Mirror front-back">⬒ Flip</button>' +
+        '<button class="btn btn-line btn-sm" id="edBig" title="Scale up 10%">⤢ Bigger</button><button class="btn btn-line btn-sm" id="edSmall" title="Scale down 10%">⤡ Smaller</button></div>' +
+        '<span class="lbl">Hills</span>' + slider('edHills', 'Natural rolling', 0, 2, 0.1, E.hills, v => Math.round(v * 100) + '%') +
+        '<div class="ed-grid"><button class="btn btn-line btn-sm" id="edSmooth">Smooth heights</button><button class="btn btn-line btn-sm" id="edFlat">Flatten</button>' +
+        '<button class="btn btn-line btn-sm" id="edHillRand">🎲 Random hills</button><button class="btn btn-line btn-sm" id="edProfT">' + (ed.showProf ? 'Hide profile' : 'Show profile') + '</button></div>' +
+        '<div class="btn-row"><button class="btn btn-line btn-sm" id="edClear">Clear track</button><button class="btn btn-line btn-sm" id="edFit">Fit view</button></div>';
+      if (has) {
+        bind('edHeight', v => { ensureElev(); E.elev[ed.sel] = v; ed.dirty = true; ed.live = null; changed(true); rebuild(); }, v => v + ' m');
+        $('edHeight').onpointerdown = () => snap();
+        $('edIns').onclick = insertAfter; $('edDel').onclick = delSel;
+      }
+      $('edRev').onclick = () => { if (ed.pts.length < 2) return; snap(); ed.pts.reverse(); if (E.elev) E.elev.reverse(); flipFeatures(); ed.sel = -1; changed(); rebuild(); };
+      $('edMx').onclick = () => transform((x, z) => [-x, z]);
+      $('edFlip').onclick = () => transform((x, z) => [x, -z]);
+      $('edRot').onclick = () => transform((x, z) => [z, -x]);
+      $('edBig').onclick = () => scaleBy(1.1); $('edSmall').onclick = () => scaleBy(1 / 1.1);
+      bind('edHills', v => { E.hills = v; changed(true); rebuild(); }, v => Math.round(v * 100) + '%'); $('edHills').onpointerdown = () => snap();
+      $('edFlat').onclick = () => { snap(); ensureElev(); E.elev = E.elev.map(() => 0); afterEdit(); };
+      $('edSmooth').onclick = () => { snap(); ensureElev(); const a = E.elev.slice(); E.elev = a.map((v, i) => Math.round(((a[Math.max(0, i - 1)] + v * 2 + a[Math.min(a.length - 1, i + 1)]) / 4) * 10) / 10); afterEdit(); };
+      $('edHillRand').onclick = () => { snap(); E.elev = randomElev(Math.random, 1); afterEdit(); };
+      $('edProfT').onclick = () => { ed.showProf = !ed.showProf; renderTabs(); drawProf(); };
+      $('edClear').onclick = () => { if (!ed.pts.length) return; snap(); ed.pts = []; E.elev = null; ed.sel = -1; changed(); rebuild(); };
+      $('edFit').onclick = () => fit();
+    } else if (ed.tab === 'feat') {
+      const auto = !Array.isArray(E.ramps), f = ed.fsel, list = f ? (f.t === 'ramp' ? E.ramps : E.surf) : null, it = list && list[f.i];
+      P.innerHTML = '<span class="lbl">Place on the road</span><div class="ed-biomes" id="edFeat">' + Object.keys(FEAT).map(k => `<button class="chk ${ed.feat === k ? 'on' : ''}" data-k="${k}"><i class="fdot" style="background:${FEAT[k].col}"></i>${FEAT[k].name}</button>`).join('') + '</div>' +
+        (auto ? '<div class="hint">This track still uses automatic ramps. Placing one switches to your own ramps.</div>' : '') +
+        (it ? `<div class="ed-sel">${f.t === 'ramp' ? 'Ramp' : FEAT[it[2]].name} · ${Math.round(it[0])} m</div>` +
+          (f.t === 'ramp' ? slider('edFH', 'Ramp height', 1.5, 4, 0.1, it[1], v => v.toFixed(1) + ' m') : slider('edFL', 'Length', 24, 240, 4, it[1], v => v + ' m')) +
+          '<div class="btn-row"><button class="btn btn-line btn-sm" id="edFDel">Delete</button><button class="btn btn-line btn-sm" id="edFGo">Show</button></div>' : '<div class="hint">Select a marker on the road to edit it.</div>') +
+        `<div class="hint">${(E.ramps || []).length} ramp${(E.ramps || []).length === 1 ? '' : 's'} (max ${DL.EXT_LIM.RAMPS}) · ${(E.surf || []).length} surface${(E.surf || []).length === 1 ? '' : 's'} (max ${DL.EXT_LIM.SURFS})</div>` +
+        '<div class="btn-row"><button class="btn btn-line btn-sm" id="edFClear">Clear features</button></div>';
+      $('edFeat').onclick = e => { const b = e.target.closest('.chk'); if (!b) return; ed.feat = b.dataset.k; renderTabs(); };
+      if (it) {
+        if (f.t === 'ramp') { bind('edFH', v => { it[1] = v; featEdited(); }, v => v.toFixed(1) + ' m'); $('edFH').onpointerdown = () => snap(); }
+        else { bind('edFL', v => { it[1] = v; featEdited(); }, v => v + ' m'); $('edFL').onpointerdown = () => snap(); }
+        $('edFDel').onclick = () => { snap(); list.splice(f.i, 1); ed.fsel = null; featEdited(); renderTabs(); };
+        $('edFGo').onclick = () => { const R = road(); if (!R) return; const i = DL.clamp(Math.round(it[0] / STEPM), 0, R.n - 1); focus(R.xs[i], R.zs[i], 260); };
+      }
+      $('edFClear').onclick = () => { snap(); E.ramps = []; E.surf = []; ed.fsel = null; featEdited(); renderTabs(); };
     } else if (ed.tab === 'terr') {
       const tool = (k, l) => `<button class="chk ${ed.tool === k ? 'on' : ''}" data-k="${k}">${l}</button>`;
       P.innerHTML = '<span class="lbl">Brush</span><div class="ed-biomes" id="edTools">' + tool('raise', '▲ Raise') + tool('lower', '▼ Lower') + tool('level', '▬ Level') + tool('erase', '✕ Erase') + '</div>' +
         slider('edBrush', 'Brush size', DL.EXT_LIM.R_MIN, 200, 5, ed.brush, v => v + ' m') + slider('edStr', 'Strength', 1, 20, 1, ed.str, v => v + ' m') + slider('edLevel', 'Level height (above start)', -30, 80, 1, ed.level, v => v + ' m') +
         '<span class="lbl">Natural terrain</span>' + slider('edRel', 'Relief', 0, 2.5, 0.1, E.rel, v => Math.round(v * 100) + '%') +
-        `<div class="btn-row"><button class="btn btn-line btn-sm" id="edSeed">🎲 New landforms</button><button class="btn btn-line btn-sm" id="edClearT">Clear sculpt</button></div><div class="hint" id="edSeedV">Terrain seed ${E.seed} · ${E.terr.length} edit${E.terr.length === 1 ? '' : 's'}</div>`;
+        `<div class="btn-row"><button class="btn btn-line btn-sm" id="edSeed">🎲 New landforms</button><button class="btn btn-line btn-sm" id="edClearT">Clear sculpt</button></div><div class="hint">Terrain seed ${E.seed} · ${E.terr.length} edit${E.terr.length === 1 ? '' : 's'}</div>`;
       $('edTools').onclick = e => { const b = e.target.closest('.chk'); if (!b) return; ed.tool = b.dataset.k; renderTabs(); };
       bind('edBrush', v => { ed.brush = v; draw(); }, v => v + ' m'); bind('edStr', v => { ed.str = v; }, v => v + ' m'); bind('edLevel', v => { ed.level = v; }, v => v + ' m');
-      bind('edRel', v => { E.rel = v; changed(true, 'terrain'); }, v => Math.round(v * 100) + '%');
-      $('edRel').onchange = () => snap();
-      $('edSeed').onclick = () => { snap(); E.seed = Math.floor(Math.random() * 99999) + 1; changed(false, 'terrain'); renderTabs(); };
-      $('edClearT').onclick = () => { if (!E.terr.length) return; snap(); E.terr = []; changed(false, 'terrain'); renderTabs(); };
+      bind('edRel', v => { E.rel = v; changed(true); rebuild(); }, v => Math.round(v * 100) + '%'); $('edRel').onpointerdown = () => snap();
+      $('edSeed').onclick = () => { snap(); E.seed = Math.floor(Math.random() * 99999) + 1; afterEdit(); };
+      $('edClearT').onclick = () => { if (!E.terr.length) return; snap(); E.terr = []; afterEdit(); };
     } else if (ed.tab === 'props') {
-      const types = DL.PROP_TYPES, rec = (DL.PROP_REC || {})[ed.biome] || [];
+      const types = DL.PROP_TYPES;
       P.innerHTML = '<span class="lbl">Prop</span><div class="ed-props" id="edPalette">' + types.map(t => `<button class="chk ${ed.propType === t && ed.tool !== 'perase' ? 'on' : ''}" data-k="${t}" style="--pc:${propCol(t)}"><i></i>${PROP_NAMES[t] || t}</button>`).join('') + '</div>' +
         `<div class="btn-row"><button class="chk ${ed.tool === 'perase' ? 'on' : ''}" id="edPErase">✕ Erase props</button><button class="btn btn-line btn-sm" id="edClearP">Clear all</button></div>` +
         slider('edPSize', 'Size', 0.5, 2.2, 0.1, ed.propSize, v => Math.round(v * 100) + '%') +
@@ -359,129 +452,239 @@
         `<label class="ed-ck"><input type="checkbox" id="edUniq" ${E.unique ? 'checked' : ''}> Landmarks and extras (cabins, signs, tents…)</label><div class="btn-row"><button class="btn btn-line btn-sm" id="edPSeed">🎲 Re-scatter</button></div><div class="hint">${E.props.length} placed by hand · scatter seed ${E.pseed}</div>`;
       $('edPalette').onclick = e => { const b = e.target.closest('.chk'); if (!b) return; ed.propType = b.dataset.k; if (ed.tool === 'perase') ed.tool = 'raise'; renderTabs(); };
       $('edPErase').onclick = () => { ed.tool = ed.tool === 'perase' ? 'raise' : 'perase'; renderTabs(); };
-      $('edClearP').onclick = () => { if (!E.props.length) return; snap(); E.props = []; changed(false, 'props'); renderTabs(); };
+      $('edClearP').onclick = () => { if (!E.props.length) return; snap(); E.props = []; afterEdit(); };
       bind('edPSize', v => { ed.propSize = v; }, v => Math.round(v * 100) + '%');
-      bind('edDens', v => { E.dens = v; changed(true, 'props'); }, v => v === 0 ? 'Off' : Math.round(v * 100) + '%'); $('edDens').onchange = () => snap();
-      $('edUniq').onchange = e => { snap(); E.unique = e.target.checked; changed(false, 'props'); };
-      $('edPSeed').onclick = () => { snap(); E.pseed = Math.floor(Math.random() * 99999) + 1; changed(false, 'props'); renderTabs(); };
+      bind('edDens', v => { E.dens = v; changed(true); rebuild(); }, v => v === 0 ? 'Off' : Math.round(v * 100) + '%'); $('edDens').onpointerdown = () => snap();
+      $('edUniq').onchange = e => { snap(); E.unique = e.target.checked; afterEdit(); };
+      $('edPSeed').onclick = () => { snap(); E.pseed = Math.floor(Math.random() * 99999) + 1; afterEdit(); };
     } else {
       P.innerHTML = '<span class="lbl">Biome</span><div class="ed-biomes" id="edBiomes"></div><div class="hint">The biome sets ground colours, trees, water level, mountains and the kind of props that appear.</div>';
       DL.BIOME_KEYS.forEach(k => {
         const b = h(`<button class="chk ${ed.biome === k ? 'on' : ''}" data-k="${k}">${esc(DL.BIOMES[k].name)}</button>`);
-        b.onclick = () => { snap(); ed.biome = k; changed(false, 'terrain'); renderTabs(); };
+        b.onclick = () => { snap(); ed.biome = k; afterEdit(); };
         $('edBiomes').appendChild(b);
       });
     }
   }
-  $('edTabs').addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; ed.tab = b.dataset.t; if (ed.tab === 'elev') { ensureElev(); } if (!['terr', 'props'].includes(ed.tab)) ed.tool = 'raise'; else if (ed.tab === 'props' && ed.tool !== 'perase') ed.tool = 'raise'; renderTabs(); changed(true); });
+  function afterEdit() { ed.live = null; changed(false); renderTabs(); rebuild(); }
+  function featEdited() { ed.live = null; changed(false); rebuild(); }
+  $('edTabs').addEventListener('click', e => {
+    const b = e.target.closest('button'); if (!b) return; ed.tab = b.dataset.t;
+    if (ed.tab === 'terr' && !['raise', 'lower', 'level', 'erase'].includes(ed.tool)) ed.tool = 'raise';
+    if (ed.tab === 'props' && ed.tool !== 'perase') ed.tool = 'raise';
+    renderTabs(); changed(true);
+  });
 
-  // ----- change handling -----
+  // ---------------- layout tools ----------------
+  function insertAfter() {
+    const i = ed.sel; if (i < 0 || ed.pts.length >= DL.CUSTOM.MAX_PTS) return;
+    const a = ed.pts[i], b = ed.pts[i + 1];
+    let np;
+    if (b) np = [Math.round((a[0] + b[0]) / 2), Math.round((a[1] + b[1]) / 2)];
+    else { const p = ed.pts[i - 1] || [a[0] - 100, a[1]], dx = a[0] - p[0], dz = a[1] - p[1], l = Math.hypot(dx, dz) || 1; np = inMap([a[0] + dx / l * 140, a[1] + dz / l * 140]); }
+    snap(); ed.pts.splice(i + 1, 0, np); insertElev(i + 1); ed.sel = i + 1; changed(); rebuild(); renderTabs();
+  }
+  function delSel() { if (ed.sel < 0) return; snap(); ed.pts.splice(ed.sel, 1); if (ed.ext.elev) ed.ext.elev.splice(ed.sel, 1); ed.sel = -1; changed(); rebuild(); renderTabs(); }
+  // reverse keeps features at the same place on the ground
+  function flipFeatures() {
+    const L = ed.spline ? (ed.spline.xs.length - 1) * STEPM : 0, E = ed.ext; if (!L) return;
+    if (E.ramps) E.ramps = E.ramps.map(r => [Math.round(L - r[0]), r[1]]);
+    if (E.surf) E.surf = E.surf.map(p => [Math.round(L - p[0] - p[1]), p[1], p[2]]);
+  }
+  function transform(fn, center) {
+    if (!ed.pts.length) return;
+    const c = center || [0, 0], t = (x, z) => { const q = fn(x - c[0], z - c[1]); return [q[0] + c[0], q[1] + c[1]]; };
+    const np = ed.pts.map(p => t(p[0], p[1]).map(Math.round));
+    if (np.some(p => Math.abs(p[0]) > LIM || Math.abs(p[1]) > LIM)) { toast('That would push the track off the map'); return; }
+    snap(); ed.pts = np; const E = ed.ext;
+    E.terr = E.terr.map(b => { const q = t(b[0], b[1]); return [Math.round(q[0]), Math.round(q[1]), b[2], b[3], b[4]]; });
+    E.props = E.props.map(p => { const q = t(p[1], p[2]); return [p[0], Math.round(q[0]), Math.round(q[1]), p[3], p[4]]; });
+    ed.tr = null; prevKey = ''; afterEdit(); fit();
+  }
+  function scaleBy(k) {
+    let x = 0, z = 0; ed.pts.forEach(p => { x += p[0]; z += p[1]; }); const c = [x / ed.pts.length, z / ed.pts.length];
+    const L0 = ed.spline ? (ed.spline.xs.length - 1) * STEPM : 0, E = ed.ext;
+    transform((a, b) => [a * k, b * k], c);
+    const L1 = ed.spline ? (ed.spline.xs.length - 1) * STEPM : 0;
+    if (L0 && L1) { const r = L1 / L0; if (E.ramps) E.ramps.forEach(q => { q[0] = Math.round(q[0] * r); }); if (E.surf) E.surf.forEach(q => { q[0] = Math.round(q[0] * r); }); changed(true); rebuild(); }
+  }
+
+  // ---------------- change handling ----------------
   let saveT = 0;
-  function changed(noSave, what) {
-    ed.spline = null;
+  function changed(noSave) {
+    ed.spline = null; ed.live = null;
     if (ed.pts.length >= 2) { try { ed.spline = DL.customCenterline(ed.pts); } catch (e) { } }
     ed.res = DL.validateCustomTrack(ed.pts); ed.prob = ed.res.ok ? null : (ed.res.at || null);
-    const tested = ed.tested && ed.tested.key === edKey();
-    const st = $('edStatus');
+    if (!ed.tr || prevKey !== edKey()) ed.dirty = true;
+    const tested = ed.tested && ed.tested.key === edKey(), st = $('edStatus');
     if (ed.res.ok) { st.className = 'ed-status ok'; st.textContent = tested ? 'Tested ✓ Ready to publish' : 'Valid track. Test drive it to unlock publishing'; }
     else { st.className = 'ed-status bad'; st.textContent = ed.res.error; }
     Game.edStale(!ed.res.ok);
     $('edTest').disabled = !ed.res.ok; $('edPublish').disabled = !(ed.res.ok && tested);
     $('edPublish').title = tested ? '' : 'Finish a test drive on this exact layout first';
-    $('edUndo').disabled = !ed.hist.length;
-    if (ed.res.ok) { previewTrack(); scheduleWorld(); }
+    $('edUndo').disabled = !ed.hist.length; $('edRedo').disabled = !ed.redo.length;
     statsUpdate(); draw(); drawProf();
     if (!noSave) { clearTimeout(saveT); saveT = setTimeout(saveDraft, 400); }
   }
   function saveDraft() { if (ed.id && ed.pts.length) putDraft({ id: ed.id, name: ed.name, biome: ed.biome, pts: ed.pts, ext: ed.ext, at: Date.now() }); }
   function statsUpdate() {
-    const tr = ed.res.ok ? ed.tr : null; let climb = 0, steep = 0;
-    if (tr) { for (let i = 1; i < tr.N; i++) { const d = tr.py[i] - tr.py[i - 1]; if (d > 0) climb += d; } for (let i = 3; i < tr.N; i++) steep = Math.max(steep, Math.abs(tr.py[i] - tr.py[i - 3]) / 12); }
-    $('edLen').textContent = ed.spline ? Math.round((ed.spline.xs.length - 1) * 4) + ' m' : '0 m'; $('edPts').textContent = ed.pts.length;
-    $('edClimb').textContent = tr ? Math.round(climb) + ' m' : '—'; $('edSteep').textContent = tr ? Math.round(steep * 100) + '%' : '—';
+    const R = ed.res.ok ? road() : null; let climb = 0, steep = 0;
+    if (R) { for (let i = 1; i < R.n; i++) { const d = R.ys[i] - R.ys[i - 1]; if (d > 0) climb += d; } for (let i = 3; i < R.n; i++) steep = Math.max(steep, Math.abs(R.ys[i] - R.ys[i - 3]) / 12); }
+    $('edLen').textContent = ed.spline ? Math.round((ed.spline.xs.length - 1) * STEPM) + ' m' : '0 m'; $('edPts').textContent = ed.pts.length;
+    $('edClimb').textContent = R ? Math.round(climb) + ' m' : '—'; $('edSteep').textContent = R ? Math.round(steep * 100) + '%' : '—';
     $('edSteep').style.color = steep > 0.14 ? '#d4441f' : '';
   }
 
-  // ----- overlay drawing (handles on top of the real 3D scene) -----
+  // ---------------- overlay: road, features and handles drawn over the real 3D scene ----------------
+  const slopeCol = sl => sl > 0.125 ? '#d4441f' : sl > 0.08 ? '#e0a030' : null;
+  function strip(R, i0, i1, off0, off1, yAdd, fill, stroke, lw) {
+    // a band along the road between lateral offsets off0..off1 (both sides drawn as one polygon per chunk)
+    const step = Math.max(1, Math.round((i1 - i0) / 160)); let L = [], Rr = [];
+    const flush = () => { if (L.length > 1) { cx.beginPath(); cx.moveTo(L[0][0], L[0][1]); for (let k = 1; k < L.length; k++) cx.lineTo(L[k][0], L[k][1]); for (let k = Rr.length - 1; k >= 0; k--) cx.lineTo(Rr[k][0], Rr[k][1]); cx.closePath(); if (fill) { cx.fillStyle = fill; cx.fill(); } if (stroke) { cx.strokeStyle = stroke; cx.lineWidth = lw || 2; cx.stroke(); } } L = []; Rr = []; };
+    for (let i = i0; i <= i1; i += step) {
+      const a = Math.max(0, i - 1), b = Math.min(R.n - 1, i + 1), tx = R.xs[b] - R.xs[a], tz = R.zs[b] - R.zs[a], tl = Math.hypot(tx, tz) || 1, nx = -tz / tl, nz = tx / tl;
+      const p = proj(R.xs[i] + nx * off0, R.ys[i] + yAdd, R.zs[i] + nz * off0), q = proj(R.xs[i] + nx * off1, R.ys[i] + yAdd, R.zs[i] + nz * off1);
+      if (!p[2] || !q[2]) { flush(); continue; }
+      L.push(p); Rr.push(q);
+    }
+    flush();
+  }
+  function edgeLine(R, off, col, lw, every) {
+    const step = every || 2; cx.beginPath(); let on = false;
+    for (let i = 0; i < R.n; i += step) {
+      const a = Math.max(0, i - 1), b = Math.min(R.n - 1, i + 1), tx = R.xs[b] - R.xs[a], tz = R.zs[b] - R.zs[a], tl = Math.hypot(tx, tz) || 1;
+      const p = proj(R.xs[i] - tz / tl * off, R.ys[i] + 0.6, R.zs[i] + tx / tl * off);
+      if (!p[2]) { on = false; continue; } if (!on) { cx.moveTo(p[0], p[1]); on = true; } else cx.lineTo(p[0], p[1]);
+    }
+    cx.strokeStyle = col; cx.lineWidth = lw; cx.stroke();
+  }
+  function featMarker(R, s, label, col, on) {
+    const i = DL.clamp(Math.round(s / STEPM), 0, R.n - 1), p = proj(R.xs[i], R.ys[i] + 9, R.zs[i]), g = proj(R.xs[i], R.ys[i] + 0.6, R.zs[i]);
+    if (!p[2]) return null;
+    cx.beginPath(); cx.moveTo(g[0], g[1]); cx.lineTo(p[0], p[1]); cx.strokeStyle = 'rgba(255,255,255,.75)'; cx.lineWidth = 2; cx.stroke();
+    cx.font = '800 13px Barlow Condensed, sans-serif'; const w = cx.measureText(label).width + 16;
+    cx.beginPath(); cx.roundRect ? cx.roundRect(p[0] - w / 2, p[1] - 11, w, 22, 7) : cx.rect(p[0] - w / 2, p[1] - 11, w, 22);
+    cx.fillStyle = col; cx.fill(); cx.lineWidth = on ? 3 : 1.5; cx.strokeStyle = on ? '#f05a35' : '#1c2536'; cx.stroke();
+    cx.fillStyle = col === FEAT.mud.col ? '#fff' : '#1c2536'; cx.textAlign = 'center'; cx.textBaseline = 'middle'; cx.fillText(label, p[0], p[1] + 0.5);
+    return p;
+  }
   function draw() {
     Game.edCamera().updateMatrixWorld(); const W = ed.W, H = ed.H, E = ed.ext; if (!W) return;
     cx.setTransform(ed.dpr, 0, 0, ed.dpr, 0, 0); cx.clearRect(0, 0, W, H);
-    const tr = ed.tr, okTr = tr && ed.res.ok && tr.wpIdx && tr.wpIdx.length === ed.pts.length;
-    // road line
-    if (okTr) {
-      cx.beginPath(); let on = false;
-      for (let i = 0; i < tr.N; i += 2) { const p = proj(tr.px[i], tr.py[i] + 0.8, tr.pz[i]); if (!p[2]) { on = false; continue; } if (!on) { cx.moveTo(p[0], p[1]); on = true; } else cx.lineTo(p[0], p[1]); }
-      cx.strokeStyle = 'rgba(240,90,53,.9)'; cx.lineWidth = 2; cx.lineJoin = 'round'; cx.stroke();
+    const R = road(); ed.fmark = [];
+    if (R && ed.res.ok) {
+      // the live road is drawn as a full ribbon so you see the new shape while the world catches up
+      if (!R.real) strip(R, 0, R.n - 1, -HALFW, HALFW, 0.5, 'rgba(44,53,72,.78)', null);
+      // surfaces
+      (E.surf || []).forEach((p, k) => { const i0 = DL.clamp(Math.round(p[0] / STEPM), 0, R.n - 1), i1 = DL.clamp(Math.round((p[0] + p[1]) / STEPM), 0, R.n - 1); strip(R, i0, i1, -HALFW, HALFW, 0.7, FEAT[p[2]].col + 'cc', null); });
+      // edges, slope warnings on the edge colour
+      edgeLine(R, HALFW, 'rgba(243,234,215,.95)', 2); edgeLine(R, -HALFW, 'rgba(243,234,215,.95)', 2);
+      for (let i = 3; i < R.n; i += 3) { const c = slopeCol(Math.abs(R.ys[i] - R.ys[i - 3]) / 12); if (!c) continue; const a = proj(R.xs[i - 3], R.ys[i - 3] + 0.8, R.zs[i - 3]), b = proj(R.xs[i], R.ys[i] + 0.8, R.zs[i]); if (!a[2] || !b[2]) continue; cx.beginPath(); cx.moveTo(a[0], a[1]); cx.lineTo(b[0], b[1]); cx.strokeStyle = c; cx.lineWidth = 5; cx.stroke(); }
+      // direction chevrons along the centre
+      cx.fillStyle = 'rgba(240,90,53,.95)';
+      for (let i = 20; i < R.n - 10; i += 30) { const a = proj(R.xs[i], R.ys[i] + 0.8, R.zs[i]), b = proj(R.xs[i + 2], R.ys[i + 2] + 0.8, R.zs[i + 2]); if (!a[2] || !b[2]) continue; const dx = b[0] - a[0], dy = b[1] - a[1], l = Math.hypot(dx, dy) || 1, ux = dx / l, uy = dy / l, s = 7; cx.beginPath(); cx.moveTo(a[0] + ux * s, a[1] + uy * s); cx.lineTo(a[0] - ux * s - uy * s, a[1] - uy * s + ux * s); cx.lineTo(a[0] - ux * s + uy * s, a[1] - uy * s - ux * s); cx.closePath(); cx.fill(); }
+      // feature markers
+      const showF = ed.tab === 'feat' || ed.tab === 'road';
+      if (showF) {
+        (E.ramps || []).forEach((r, k) => { const p = featMarker(R, r[0], '▲ RAMP ' + r[1].toFixed(1) + ' m', FEAT.ramp.col, ed.fsel && ed.fsel.t === 'ramp' && ed.fsel.i === k); if (p) ed.fmark.push({ t: 'ramp', i: k, p }); });
+        (E.surf || []).forEach((q, k) => { const p = featMarker(R, q[0] + q[1] / 2, FEAT[q[2]].name.toUpperCase() + ' ' + q[1] + ' m', FEAT[q[2]].col, ed.fsel && ed.fsel.t === 'surf' && ed.fsel.i === k); if (p) ed.fmark.push({ t: 'surf', i: k, p }); });
+      }
     }
     // manual props
-    if (E.props) E.props.forEach(p => { const q = proj(p[1], gY(p[1], p[2]) + 1, p[2]); if (!q[2]) return; cx.beginPath(); cx.arc(q[0], q[1], 4, 0, 7); cx.fillStyle = propCol(p[0]); cx.fill(); cx.lineWidth = 1; cx.strokeStyle = 'rgba(17,21,29,.8)'; cx.stroke(); });
-    // waypoints: pole from the ground up to a handle, labelled with the road height in the elevation tab
-    ed.pts.forEach((p, i) => {
-      const gy = gY(p[0], p[1]), ry = okTr ? tr.py[tr.wpIdx[i]] : gy, a = proj(p[0], gy, p[1]), b = proj(p[0], ry + 7, p[1]);
-      if (!b[2]) return; const first = i === 0, last = i === ed.pts.length - 1 && i > 0, on = i === ed.sel;
-      cx.beginPath(); cx.moveTo(a[0], a[1]); cx.lineTo(b[0], b[1]); cx.strokeStyle = 'rgba(255,255,255,.7)'; cx.lineWidth = 2; cx.stroke();
-      cx.beginPath(); cx.arc(b[0], b[1], on ? 12 : 10, 0, 7); cx.fillStyle = first ? '#3f7d5a' : last ? '#f05a35' : '#f3ead7'; cx.fill();
-      cx.lineWidth = on ? 3 : 2; cx.strokeStyle = on ? '#f05a35' : '#1c2536'; cx.stroke();
-      cx.fillStyle = first || last ? '#fff' : '#1c2536'; cx.font = '700 11px Barlow, sans-serif'; cx.textAlign = 'center'; cx.textBaseline = 'middle'; cx.fillText(first ? 'S' : last ? 'F' : String(i), b[0], b[1] + 0.5);
-      if (ed.tab === 'elev' && E.elev && E.elev[i] != null) { cx.font = '800 13px Barlow Condensed, sans-serif'; cx.strokeStyle = 'rgba(255,255,255,.9)'; cx.lineWidth = 3.5; const t = Math.round(E.elev[i]) + ' m'; cx.strokeText(t, b[0], b[1] - 20); cx.fillStyle = '#1c2536'; cx.fillText(t, b[0], b[1] - 20); }
-    });
-    if (ed.prob) { const q = proj(ed.prob[0], gY(ed.prob[0], ed.prob[1]) + 2, ed.prob[1]); if (q[2]) { cx.strokeStyle = '#d4441f'; cx.lineWidth = 3; cx.beginPath(); cx.arc(q[0], q[1], 24, 0, 7); cx.stroke(); cx.fillStyle = 'rgba(212,68,31,.2)'; cx.fill(); } }
-    // brush ring on the ground
-    if (ed.hit && !ed.camDrag && (ed.tab === 'terr' || ed.tab === 'props')) {
-      const R = ed.tab === 'terr' ? ed.brush : ed.tool === 'perase' ? 22 : 5 * ed.propSize + 2; cx.beginPath(); let on = false;
-      for (let k = 0; k <= 48; k++) { const a = k / 48 * 6.2832, x = ed.hit[0] + Math.cos(a) * R, z = ed.hit[2] + Math.sin(a) * R, q = proj(x, gY(x, z) + 0.7, z); if (!q[2]) continue; if (!on) { cx.moveTo(q[0], q[1]); on = true; } else cx.lineTo(q[0], q[1]); }
-      cx.closePath(); cx.strokeStyle = ed.tab === 'props' ? (ed.tool === 'perase' ? '#d4441f' : propCol(ed.propType)) : '#f05a35'; cx.lineWidth = 2.5; cx.stroke();
-      cx.fillStyle = 'rgba(240,90,53,.12)'; if (ed.tab === 'terr') cx.fill();
-    }
+    if (E.props && ed.tab === 'props') E.props.forEach(p => { const q = proj(p[1], gY(p[1], p[2]) + 1, p[2]); if (!q[2]) return; cx.beginPath(); cx.arc(q[0], q[1], 4, 0, 7); cx.fillStyle = propCol(p[0]); cx.fill(); cx.lineWidth = 1; cx.strokeStyle = 'rgba(17,21,29,.8)'; cx.stroke(); });
+    // invalid layout: dashed centreline on the ground
     if (!ed.res.ok && ed.spline && ed.spline.xs.length > 1) {
       cx.beginPath(); let on = false; const sp = ed.spline;
       for (let i = 0; i < sp.xs.length; i += 2) { const q = proj(sp.xs[i], gY(sp.xs[i], sp.zs[i]) + 1, sp.zs[i]); if (!q[2]) { on = false; continue; } if (!on) { cx.moveTo(q[0], q[1]); on = true; } else cx.lineTo(q[0], q[1]); }
       cx.setLineDash([10, 8]); cx.strokeStyle = '#d4441f'; cx.lineWidth = 3; cx.stroke(); cx.setLineDash([]);
     }
-    if (!ed.res.ok) { cx.font = '800 20px Barlow Condensed, sans-serif'; cx.textAlign = 'center'; const t = ed.res.error || 'Fix the layout'; const w = cx.measureText(t).width + 28, bx = W / 2 + 150 - w / 2; cx.fillStyle = 'rgba(138,42,28,.92)'; cx.beginPath(); cx.roundRect ? cx.roundRect(bx, 16, w, 36, 10) : cx.rect(bx, 16, w, 36); cx.fill(); cx.fillStyle = '#fff'; cx.fillText(t, W / 2 + 150, 40); }
-    if (!ed.pts.length) { cx.fillStyle = 'rgba(255,255,255,.9)'; cx.font = '800 26px Barlow Condensed, sans-serif'; cx.textAlign = 'center'; cx.fillText('Click the ground to place the start', W / 2 + 150, H / 2); }
+    // waypoints: stem from the ground to a handle at road height; the selected one gets a height arrow
+    if (ed.tab === 'road' || ed.tab === 'feat') ed.pts.forEach((p, i) => {
+      const gy = gY(p[0], p[1]), ry = wpY(i), a = proj(p[0], Math.min(gy, ry), p[1]), b = proj(p[0], ry + 6, p[1]);
+      if (!b[2]) return; const first = i === 0, last = i === ed.pts.length - 1 && i > 0, on = i === ed.sel, faint = ed.tab === 'feat';
+      cx.globalAlpha = faint ? 0.45 : 1;
+      cx.beginPath(); cx.moveTo(a[0], a[1]); cx.lineTo(b[0], b[1]); cx.strokeStyle = 'rgba(255,255,255,.8)'; cx.lineWidth = 2; cx.stroke();
+      cx.beginPath(); cx.arc(b[0], b[1], on ? 13 : 10, 0, 7); cx.fillStyle = first ? '#3f7d5a' : last ? '#f05a35' : '#f3ead7'; cx.fill();
+      cx.lineWidth = on ? 3.5 : 2; cx.strokeStyle = on ? '#f05a35' : '#1c2536'; cx.stroke();
+      cx.fillStyle = first || last ? '#fff' : '#1c2536'; cx.font = '700 11px Barlow, sans-serif'; cx.textAlign = 'center'; cx.textBaseline = 'middle'; cx.fillText(first ? 'S' : last ? 'F' : String(i), b[0], b[1] + 0.5);
+      if (E.elev && E.elev[i] != null && (on || ed.showProf) && !faint) { cx.font = '800 13px Barlow Condensed, sans-serif'; cx.strokeStyle = 'rgba(255,255,255,.9)'; cx.lineWidth = 3.5; const t = (E.elev[i] > 0 ? '+' : '') + Math.round(E.elev[i]) + ' m'; cx.strokeText(t, b[0] + 22, b[1]); cx.fillStyle = '#1c2536'; cx.fillText(t, b[0] + 22, b[1]); }
+      if (on && ed.tab === 'road') {
+        const ar = arrowPos(i);
+        if (ar) { cx.beginPath(); cx.moveTo(b[0], b[1] - 13); cx.lineTo(ar[0], ar[1]); cx.strokeStyle = '#f05a35'; cx.lineWidth = 3; cx.stroke(); cx.beginPath(); cx.arc(ar[0], ar[1], 13, 0, 7); cx.fillStyle = '#f05a35'; cx.fill(); cx.fillStyle = '#fff'; cx.font = '900 16px Barlow, sans-serif'; cx.fillText('↕', ar[0], ar[1] + 1); }
+      }
+      cx.globalAlpha = 1;
+    });
+    if (ed.prob) { const q = proj(ed.prob[0], gY(ed.prob[0], ed.prob[1]) + 2, ed.prob[1]); if (q[2]) { cx.strokeStyle = '#d4441f'; cx.lineWidth = 3; cx.beginPath(); cx.arc(q[0], q[1], 24, 0, 7); cx.stroke(); cx.fillStyle = 'rgba(212,68,31,.2)'; cx.fill(); } }
+    // brush ring
+    if (ed.hit && !ed.camDrag && (ed.tab === 'terr' || ed.tab === 'props')) {
+      const Rr = ed.tab === 'terr' ? ed.brush : ed.tool === 'perase' ? 22 : 5 * ed.propSize + 2; cx.beginPath(); let on = false;
+      for (let k = 0; k <= 48; k++) { const a = k / 48 * 6.2832, x = ed.hit[0] + Math.cos(a) * Rr, z = ed.hit[2] + Math.sin(a) * Rr, q = proj(x, gY(x, z) + 0.7, z); if (!q[2]) continue; if (!on) { cx.moveTo(q[0], q[1]); on = true; } else cx.lineTo(q[0], q[1]); }
+      cx.closePath(); cx.strokeStyle = ed.tab === 'props' ? (ed.tool === 'perase' ? '#d4441f' : propCol(ed.propType)) : '#f05a35'; cx.lineWidth = 2.5; cx.stroke();
+      cx.fillStyle = 'rgba(240,90,53,.12)'; if (ed.tab === 'terr') cx.fill();
+    }
+    // feature ghost under the cursor
+    if (ed.tab === 'feat' && ed.hover != null && R && !drag) { const i = ed.hover, p = proj(R.xs[i], R.ys[i] + 1, R.zs[i]); if (p[2]) { cx.beginPath(); cx.arc(p[0], p[1], 9, 0, 7); cx.fillStyle = FEAT[ed.feat].col; cx.fill(); cx.strokeStyle = '#1c2536'; cx.lineWidth = 2; cx.stroke(); } }
+    if (!ed.res.ok) { cx.font = '800 20px Barlow Condensed, sans-serif'; cx.textAlign = 'center'; const t = ed.res.error || 'Fix the layout'; const w = cx.measureText(t).width + 28, mid = W > 760 ? W / 2 + 150 : W / 2, bx = mid - w / 2; cx.fillStyle = 'rgba(138,42,28,.92)'; cx.beginPath(); cx.roundRect ? cx.roundRect(bx, 16, w, 36, 10) : cx.rect(bx, 16, w, 36); cx.fill(); cx.fillStyle = '#fff'; cx.fillText(t, mid, 40); }
+    if (!ed.pts.length) { cx.fillStyle = 'rgba(255,255,255,.9)'; cx.font = '800 26px Barlow Condensed, sans-serif'; cx.textAlign = 'center'; cx.fillText('Click the ground to place the start', W > 760 ? W / 2 + 150 : W / 2, H / 2); }
   }
-  Game.onEdFrame = () => { if ($('editor').hidden) return; if (ed.W !== window.innerWidth || ed.H !== window.innerHeight || ed.dpr !== Math.min(2, window.devicePixelRatio || 1)) sizeCanvas(); draw(); };
-  // road height profile (elevation tab)
+  // the height arrow sits a fixed screen distance above the handle
+  function arrowPos(i) { const p = ed.pts[i], b = proj(p[0], wpY(i) + 6, p[1]); return b[2] ? [b[0], b[1] - 46] : null; }
+  Game.onEdFrame = () => {
+    if ($('editor').hidden) return;
+    if (ed.W !== window.innerWidth || ed.H !== window.innerHeight || ed.dpr !== Math.min(2, window.devicePixelRatio || 1)) sizeCanvas();
+    easeCam(); keyPan(); draw();
+  };
+
+  // ---------------- height profile ----------------
   const prof = { x0: 46, x1: 14, y0: 14, y1: 20 };
   function profMap() {
-    const tr = ed.tr; if (!tr) return null;
-    let mn = 1e9, mx = -1e9; for (let i = 0; i < tr.N; i++) { mn = Math.min(mn, tr.py[i]); mx = Math.max(mx, tr.py[i]); }
-    const E = ed.ext.elev || []; const y0 = tr.py[14]; for (const v of E) { mn = Math.min(mn, y0 + v); mx = Math.max(mx, y0 + v); }
-    const pad = Math.max(8, (mx - mn) * 0.12); mn -= pad; mx += pad;
-    const L = tr.s[tr.N - 1] || 1, pw = ed.PW - prof.x0 - prof.x1, ph = ed.PH - prof.y0 - prof.y1;
-    return { tr, mn, mx, L, X: s => prof.x0 + s / L * pw, Y: h => prof.y0 + (1 - (h - mn) / (mx - mn)) * ph, inv: py => mn + (1 - (py - prof.y0) / ph) * (mx - mn), y0 };
+    const R = ed.res.ok ? road() : null; if (!R) return null;
+    let mn = 1e9, mx = -1e9; for (let i = 0; i < R.n; i++) { mn = Math.min(mn, R.ys[i]); mx = Math.max(mx, R.ys[i]); }
+    const y0 = R.ys[14] != null ? R.ys[14] : R.ys[0]; const pad = Math.max(8, (mx - mn) * 0.12); mn -= pad; mx += pad;
+    const L = (R.n - 1) * STEPM || 1, pw = ed.PW - prof.x0 - prof.x1, ph = ed.PH - prof.y0 - prof.y1;
+    return { R, mn, mx, L, y0, X: s => prof.x0 + s / L * pw, Y: hh => prof.y0 + (1 - (hh - mn) / (mx - mn)) * ph, inv: py => mn + (1 - (py - prof.y0) / ph) * (mx - mn), s: x => DL.clamp((x - prof.x0) / pw, 0, 1) * L };
   }
   function drawProf() {
-    if (ed.tab !== 'elev') return; const c = pcx; c.setTransform(ed.dpr, 0, 0, ed.dpr, 0, 0); c.clearRect(0, 0, ed.PW, ed.PH);
+    if ($('edProfWrap').hidden) return; const c = pcx; c.setTransform(ed.dpr, 0, 0, ed.dpr, 0, 0); c.clearRect(0, 0, ed.PW, ed.PH);
     c.fillStyle = 'rgba(251,246,234,.94)'; c.fillRect(0, 0, ed.PW, ed.PH);
-    const M = profMap(); if (!M) { c.fillStyle = '#1c2536'; c.font = '700 14px Barlow'; c.fillText('Fix the layout to see the profile', 20, 40); return; }
-    const { tr } = M; c.lineWidth = 1; c.strokeStyle = 'rgba(17,21,29,.12)'; c.fillStyle = '#5a6272'; c.font = '700 11px Barlow'; c.textAlign = 'right';
+    const M = profMap(); if (!M) { c.fillStyle = '#1c2536'; c.font = '700 14px Barlow'; c.fillText('Fix the layout to see the height profile', 20, 40); return; }
+    const { R } = M; c.lineWidth = 1; c.strokeStyle = 'rgba(17,21,29,.12)'; c.fillStyle = '#5a6272'; c.font = '700 11px Barlow'; c.textAlign = 'right';
     for (let k = 0; k <= 4; k++) { const hv = M.mn + (M.mx - M.mn) * k / 4, y = M.Y(hv); c.beginPath(); c.moveTo(prof.x0, y); c.lineTo(ed.PW - prof.x1, y); c.stroke(); c.fillText(Math.round(hv - M.y0) + ' m', prof.x0 - 6, y + 4); }
-    // filled profile coloured by slope
-    for (let i = 1; i < tr.N; i++) {
-      const sl = Math.abs(tr.py[i] - tr.py[Math.max(0, i - 3)]) / (Math.min(3, i) * 4);
-      c.strokeStyle = sl > 0.125 ? '#d4441f' : sl > 0.08 ? '#e0a030' : '#2f7d5a'; c.lineWidth = 4;
-      c.beginPath(); c.moveTo(M.X(tr.s[i - 1]), M.Y(tr.py[i - 1])); c.lineTo(M.X(tr.s[i]), M.Y(tr.py[i])); c.stroke();
+    // features as bands under the line
+    (ed.ext.surf || []).forEach(p => { c.fillStyle = FEAT[p[2]].col + '88'; c.fillRect(M.X(p[0]), prof.y0, M.X(p[0] + p[1]) - M.X(p[0]), ed.PH - prof.y0 - prof.y1); });
+    (ed.ext.ramps || []).forEach(r => { const x = M.X(r[0]); c.fillStyle = FEAT.ramp.col; c.beginPath(); c.moveTo(x - 6, ed.PH - prof.y1); c.lineTo(x + 6, ed.PH - prof.y1); c.lineTo(x + 6, ed.PH - prof.y1 - 10); c.closePath(); c.fill(); });
+    c.beginPath(); c.moveTo(M.X(0), ed.PH - prof.y1); for (let i = 0; i < R.n; i += 2) c.lineTo(M.X(i * STEPM), M.Y(R.ys[i])); c.lineTo(M.X((R.n - 1) * STEPM), ed.PH - prof.y1); c.closePath(); c.fillStyle = 'rgba(47,125,90,.12)'; c.fill();
+    for (let i = 1; i < R.n; i++) {
+      const sl = Math.abs(R.ys[i] - R.ys[Math.max(0, i - 3)]) / (Math.min(3, i) * 4);
+      c.strokeStyle = slopeCol(sl) || '#2f7d5a'; c.lineWidth = 3.5;
+      c.beginPath(); c.moveTo(M.X((i - 1) * STEPM), M.Y(R.ys[i - 1])); c.lineTo(M.X(i * STEPM), M.Y(R.ys[i])); c.stroke();
     }
     c.textAlign = 'center'; c.fillStyle = '#5a6272'; c.fillText(Math.round(M.L) + ' m', ed.PW - 30, ed.PH - 6); c.fillText('0', prof.x0, ed.PH - 6);
-    (tr.wpIdx || []).forEach((wi, i) => { const x = M.X(tr.s[wi]), y = M.Y(tr.py[wi]), on = i === ed.sel; c.beginPath(); c.arc(x, y, on ? 9 : 7, 0, 7); c.fillStyle = i === 0 ? '#3f7d5a' : i === ed.pts.length - 1 ? '#f05a35' : '#f3ead7'; c.fill(); c.lineWidth = on ? 3 : 2; c.strokeStyle = on ? '#f05a35' : '#1c2536'; c.stroke(); });
+    (R.wi || []).forEach((wi, i) => { const x = M.X(wi * STEPM), y = M.Y(R.ys[wi]), on = i === ed.sel; c.beginPath(); c.arc(x, y, on ? 9 : 7, 0, 7); c.fillStyle = i === 0 ? '#3f7d5a' : i === ed.pts.length - 1 ? '#f05a35' : '#f3ead7'; c.fill(); c.lineWidth = on ? 3 : 2; c.strokeStyle = on ? '#f05a35' : '#1c2536'; c.stroke(); });
   }
 
-  // ----- pointer interaction -----
+  // ---------------- pointer interaction ----------------
   let drag = null;
   const evPos = e => [e.clientX, e.clientY];
-  const wpScreen = i => { const tr = ed.tr, p = ed.pts[i], ok = tr && tr.wpIdx && tr.wpIdx.length === ed.pts.length; return proj(p[0], (ok ? tr.py[tr.wpIdx[i]] : gY(p[0], p[1])) + 7, p[1]); };
-  const hitPoint = (px, pz) => { let best = -1, bd = 28; ed.pts.forEach((p, i) => { const q = wpScreen(i), d = Math.hypot(q[0] - px, q[1] - pz); if (q[2] && d < bd) { bd = d; best = i; } }); return best; };
+  const wpScreen = i => { const p = ed.pts[i]; return proj(p[0], wpY(i) + 6, p[1]); };
+  const hitPoint = (px, pz) => { let best = -1, bd = 26; ed.pts.forEach((p, i) => { const q = wpScreen(i), d = Math.hypot(q[0] - px, q[1] - pz); if (q[2] && d < bd) { bd = d; best = i; } }); return best; };
+  const hitArrow = (px, pz) => { if (ed.sel < 0) return false; const a = arrowPos(ed.sel); return a && Math.hypot(a[0] - px, a[1] - pz) < 18; };
+  const hitFeat = (px, pz) => { let best = null, bd = 18; (ed.fmark || []).forEach(m => { const d = Math.hypot(m.p[0] - px, m.p[1] - pz); if (d < bd) { bd = d; best = m; } }); return best; };
+  // nearest road sample to the cursor, on screen
+  function hitRoad(px, pz, maxPx) {
+    const R = road(); if (!R) return -1; let best = -1, bd = maxPx || 22;
+    for (let i = 0; i < R.n; i += 1) { const q = proj(R.xs[i], R.ys[i] + 0.5, R.zs[i]); if (!q[2]) continue; const d = Math.hypot(q[0] - px, q[1] - pz); if (d < bd) { bd = d; best = i; } }
+    return best;
+  }
   const inMap = w => [DL.clamp(Math.round(w[0]), -LIM, LIM), DL.clamp(Math.round(w[1]), -LIM, LIM)];
   const nearRoad = (x, z) => { if (!ed.spline) return 1e9; let b = 1e9; const s = ed.spline; for (let i = 0; i < s.xs.length; i += 2) b = Math.min(b, Math.hypot(s.xs[i] - x, s.zs[i] - z)); return b; };
   function paintTerrain(w) {
-    const E = ed.ext, R = ed.brush;
-    if (ed.tool === 'erase') { E.terr = E.terr.filter(t => Math.hypot(t[0] - w[0], t[1] - w[2]) > R * 0.7); return; }
+    const E = ed.ext, Rb = ed.brush;
+    if (ed.tool === 'erase') { E.terr = E.terr.filter(t => Math.hypot(t[0] - w[0], t[1] - w[2]) > Rb * 0.7); return; }
     const mode = ed.tool === 'level' ? 1 : 0, hgt = mode ? ed.level : (ed.tool === 'raise' ? 1 : -1) * ed.str;
-    for (const t of E.terr) if (t[4] === mode && Math.hypot(t[0] - w[0], t[1] - w[2]) < R * 0.3 && Math.abs(t[2] - R) < 12) { t[3] = mode ? hgt : DL.clamp(Math.round((t[3] + hgt * 0.5) * 10) / 10, -DL.EXT_LIM.H, DL.EXT_LIM.H); return; }
+    for (const t of E.terr) if (t[4] === mode && Math.hypot(t[0] - w[0], t[1] - w[2]) < Rb * 0.3 && Math.abs(t[2] - Rb) < 12) { t[3] = mode ? hgt : DL.clamp(Math.round((t[3] + hgt * 0.5) * 10) / 10, -DL.EXT_LIM.H, DL.EXT_LIM.H); return; }
     if (E.terr.length >= DL.EXT_LIM.TERR) { toast('Terrain edit limit reached. Use a bigger brush or clear some.'); return; }
-    E.terr.push([Math.round(w[0]), Math.round(w[2]), R, mode ? hgt : hgt * 0.8, mode]);
+    E.terr.push([Math.round(w[0]), Math.round(w[2]), Rb, mode ? hgt : hgt * 0.8, mode]);
   }
   function paintProp(w) {
     const E = ed.ext;
@@ -495,95 +698,150 @@
     const w = rayHit(px, pz); if (!w) return; ed.hit = w; let ch = false;
     if (ed.tab === 'terr') { const last = drag.last; if (!last || Math.hypot(last[0] - w[0], last[2] - w[2]) > ed.brush * 0.45) { paintTerrain(w); drag.last = w; ch = true; } }
     else { const last = drag.last, sp = 9 * ed.propSize + 6; if (!last || Math.hypot(last[0] - w[0], last[2] - w[2]) > sp) { drag.last = w; ch = paintProp(w); } }
-    if (ch) { ed.dirtyPaint = true; changed(true, ed.tab === 'terr' ? 'terrain' : 'props'); }
+    if (ch) { drag.dirty = true; changed(true); }
+  }
+  // place a feature at road sample i
+  function addFeature(i) {
+    const R = road(), E = ed.ext, L = (R.n - 1) * STEPM, s = DL.clamp(i * STEPM, 100, L - 120);
+    if (ed.feat === 'ramp') {
+      if (!Array.isArray(E.ramps)) E.ramps = [];
+      if (E.ramps.length >= DL.EXT_LIM.RAMPS) { toast('That is the most ramps a track can have'); return; }
+      if (E.ramps.some(r => Math.abs(r[0] - s) < 50)) { toast('Too close to another ramp'); return; }
+      snap(); E.ramps.push([Math.round(s), 2.4]); E.ramps.sort((a, b) => a[0] - b[0]); ed.fsel = { t: 'ramp', i: E.ramps.findIndex(r => r[0] === Math.round(s)) };
+    } else {
+      if (!Array.isArray(E.surf)) E.surf = [];
+      if (E.surf.length >= DL.EXT_LIM.SURFS) { toast('That is the most surface patches a track can have'); return; }
+      snap(); const st = Math.round(DL.clamp(s - 40, 64, L - 120)); E.surf.push([st, 80, ed.feat]); E.surf.sort((a, b) => a[0] - b[0]); ed.fsel = { t: 'surf', i: E.surf.findIndex(p => p[0] === st && p[2] === ed.feat) };
+    }
+    featEdited(); renderTabs();
   }
   cv.addEventListener('pointerdown', e => {
-    cv.setPointerCapture(e.pointerId); const [px, pz] = evPos(e), V = EV();
-    const left = e.button === 0, camBtn = e.button === 2 || e.button === 1 || (left && (ed.cam || e.altKey || e.ctrlKey || e.metaKey));
-    if (camBtn) { drag = { kind: (e.shiftKey || ed.cam === 'pan' || e.button === 1) ? 'pan' : 'orbit', x: px, z: pz, th: V.th, ph: V.ph, tx: V.tx, tz: V.tz, moved: false }; ed.camDrag = true; return; }
-    const i = hitPoint(px, pz), paint = ed.tab === 'terr' || ed.tab === 'props';
-    if (i >= 0 && !(paint && false)) {
-      ed.sel = i;
-      if (ed.tab === 'layout') { snap(); drag = { kind: 'pt', i, moved: false }; }
-      else if (ed.tab === 'elev') { ensureElev(); snap(); const q = wpScreen(i); drag = { kind: 'elev', i, y: pz, h0: ed.ext.elev[i], mpp: 2 * Math.hypot(q[0] - ed.W / 2, 1) * 0 + 0, moved: false }; const c = Game.edCamera(), tr = ed.tr, wp = ed.pts[i], ry = tr && tr.wpIdx ? tr.py[tr.wpIdx[i]] : 0; drag.mpp = 2 * c.position.distanceTo(new THREE.Vector3(wp[0], ry, wp[1])) * Math.tan(27.5 * Math.PI / 180) / ed.H; renderTabs(); }
-      else drag = { kind: 'sel' };
-      changed(true); return;
-    }
-    if (paint) { snap(); drag = { kind: 'paint', moved: true }; applyPaint(px, pz); return; }
-    drag = { kind: 'click', x: px, z: pz, th: V.th, ph: V.ph, tx: V.tx, tz: V.tz, moved: false };
+    cv.setPointerCapture(e.pointerId); const [px, pz] = evPos(e), c = CT();
+    const left = e.button === 0, camBtn = e.button === 2 || e.button === 1 || (left && (ed.cam || e.altKey || e.ctrlKey || e.metaKey || ed.space));
+    if (camBtn) { drag = { kind: (e.shiftKey || ed.cam === 'pan' || e.button === 1 || ed.space) ? 'pan' : 'orbit', x: px, z: pz, th: c.th, ph: c.ph, tx: c.tx, tz: c.tz, moved: false }; ed.camDrag = true; return; }
+    if (ed.tab === 'road') {
+      if (hitArrow(px, pz)) { startElev(ed.sel, pz); return; }
+      const i = hitPoint(px, pz);
+      if (i >= 0) { ed.sel = i; renderTabs(); if (e.shiftKey) { startElev(i, pz); return; } snap(); drag = { kind: 'pt', i, moved: false }; draw(); return; }
+    } else if (ed.tab === 'feat') {
+      const m = hitFeat(px, pz);
+      if (m) { ed.fsel = { t: m.t, i: m.i }; renderTabs(); snap(); drag = { kind: 'feat', t: m.t, i: m.i, moved: false }; draw(); return; }
+      const ri = hitRoad(px, pz, 26); if (ri >= 0) { addFeature(ri); return; }
+    } else if (ed.tab === 'terr' || ed.tab === 'props') { snap(); drag = { kind: 'paint', moved: true }; applyPaint(px, pz); return; }
+    drag = { kind: 'click', x: px, z: pz, th: c.th, ph: c.ph, tx: c.tx, tz: c.tz, moved: false };
   });
-  function panTo(V, d, px, pz) { const k = V.dist * 0.0012, c = Math.cos(V.th), s2 = Math.sin(V.th), dx = px - d.x, dz = pz - d.z; V.tx = d.tx - dx * k * c - dz * k * s2; V.tz = d.tz + dx * k * s2 - dz * k * c; V.ty = gY(V.tx, V.tz); }
+  function startElev(i, pz) {
+    ensureElev(); snap(); ed.sel = i;
+    const p = ed.pts[i], dist = Game.edCamera().position.distanceTo(new THREE.Vector3(p[0], wpY(i), p[1]));
+    drag = { kind: 'elev', i, y: pz, h0: ed.ext.elev[i], mpp: 2 * dist * Math.tan(27.5 * Math.PI / 180) / ed.H, moved: false };
+    renderTabs();
+  }
+  function panTo(d, px, pz) { const c = CT(), v = EV(), k = v.dist * 0.0012, cs = Math.cos(c.th), sn = Math.sin(c.th), dx = px - d.x, dz = pz - d.z; c.tx = d.tx - dx * k * cs - dz * k * sn; c.tz = d.tz + dx * k * sn - dz * k * cs; c.ty = gY(c.tx, c.tz); v.tx = c.tx; v.tz = c.tz; }
+  let hoverQ = 0;
   cv.addEventListener('pointermove', e => {
-    const [px, pz] = evPos(e), V = EV(); ed.lastMove = Date.now();
-    if (!drag) { if (ed.tab === 'terr' || ed.tab === 'props') { ed.ptr = [px, pz]; if (!ed.hitQ) ed.hitQ = requestAnimationFrame(() => { ed.hitQ = 0; ed.hit = ed.ptr ? rayHit(ed.ptr[0], ed.ptr[1]) : null; }); } return; }
-    if (drag.kind === 'pt') { const w = rayHit(px, pz); if (w) { ed.pts[drag.i] = inMap([w[0], w[2]]); drag.moved = true; changed(true, 'layout'); } }
-    else if (drag.kind === 'elev') { const E = ed.ext; E.elev[drag.i] = Math.round(DL.clamp(drag.h0 + (drag.y - pz) * drag.mpp, DL.EXT_LIM.ELEV_MIN, DL.EXT_LIM.ELEV_MAX)); drag.moved = true; changed(true, 'terrain'); const hs = $('edHeight'); if (hs) { hs.value = E.elev[drag.i]; $('edHeightV').textContent = E.elev[drag.i] + ' m'; hs.disabled = false; } }
-    else if (drag.kind === 'paint') { applyPaint(px, pz); }
-    else if (drag.kind === 'orbit' || (drag.kind === 'click' && Math.hypot(px - drag.x, pz - drag.z) > 5 && false)) { V.th = drag.th - (px - drag.x) * 0.006; V.ph = DL.clamp(drag.ph + (pz - drag.z) * 0.006, 0.3, 1.5); drag.moved = true; }
-    else if (drag.kind === 'pan') { panTo(V, drag, px, pz); drag.moved = true; }
-    else if (drag.kind === 'click') { if (Math.hypot(px - drag.x, pz - drag.z) > 5) { drag.moved = true; ed.camDrag = true; panTo(V, drag, px, pz); } }
+    const [px, pz] = evPos(e), c = CT(); ed.lastMove = Date.now();
+    if (!drag) {
+      if (ed.tab === 'terr' || ed.tab === 'props') { ed.ptr = [px, pz]; if (!ed.hitQ) ed.hitQ = requestAnimationFrame(() => { ed.hitQ = 0; ed.hit = ed.ptr ? rayHit(ed.ptr[0], ed.ptr[1]) : null; }); }
+      else if (ed.tab === 'feat' && !hoverQ) hoverQ = requestAnimationFrame(() => { hoverQ = 0; ed.hover = hitFeat(px, pz) ? null : (r => r < 0 ? null : r)(hitRoad(px, pz, 26)); });
+      else if (ed.tab === 'road') cv.style.cursor = hitArrow(px, pz) ? 'ns-resize' : hitPoint(px, pz) >= 0 ? (e.shiftKey ? 'ns-resize' : 'move') : (ed.cam ? '' : 'crosshair');
+      return;
+    }
+    if (drag.kind === 'pt') { const w = rayHit(px, pz); if (w) { ed.pts[drag.i] = inMap([w[0], w[2]]); drag.moved = true; changed(true); } }
+    else if (drag.kind === 'elev') { const E = ed.ext; E.elev[drag.i] = Math.round(DL.clamp(drag.h0 + (drag.y - pz) * drag.mpp, DL.EXT_LIM.ELEV_MIN, DL.EXT_LIM.ELEV_MAX)); drag.moved = true; ed.dirty = true; ed.live = null; changed(true); const hs = $('edHeight'); if (hs) { hs.value = E.elev[drag.i]; $('edHeightV').textContent = E.elev[drag.i] + ' m'; } }
+    else if (drag.kind === 'feat') {
+      const ri = hitRoad(px, pz, 400); if (ri < 0) return; const R = road(), L = (R.n - 1) * STEPM, E = ed.ext;
+      if (drag.t === 'ramp') { E.ramps[drag.i][0] = Math.round(DL.clamp(ri * STEPM, 100, L - 120)); }
+      else { const p = E.surf[drag.i]; p[0] = Math.round(DL.clamp(ri * STEPM - p[1] / 2, 64, L - 120 - p[1] / 2)); }
+      drag.moved = true; ed.live = null; ed.dirty = true; changed(true);
+    }
+    else if (drag.kind === 'paint') applyPaint(px, pz);
+    else if (drag.kind === 'orbit') { c.th = drag.th - (px - drag.x) * 0.006; c.ph = DL.clamp(drag.ph + (pz - drag.z) * 0.006, 0.25, 1.52); drag.moved = true; }
+    else if (drag.kind === 'pan') { panTo(drag, px, pz); drag.moved = true; }
+    else if (drag.kind === 'click') { if (Math.hypot(px - drag.x, pz - drag.z) > 5) { drag.moved = true; ed.camDrag = true; panTo(drag, px, pz); } }
   });
   const onUp = e => {
     if (!drag) return; const d = drag; drag = null; ed.camDrag = false; const [px, pz] = evPos(e);
-    if (d.kind === 'pt') { if (!d.moved) ed.hist.pop(); else changed(); return; }
-    if (d.kind === 'elev') { if (!d.moved) ed.hist.pop(); changed(false, 'terrain'); return; }
-    if (d.kind === 'paint') { if (!ed.dirtyPaint) ed.hist.pop(); ed.dirtyPaint = false; changed(false, ed.tab === 'terr' ? 'terrain' : 'props'); renderTabs(); return; }
+    if (d.kind === 'pt' || d.kind === 'elev' || d.kind === 'feat') { if (!d.moved) ed.hist.pop(); else { changed(); rebuild(true); } if (d.kind === 'feat') ed.ext.ramps && ed.ext.ramps.sort((a, b) => a[0] - b[0]); renderTabs(); return; }
+    if (d.kind === 'paint') { if (!d.dirty) ed.hist.pop(); changed(false); renderTabs(); rebuild(true); return; }
     if (d.kind === 'click' && !d.moved) {
-      if (ed.tab !== 'layout') { if (ed.sel !== -1) { ed.sel = -1; renderTabs(); changed(true); } return; }
+      if (ed.tab !== 'road') { if (ed.sel !== -1 || ed.fsel) { ed.sel = -1; ed.fsel = null; renderTabs(); draw(); } return; }
       if (ed.pts.length >= DL.CUSTOM.MAX_PTS) { toast('That is the maximum number of points'); return; }
-      const h = rayHit(px, pz); if (!h) return; const w = [h[0], h[2]], np = inMap(w);
-      let at = ed.pts.length, near = false;
-      if (ed.spline && ed.pts.length >= 2) {
-        for (let i = 0; i < ed.spline.xs.length; i += 2) if (Math.hypot(ed.spline.xs[i] - w[0], ed.spline.zs[i] - w[1]) < 14) { near = true; break; }
-        if (near) {
-          let bs = 1e9, bk = ed.pts.length - 2;
-          for (let k = 0; k < ed.pts.length - 1; k++) {
-            const A = ed.pts[k], B = ed.pts[k + 1], dx = B[0] - A[0], dz = B[1] - A[1], l2 = dx * dx + dz * dz || 1;
-            const t = DL.clamp(((w[0] - A[0]) * dx + (w[1] - A[1]) * dz) / l2, 0, 1), dd = Math.hypot(A[0] + dx * t - w[0], A[1] + dz * t - w[1]);
-            if (dd < bs) { bs = dd; bk = k; }
-          }
-          at = bk + 1;
-        }
-      }
-      snap(); ed.pts.splice(at, 0, np); insertElev(at); ed.sel = at; changed(false, 'layout');
+      const hit = rayHit(px, pz); if (!hit) return; const w = [hit[0], hit[2]], np = inMap(w);
+      let at = ed.pts.length;
+      const ri = ed.spline && ed.pts.length >= 2 ? hitRoad(px, pz, 16) : -1;
+      if (ri >= 0) {
+        // insert between the waypoints the road passes through here
+        const wi = (road() || {}).wi || []; at = wi.findIndex(k => k > ri); if (at <= 0) at = ed.pts.length;
+      } else if (ed.sel >= 0 && ed.sel === 0 && ed.pts.length > 1) at = 0;       // extend from the start when it is selected
+      snap(); ed.pts.splice(at, 0, np); insertElev(at); ed.sel = at; changed(); rebuild(true); renderTabs();
     }
   };
   cv.addEventListener('pointerup', onUp);
   // a drag must never get stuck (lost pointer, released over the panel or outside the window)
-  const abort = () => { if (!drag) return; const d = drag; drag = null; ed.camDrag = false; if (d.kind === 'pt' || d.kind === 'elev' || d.kind === 'paint') { ed.dirtyPaint = false; changed(false, 'terrain'); } };
+  const abort = () => { if (!drag) return; const d = drag; drag = null; ed.camDrag = false; if (d.kind === 'pt' || d.kind === 'elev' || d.kind === 'paint' || d.kind === 'feat') { changed(false); rebuild(true); } };
   cv.addEventListener('pointercancel', abort); cv.addEventListener('lostpointercapture', abort); window.addEventListener('blur', abort);
   window.addEventListener('pointerup', e => { if (drag && e.target !== cv) abort(); });
-  cv.addEventListener('pointerleave', () => { ed.hit = null; ed.ptr = null; });
-  cv.addEventListener('dblclick', e => { if (ed.tab !== 'layout') return; const [px, pz] = evPos(e), i = hitPoint(px, pz); if (i >= 0) { snap(); ed.pts.splice(i, 1); if (ed.ext.elev) ed.ext.elev.splice(i, 1); ed.sel = -1; changed(false, 'layout'); } });
+  cv.addEventListener('pointerleave', () => { ed.hit = null; ed.ptr = null; ed.hover = null; });
+  cv.addEventListener('dblclick', e => { if (ed.tab !== 'road') return; const [px, pz] = evPos(e), i = hitPoint(px, pz); if (i >= 0) { ed.sel = i; delSel(); } });
   cv.addEventListener('contextmenu', e => e.preventDefault());
-  cv.addEventListener('wheel', e => { e.preventDefault(); const V = EV(); V.dist = DL.clamp(V.dist * Math.exp(e.deltaY * 0.0012), 40, 4200); }, { passive: false });
+  // zoom toward the cursor
+  cv.addEventListener('wheel', e => {
+    e.preventDefault(); const c = CT(), f = Math.exp(DL.clamp(e.deltaY, -120, 120) * 0.0014), nd = DL.clamp(c.dist * f, 40, 4200), k = nd / c.dist;
+    const hit = rayHit(e.clientX, e.clientY);
+    if (hit) { c.tx = hit[0] + (c.tx - hit[0]) * k; c.tz = hit[2] + (c.tz - hit[2]) * k; c.ty = gY(c.tx, c.tz); }
+    c.dist = nd;
+  }, { passive: false });
   // profile: pick and drag waypoint heights
   let pdrag = null;
   pcv.addEventListener('pointerdown', e => {
     const M = profMap(); if (!M) return; pcv.setPointerCapture(e.pointerId); const r = pcv.getBoundingClientRect(), px = e.clientX - r.left, py = e.clientY - r.top;
-    let best = -1, bd = 22; (M.tr.wpIdx || []).forEach((wi, i) => { const d = Math.hypot(M.X(M.tr.s[wi]) - px, M.Y(M.tr.py[wi]) - py); if (d < bd) { bd = d; best = i; } });
-    if (best >= 0) { ed.sel = best; ensureElev(); snap(); pdrag = { i: best, moved: false, y0: M.y0 }; renderTabs(); changed(true); }
+    let best = -1, bd = 22; (M.R.wi || []).forEach((wi, i) => { const d = Math.hypot(M.X(wi * STEPM) - px, M.Y(M.R.ys[wi]) - py); if (d < bd) { bd = d; best = i; } });
+    if (best >= 0) { ed.sel = best; ensureElev(); snap(); pdrag = { i: best, moved: false, y0: M.y0, M }; renderTabs(); draw(); }
   });
   pcv.addEventListener('pointermove', e => {
-    if (!pdrag) return; const M = profMap(); if (!M) return; const r = pcv.getBoundingClientRect(), py = e.clientY - r.top;
-    ed.ext.elev[pdrag.i] = Math.round(DL.clamp(M.inv(py) - pdrag.y0, DL.EXT_LIM.ELEV_MIN, DL.EXT_LIM.ELEV_MAX)); pdrag.moved = true; prevKey = ''; try { previewTrack(true); } catch (er) { } changed(true, 'terrain');
-    const hs = $('edHeight'); if (hs) { hs.value = ed.ext.elev[pdrag.i]; $('edHeightV').textContent = ed.ext.elev[pdrag.i] + ' m'; hs.disabled = false; }
+    if (!pdrag) return; const M = pdrag.M, r = pcv.getBoundingClientRect(), py = e.clientY - r.top;
+    ed.ext.elev[pdrag.i] = Math.round(DL.clamp(M.inv(py) - pdrag.y0, DL.EXT_LIM.ELEV_MIN, DL.EXT_LIM.ELEV_MAX)); pdrag.moved = true; ed.dirty = true; ed.live = null; changed(true);
+    const hs = $('edHeight'); if (hs) { hs.value = ed.ext.elev[pdrag.i]; $('edHeightV').textContent = ed.ext.elev[pdrag.i] + ' m'; }
   });
-  pcv.addEventListener('pointerup', () => { if (!pdrag) return; if (!pdrag.moved) ed.hist.pop(); pdrag = null; changed(false, 'terrain'); });
+  pcv.addEventListener('pointerup', () => { if (!pdrag) return; if (!pdrag.moved) ed.hist.pop(); pdrag = null; changed(false); rebuild(true); });
+
+  // ---------------- keyboard ----------------
+  const keys = {};
+  function keyPan() {
+    const c = CT(), k = c.dist * 0.012; let dx = 0, dz = 0;
+    if (keys.KeyW || keys.ArrowUp) dz -= 1; if (keys.KeyS || keys.ArrowDown) dz += 1; if (keys.KeyA || keys.ArrowLeft) dx -= 1; if (keys.KeyD || keys.ArrowRight) dx += 1;
+    if (!dx && !dz) return; const cs = Math.cos(c.th), sn = Math.sin(c.th);
+    c.tx += (dx * cs + dz * sn) * k; c.tz += (-dx * sn + dz * cs) * k; c.ty = gY(c.tx, c.tz);
+  }
+  window.addEventListener('keyup', e => { keys[e.code] = false; if (e.code === 'Space') ed.space = false; });
   window.addEventListener('keydown', e => {
-    if ($('editor').hidden || /INPUT|TEXTAREA|SELECT/.test((e.target && e.target.tagName) || '')) return;
-    if ((e.code === 'Delete' || e.code === 'Backspace') && ed.sel >= 0 && ed.tab === 'layout') { e.preventDefault(); $('edDel') && $('edDel').click(); }
-    else if (e.code === 'KeyQ' || e.code === 'KeyE') EV().th += e.code === 'KeyQ' ? 0.12 : -0.12;
-    else if (e.code === 'ArrowUp' || e.code === 'ArrowDown') { e.preventDefault(); EV().dist = DL.clamp(EV().dist * (e.code === 'ArrowUp' ? 0.88 : 1.14), 40, 4200); }
-    else if ((e.ctrlKey || e.metaKey) && e.code === 'KeyZ') { e.preventDefault(); $('edUndo').click(); }
+    if ($('editor').hidden || /INPUT|TEXTAREA|SELECT/.test((e.target && e.target.tagName) || '') || $('modalRoot').firstChild) return;
+    const mod = e.ctrlKey || e.metaKey;
+    if (mod && e.code === 'KeyZ') { e.preventDefault(); if (e.shiftKey) redo(); else undo(); return; }
+    if (mod && e.code === 'KeyY') { e.preventDefault(); redo(); return; }
+    if (mod) return;
+    if (['KeyW', 'KeyA', 'KeyS', 'KeyD', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.code)) { e.preventDefault(); keys[e.code] = true; return; }
+    if (e.code === 'Space') { ed.space = true; e.preventDefault(); return; }
+    if (e.code === 'Delete' || e.code === 'Backspace') {
+      e.preventDefault();
+      if (ed.tab === 'feat' && ed.fsel) { const L = ed.fsel.t === 'ramp' ? ed.ext.ramps : ed.ext.surf; snap(); L.splice(ed.fsel.i, 1); ed.fsel = null; featEdited(); renderTabs(); }
+      else if (ed.tab === 'road') delSel();
+    }
+    else if (e.code === 'KeyQ' || e.code === 'KeyE') CT().th += e.code === 'KeyQ' ? 0.2 : -0.2;
+    else if (e.code === 'KeyR' || e.code === 'KeyF') { if (e.code === 'KeyF' && ed.sel >= 0) { const p = ed.pts[ed.sel]; focus(p[0], p[1], 300); } else fit(); }
+    else if (e.code === 'KeyI' && ed.tab === 'road') insertAfter();
+    else if (e.code === 'Escape') { ed.sel = -1; ed.fsel = null; renderTabs(); draw(); }
+    else if (/^Digit[1-5]$/.test(e.code)) { ed.tab = ['road', 'feat', 'terr', 'props', 'look'][+e.code.slice(5) - 1]; renderTabs(); changed(true); }
   });
   const setCam = m => { ed.cam = ed.cam === m ? '' : m; $('edHand').classList.toggle('on', ed.cam === 'pan'); $('edOrbit').classList.toggle('on', ed.cam === 'orbit'); cv.style.cursor = ed.cam === 'pan' ? 'grab' : ed.cam === 'orbit' ? 'move' : ''; };
   $('edHand').onclick = () => setCam('pan'); $('edOrbit').onclick = () => setCam('orbit');
-  $('edZoomIn').onclick = () => { const V = EV(); V.dist = DL.clamp(V.dist * 0.78, 40, 4200); }; $('edZoomOut').onclick = () => { const V = EV(); V.dist = DL.clamp(V.dist / 0.78, 40, 4200); };
+  $('edZoomIn').onclick = () => { const c = CT(); c.dist = DL.clamp(c.dist * 0.75, 40, 4200); }; $('edZoomOut').onclick = () => { const c = CT(); c.dist = DL.clamp(c.dist / 0.75, 40, 4200); };
+  $('edTop').onclick = () => { const c = CT(); c.ph = c.ph > 1.3 ? 0.95 : 1.52; };
+  $('edFitB').onclick = () => fit();
 
   document.addEventListener('scroll', e => { if ($('editor').hidden) return; const t = e.target; if (t === document || t === $('editor') || t === document.querySelector('.ed-wrap')) { window.scrollTo(0, 0); $('editor').scrollLeft = 0; document.querySelector('.ed-wrap').scrollLeft = 0; } }, true);
   $('edName').addEventListener('input', e => { ed.name = e.target.value; clearTimeout(saveT); saveT = setTimeout(saveDraft, 400); });
-  $('edUndo').onclick = () => { const p = ed.hist.pop(); if (p) { const o = JSON.parse(p); ed.pts = o[0]; ed.ext = o[1]; ed.sel = -1; ed.tr = null; prevKey = ''; renderTabs(); changed(false, 'terrain'); } };
+  $('edUndo').onclick = undo; $('edRedo').onclick = redo;
   $('edExit').onclick = () => { saveDraft(); Game.edStale(false); show('community'); };
 
   // ----- random track generator -----
@@ -625,7 +883,14 @@
       E.terr.push([x, z, Math.round(80 + rnd() * 120), Math.round((rnd() < 0.7 ? 1 : -1) * (8 + rnd() * 30 * (0.5 + o.hills * 0.5))), 0]);
     }
     if (!ed.name) { const W1 = ['Misty', 'Golden', 'Crimson', 'Silent', 'Windy', 'Ember', 'Frosty', 'Hidden', 'Lone', 'Sunset', 'Thunder', 'Velvet'], W2 = ['Ridge', 'Run', 'Pass', 'Loop', 'Drift', 'Canyon', 'Sprint', 'Valley', 'Rise', 'Descent', 'Hairpins', 'Circuit']; ed.name = W1[Math.floor(rnd() * W1.length)] + ' ' + W2[Math.floor(rnd() * W2.length)]; $('edName').value = ed.name; }
-    ed.tested = null; ed.tr = null; prevKey = ''; renderTabs(); changed(false, 'terrain'); previewTrack(true); fit(); scheduleWorld(0);
+    // a couple of ramps on the straightest stretches and sometimes a loose-surface patch that suits the biome
+    E.ramps = []; E.surf = [];
+    const L = (sp.xs.length - 1) * 4, straight = s => { const i = Math.round(s / 4); if (i < 6 || i > sp.xs.length - 7) return 9; const h1 = Math.atan2(sp.xs[i] - sp.xs[i - 6], sp.zs[i] - sp.zs[i - 6]), h2 = Math.atan2(sp.xs[i + 6] - sp.xs[i], sp.zs[i + 6] - sp.zs[i]); let d = h2 - h1; while (d > Math.PI) d -= 2 * Math.PI; while (d < -Math.PI) d += 2 * Math.PI; return Math.abs(d); };
+    const nr = L > 2000 ? 2 : L > 900 ? 1 : 0;
+    for (let k = 0; k < nr; k++) { let bs = 9, bp = 0; for (let tries = 0; tries < 24; tries++) { const s = 140 + rnd() * (L - 300); if (E.ramps.some(r => Math.abs(r[0] - s) < 300)) continue; const v = straight(s); if (v < bs) { bs = v; bp = s; } } if (bp && bs < 0.12) E.ramps.push([Math.round(bp), 2.4]); }
+    if (rnd() < 0.6 && L > 900) { const kind = ed.biome === 'snow' ? 'snow' : ed.biome === 'desert' ? 'sand' : 'mud'; E.surf.push([Math.round(L * (0.4 + rnd() * 0.25)), 60 + Math.round(rnd() * 10) * 4, kind]); }
+    E.ramps.sort((a, b) => a[0] - b[0]);
+    ed.tested = null; ed.tr = null; prevKey = ''; renderTabs(); changed(false); rebuild(true); setTimeout(() => fit(), 60);
   }
   const TPL = [
     { n: 'Sprint', o: { len: 800, twist: 0, hills: 0, dens: 0.4, biome: 'country' } },
