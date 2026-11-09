@@ -54,7 +54,7 @@
     try { await prepMap(room.day); } catch (e) { }
     closeModal(); show('room'); render(); drive();
   }
-  R.join = join;
+  R.join = join; R.render = render;
   UI.joinFromLink = code => { if (code) setTimeout(() => join(code), 600); };
 
   // ---------------- polling ----------------
