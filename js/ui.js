@@ -353,8 +353,9 @@
     if (gTab !== 'paint') ed = null;
     if (gTab === 'cars') {
       const wrap = h('<div class="items"></div>');
-      DL.CAR_ORDER.forEach(id => {
+      DL.CAR_ORDER.concat(['ufo']).forEach(id => {
         const c = DL.CARS[id], own = Net.owns('cars', id);
+        if (id === 'ufo' && !own) { wrap.appendChild(h(`<div class="item" style="opacity:.6"><div class="lbl">${esc(c.cls)}</div><div class="nm">${esc(c.name)}</div><div class="row"><span class="hint">Win the Weekly cup to fly it</span></div></div>`)); return; }
         const it = h(`<div class="item ${s.car === id ? 'sel' : ''}"><div class="lbl">${esc(c.cls)}</div><div class="nm">${esc(c.name)}</div>
           <div class="row">${own ? (s.car === id ? '<span class="tag coral">Driving</span>' : '<button class="btn btn-navy btn-sm">Drive</button>') : `<span class="price"><span class="coin"></span>${c.price}</span><button class="btn btn-line btn-sm">Shop</button>`}</div></div>`);
         const b = it.querySelector('button');
@@ -1127,6 +1128,7 @@
   // ---------------- invites + shared liveries ----------------
   const REF_BONUS = 150, REF_WELCOME = 100;
   UI.afterConnect = async function () {
+    Net.checkChampion().then(() => { if (Net.hasUfo() && !DL.store.get('ufoSeen:' + Net.save.ufoUntil, 0)) { DL.store.set('ufoSeen:' + Net.save.ufoUntil, 1); toast('<b>Weekly cup champion!</b> The UFO is in your garage until ' + DL.prettyDay(Net.save.ufoUntil)); } });
     const q = new URLSearchParams(location.search);
     const ref = q.get('ref'), lv = q.get('l');
     if (ref) { DL.store.set('pendingRef', ref); }

@@ -4,6 +4,8 @@
 
   // ---------- catalogue (prices in coins) ----------
   DL.CARS = {
+    ufo:     { name: 'UFO', cls: 'Weekly champion', price: 0, kind: 'ufo', unique: true, blurb: 'Hovers, no wheels. Awarded to the winner of last week’s Weekly cup, for one week only.',
+      W: 2.4, lower: [[-1.9, .5], [-1.2, .25], [1.2, .25], [1.9, .5], [1.2, .85], [-1.2, .85]], cabin: [[.8, .85], [.4, 1.25], [-.4, 1.25], [-.8, .85]], cw: .7, wz: [], wr: .3, wx: .9 },
     pebble:  { name: 'Pebble', cls: 'Hatch', price: 0, blurb: 'The car everyone starts in. Chunky, honest, quick.',
       W: 1.9, lower: [[-2.0, .32], [2.0, .32], [2.1, .6], [2.0, .86], [1.0, 1.02], [-1.95, 1.05], [-2.08, .72]],
       cabin: [[1.05, 1.0], [.2, 1.72], [-1.55, 1.72], [-1.95, 1.02]], cw: .84, wz: [1.3, -1.3], wr: .38, wx: .86 },
@@ -391,9 +393,44 @@
     }
   }
 
+  // The Weekly cup champion's saucer: floats, no wheels, same physics as everything else
+  function buildUfo(opts, spec) {
+    const root = new THREE.Group(), body = new THREE.Group(); root.add(body);
+    const base = opts.base == null ? DL.DEFAULT_BASE : opts.base, ghost = !!opts.ghost;
+    const canvas = document.createElement('canvas');
+    DL.drawLiveryCanvas(canvas, opts.livery || DL.defaultLivery(), base);
+    const tex = new THREE.CanvasTexture(canvas);
+    tex.magFilter = THREE.NearestFilter; tex.minFilter = THREE.NearestFilter; tex.generateMipmaps = false;
+    if ('colorSpace' in tex) tex.colorSpace = THREE.SRGBColorSpace;
+    const bodyMat = new THREE.MeshStandardMaterial({ map: tex, flatShading: true, roughness: 0.35, metalness: 0.55 });
+    if (ghost) { bodyMat.transparent = true; bodyMat.opacity = 0.72; bodyMat.depthWrite = false; }
+    const R = 1.95, hull = [[0.001, 0.0], [0.7, 0.04], [1.5, 0.2], [R, 0.42], [R * 0.97, 0.52], [1.3, 0.72], [0.8, 0.8], [0.001, 0.84]].map(p => new THREE.Vector2(p[0], p[1]));
+    let geo = new THREE.LatheGeometry(hull, 20); geo = geo.toNonIndexed(); geo.computeVertexNormals();
+    projectUVs(geo, { minX: -R, maxX: R, minY: 0, maxY: 0.84, minZ: -R, maxZ: R });
+    const hullMesh = new THREE.Mesh(geo, bodyMat); hullMesh.castShadow = !ghost; hullMesh.receiveShadow = !ghost; body.add(hullMesh);
+    const glass = new THREE.MeshStandardMaterial({ color: 0x5fd0ff, roughness: 0.05, metalness: 0.3, flatShading: true, transparent: true, opacity: ghost ? 0.3 : 0.62, depthWrite: false });
+    const dome = new THREE.Mesh(new THREE.SphereGeometry(0.78, 14, 8, 0, Math.PI * 2, 0, Math.PI / 2), glass); dome.position.y = 0.78; dome.scale.set(1, 0.85, 1.15); dome.renderOrder = 3; body.add(dome);
+    const lightMat = new THREE.MeshStandardMaterial({ color: 0x9ff0ff, emissive: 0x39d6ff, emissiveIntensity: 1.6, flatShading: true });
+    const ring = new THREE.Mesh(new THREE.TorusGeometry(1.25, 0.07, 6, 24), lightMat); ring.rotation.x = Math.PI / 2; ring.position.y = 0.04; body.add(ring);
+    for (let i = 0; i < 8; i++) { const a = i / 8 * Math.PI * 2, l = new THREE.Mesh(new THREE.SphereGeometry(0.09, 6, 4), lightMat); l.position.set(Math.sin(a) * 1.75, 0.46, Math.cos(a) * 1.75); body.add(l); }
+    const tailMat = new THREE.MeshStandardMaterial({ color: 0xc73a2e, emissive: 0xf05a35, emissiveIntensity: 0.15 });
+    [-1, 1].forEach(s => { const t = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.12, 0.08), tailMat); t.position.set(s * 0.6, 0.5, -1.82); t.rotation.y = 0; body.add(t); });
+    const under = new THREE.Mesh(new THREE.CircleGeometry(0.9, 16), new THREE.MeshBasicMaterial({ color: 0x39d6ff, transparent: true, opacity: ghost ? 0.15 : 0.5, depthWrite: false, blending: THREE.AdditiveBlending }));
+    under.rotation.x = Math.PI / 2; under.position.y = -0.05; body.add(under);
+    root.userData = {
+      spec, equip: {}, body, bodyMesh: hullMesh, wheels: [], tailMat, canvas, tex, bodyMat, ufo: true, ufoRing: lightMat,
+      exhaust: new THREE.Vector3(0, 0.2, -1.9), paintMat: bodyMat, deform: false, rearZ: -R, frontZ: R, roofY: 1.5,
+      setLivery(liv, b) { DL.drawLiveryCanvas(canvas, liv, b); tex.needsUpdate = true; },
+      dispose() { root.traverse(o => { if (o.geometry) o.geometry.dispose(); }); tex.dispose(); bodyMat.dispose(); glass.dispose(); lightMat.dispose(); }
+    };
+    body.position.y = 0.42;      // hover height
+    return root;
+  }
+
   // Build a full vehicle. opts: {car, livery(Uint8Array), base, equip:{spoiler,wheels,bumper,finish}, ghost:bool}
   DL.buildCar = function (opts) {
     const spec = DL.CARS[opts.car] || DL.CARS.pebble;
+    if (spec.kind === 'ufo') return buildUfo(opts, spec);
     const equip = Object.assign({ spoiler: 'none', wheels: 'std', bumper: 'std', finish: 'matte' }, opts.equip || {});
     const root = new THREE.Group();          // follows physics position/yaw
     const body = new THREE.Group();          // pitch/roll
@@ -552,6 +589,7 @@
     model.position.set(x, y, z);
     model.rotation.set(0, yaw, 0);
     const u = model.userData;
+    if (u.ufo) { const t = performance.now() / 1000; u.body.position.y = 0.42 + Math.sin(t * 2.2) * 0.05; u.ufoRing.emissiveIntensity = 1.3 + Math.sin(t * 5) * 0.4; }
     u.body.rotation.order = 'YXZ';
     u.body.rotation.x = pitch; u.body.rotation.z = roll;
     // tyre load: braking/accel pitch, cornering roll, and landings/bumps (sudden change of vertical speed)

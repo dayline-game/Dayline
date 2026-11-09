@@ -260,7 +260,19 @@
 
     // ---------- economy ----------
     spend(n) { if (this.save.coins < n) return false; this.save.coins -= n; this.persist(); return true; },
-    owns(cat, id) { return (this.save.owned[cat] || []).includes(id); },
+    owns(cat, id) { if (cat === 'cars' && id === 'ufo') return this.hasUfo(); return (this.save.owned[cat] || []).includes(id); },
+    // the Weekly cup champion's UFO: yours until the end of the week after you win
+    hasUfo() { const u = this.save.ufoUntil; return !!u && u >= DL.dayKey(); },
+    async checkChampion() {
+      if (!this.api || this.mode !== 'online') return;
+      try {
+        const r = await this._fetch('GET', '/api/champion');
+        if (r.j.ok && r.j.winner && r.j.winner.uid === this.uid && this.save.ufoUntil !== r.j.until) {
+          this.save.ufoUntil = r.j.until; this.persist(); DL.emit('champion', r.j);
+        }
+      } catch (e) { }
+      if (this.save.car === 'ufo' && !this.hasUfo()) { this.save.car = 'pebble'; this.persist(); this.pushProfile(); }
+    },
     buy(cat, id, price) {
       if (this.owns(cat, id)) return true;
       if (!this.spend(price)) return false;
