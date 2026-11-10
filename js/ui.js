@@ -975,7 +975,7 @@
         const w = await Net.boardWeekly(); if (board.token !== tok) return;
         $('bSub').textContent = 'Weekly cup · ' + DL.prettyDay(w.start) + ' to ' + DL.prettyDay(w.end);
         $('bDay').textContent = w.daysLeft ? w.daysLeft + ' day' + (w.daysLeft > 1 ? 's' : '') + ' left' : 'Final day';
-        $('bInfo').textContent = 'Top 10 each day score ' + w.pts.join(', ') + ' · added when the day ends';
+        $('bInfo').textContent = 'Top 10 each day score ' + w.pts.join(', ') + ' · added when the day ends' + ' · added when the day ends';
         $('bTools').hidden = false; document.querySelector('.daypick').style.visibility = 'hidden';
         const names = await Net.names(w.rows.map(r => r.uid)); if (board.token !== tok) return;
         if (!w.rows.length) { tbl.innerHTML = '<div class="empty"><h3>The cup has not started</h3><p>Points are added when each day ends, so the first scores appear tomorrow.</p></div>'; return; }
