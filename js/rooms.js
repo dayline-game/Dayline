@@ -75,6 +75,7 @@
     } catch (e) { /* retry next tick */ }
     poll();
   }
+  document.addEventListener('visibilitychange', () => { if (!document.hidden && R.room && !R.racing) poll(true); });
   function drop(msg) { stop(); if (msg) toast(msg); if ($('room') && !$('room').hidden) show('menu'); }
   function stop() { clearTimeout(pollT); loopId++; R.room = null; R.racing = false; }
 
