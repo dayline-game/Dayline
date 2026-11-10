@@ -975,10 +975,10 @@
         const w = await Net.boardWeekly(); if (board.token !== tok) return;
         $('bSub').textContent = 'Weekly cup · ' + DL.prettyDay(w.start) + ' to ' + DL.prettyDay(w.end);
         $('bDay').textContent = w.daysLeft ? w.daysLeft + ' day' + (w.daysLeft > 1 ? 's' : '') + ' left' : 'Final day';
-        $('bInfo').textContent = 'Top 10 each day score ' + w.pts.join(', ');
+        $('bInfo').textContent = 'Top 10 each day score ' + w.pts.join(', ') + ' · added when the day ends';
         $('bTools').hidden = false; document.querySelector('.daypick').style.visibility = 'hidden';
         const names = await Net.names(w.rows.map(r => r.uid)); if (board.token !== tok) return;
-        if (!w.rows.length) { tbl.innerHTML = '<div class="empty"><h3>The cup has not started</h3><p>Finish today’s daily to take the first points.</p></div>'; return; }
+        if (!w.rows.length) { tbl.innerHTML = '<div class="empty"><h3>The cup has not started</h3><p>Points are added when each day ends, so the first scores appear tomorrow.</p></div>'; return; }
         tbl.innerHTML = '';
         const t = h(`<table><thead><tr><th>#</th><th>Driver</th><th>Points</th><th class="hide-sm">Days scored</th></tr></thead><tbody></tbody></table>`);
         w.rows.forEach((r, i) => { const tr = h(`<tr class="${r.uid === Net.uid ? 'me' : ''}"><td class="rk">${i + 1}</td><td></td><td class="tm">${r.score}</td><td class="hide-sm num">${r.rankedDays}</td></tr>`); tr.children[1].appendChild(whoCell(r, names)); t.tBodies[0].appendChild(tr); });
