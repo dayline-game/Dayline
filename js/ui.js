@@ -166,7 +166,7 @@
   };
   UI.ghostsChanged = r => { $('hGhost').classList.toggle('off', !r.ghostsOn || !r.ghosts.length); $('hGhost').title = r.ghosts.length ? `${r.ghosts.length} ghost${r.ghosts.length > 1 ? 's' : ''} (G)` : 'No ghosts loaded'; };
   UI.count = function (n) {
-    if (n === 3 && !DL.store.get('driftHint', 0)) { DL.store.set('driftHint', 1); setTimeout(() => toast('<b>New:</b> hold ' + (DL.isTouch && DL.isTouch() ? 'the drift button' : 'Space') + ' and steer to slide the car', 5000), 600); }
+    if ((n === 3 || (n === 1 && DL.Game.settings.quick)) && !DL.store.get('driftHint', 0)) { DL.store.set('driftHint', 1); setTimeout(() => toast('<b>New:</b> hold ' + (DL.isTouch && DL.isTouch() ? 'the drift button' : 'Space') + ' and steer to slide the car', 5000), 600); }
     const el = $('hCount');
     if (!el._cd) { el.innerHTML = '<i class="cd-flash"></i><i class="cd-ring"></i><b class="cd-num"></b>'; el._cd = 1; }
     const num = el.querySelector('.cd-num'), ring = el.querySelector('.cd-ring'), flash = el.querySelector('.cd-flash');
@@ -1244,6 +1244,7 @@
       <div class="field"><label class="lbl" for="sShake">Camera shake</label><input type="range" id="sShake" min="0" max="1" step="0.1" value="${s.shake}"></div>
       <div class="toggle-row"><span>Colour-blind friendly splits</span><button class="chk ${s.cb ? 'on' : ''}" id="sCb">${s.cb ? 'On' : 'Off'}</button></div>
       <div class="toggle-row"><span>Race your best automatically</span><button class="chk ${s.pbGhost ? 'on' : ''}" id="sPb">${s.pbGhost ? 'On' : 'Off'}</button></div>
+      <div class="toggle-row"><span>Quick start (1 second countdown)</span><button class="chk ${s.quick ? 'on' : ''}" id="sQuick">${s.quick ? 'On' : 'Off'}</button></div>
       <div class="toggle-row"><label for="sCam">Default camera</label><select id="sCam"><option value="0">Chase</option><option value="1">Far chase</option><option value="2">Bonnet</option><option value="3">Low rally</option><option value="4">Drone</option></select></div>
       <div class="toggle-row"><label for="sUnits">Speed units</label><select id="sUnits"><option value="kmh">km/h</option><option value="mph">mph</option></select></div>
       <div class="toggle-row"><label for="sTouch">Touch controls</label><select id="sTouch"><option value="auto">Automatic</option><option value="on">Always</option><option value="off">Never</option></select></div>
@@ -1272,7 +1273,7 @@
     m.querySelector('#sVol').oninput = e => { s.vol = +e.target.value; Game.applySettings(); };
     const tog = (id, k, after) => { const b = m.querySelector(id); b.onclick = () => { s[k] = !s[k]; b.classList.toggle('on', s[k]); b.textContent = s[k] ? 'On' : 'Off'; Game.applySettings(); if (after) after(); }; };
     m.querySelector('#sShake').oninput = e => { s.shake = +e.target.value; Game.applySettings(); };
-    tog('#sCb', 'cb'); tog('#sSh', 'shadows'); tog('#sPb', 'pbGhost');
+    tog('#sCb', 'cb'); tog('#sSh', 'shadows'); tog('#sPb', 'pbGhost'); tog('#sQuick', 'quick');
     tog('#sHq', 'hq', () => toast('Scenery density changes on the next track load'));
     m.querySelector('#sCam').onchange = e => { s.cam = +e.target.value; Game.applySettings(); };
     m.querySelector('#sUnits').onchange = e => { s.units = e.target.value; Game.applySettings(); $('hUnit').textContent = s.units === 'mph' ? 'mph' : 'km/h'; };

@@ -283,7 +283,7 @@
     mode = 'race';
     const car = new DL.Car(track);
     race = {
-      track, car, prog: new DL.Progress(track), model: playerModel, steps: 0, acc: 0, countdown: 3.2, lastBeep: 4,
+      track, car, prog: new DL.Progress(track), model: playerModel, steps: 0, acc: 0, countdown: settings.quick ? 1 : 3.2, lastBeep: 4,
       running: false, finished: false, paused: false, frames: [], recoveries: 0, airMax: 0,
       ghosts: [], ghostsOn: true, ghostSpecs: ghostSpecs || [], pbCp: null, farT: 0, waterT: 0,
       camYaw: track.start.yaw, shake: 0, camMode: settings.cam, trailT: 0
@@ -408,7 +408,7 @@
     r.car.reset(s.x, r.track.groundAt(s.x, s.z, {}).y, s.z, s.yaw);
     r.prog = new DL.Progress(r.track);
     r.steps = 0; r.acc = 0; r.frames = []; r.recoveries = 0; r.airMax = 0; r.finished = false; r.running = false;
-    r.countdown = 3.2; r.lastBeep = 4; startLamps(4); r.camYaw = s.yaw; r.farT = 0; r.waterT = 0;
+    r.countdown = settings.quick ? 1 : 3.2; r.lastBeep = 4; startLamps(4); r.camYaw = s.yaw; r.farT = 0; r.waterT = 0;
     r.track.checkpoints.forEach((c, k) => { const gt = world.gates[k]; if (gt) gt.userData.stripe.material.color.set(0xf05a35); });
     trail.points.length = 0; clearSkids();
     record();
