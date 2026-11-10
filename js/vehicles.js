@@ -29,9 +29,71 @@
       cabin: [[.9, .92], [.6, 1.1], [-.6, 1.18], [-1.25, 1.05], [-1.35, .95]], cw: .7, wz: [.95, -.95], wr: .3, wx: .72 },
     loaf:    { name: 'Loaf', cls: 'Oddball', price: 1500, blurb: 'A breadbin on wheels. Same pace as everything else.', paintCabin: true, feat: 'loaf',
       W: 1.85, lower: [[-1.8, .35], [1.8, .35], [1.86, 1.3], [-1.86, 1.3]],
-      cabin: [[1.62, 1.28], [1.5, 2.05], [-1.7, 2.08], [-1.82, 1.28]], cw: .95, wz: [1.25, -1.25], wr: .34, wx: .84, windows: true }
+      cabin: [[1.62, 1.28], [1.5, 2.05], [-1.7, 2.08], [-1.82, 1.28]], cw: .95, wz: [1.25, -1.25], wr: .34, wx: .84, windows: true },
+    // ---------- v2.5: twenty new cars for the shop rotation ----------
+    frank:   { name: 'Frank', cls: 'Snack', price: 1400, blurb: 'A hot dog with a sausage on top. Mustard included, ketchup extra.', feat: 'frank',
+      W: 2.0, lower: [[-2.1, .42], [2.1, .42], [2.35, .7], [2.3, 1.0], [1.7, 1.15], [-1.7, 1.15], [-2.3, 1.0], [-2.35, .7]],
+      cabin: [[1.2, 1.12], [.85, 1.5], [-1.0, 1.5], [-1.3, 1.12]], cw: .62, wz: [1.35, -1.35], wr: .4, wx: .88 },
+    tub:     { name: 'Splash', cls: 'Bathtub', price: 1300, blurb: 'Claw feet, hot water, one rubber duck. Bath time is race time.', feat: 'tub', paintCabin: true,
+      W: 1.9, lower: [[-1.9, .42], [1.9, .42], [2.05, .75], [2.05, 1.3], [1.8, 1.32], [-1.8, 1.32], [-2.05, 1.3], [-2.05, .75]],
+      cabin: [[-1.1, 1.3], [-1.45, 1.72], [-1.9, 1.72], [-1.95, 1.3]], cw: .96, wz: [1.3, -1.3], wr: .34, wx: .86 },
+    scoop:   { name: 'Scoop', cls: 'Ice cream van', price: 1200, blurb: 'Plays a little tune, sells nothing, finishes first.', feat: 'scoop', paintCabin: true, windows: true,
+      W: 1.95, lower: [[-2.3, .4], [2.3, .4], [2.4, .66], [2.3, 1.0], [1.6, 1.15], [-2.3, 1.15], [-2.38, .75]],
+      cabin: [[1.6, 1.12], [.95, 2.25], [-2.3, 2.3], [-2.3, 1.12]], cw: .96, wz: [1.5, -1.5], wr: .4, wx: .88 },
+    hailer:  { name: 'Hailer', cls: 'Taxi', price: 700, blurb: 'Meter running. Checkered stripe, roof sign, no tips.', feat: 'hailer',
+      W: 1.95, lower: [[-2.25, .34], [2.25, .34], [2.35, .6], [2.25, .86], [1.1, 1.0], [-1.6, 1.02], [-2.3, .9], [-2.35, .62]],
+      cabin: [[1.1, .98], [.35, 1.62], [-1.1, 1.62], [-1.65, 1.0]], cw: .84, wz: [1.45, -1.45], wr: .37, wx: .88 },
+    stretch: { name: 'Stretch', cls: 'Limousine', price: 1800, blurb: 'Six metres of chrome and attitude. Corners are a group decision.', feat: 'stretch',
+      W: 1.95, lower: [[-3.0, .34], [3.0, .34], [3.1, .6], [3.0, .86], [1.9, 1.0], [-2.4, 1.02], [-3.05, .9], [-3.1, .62]],
+      cabin: [[1.9, .98], [1.2, 1.6], [-1.9, 1.6], [-2.4, 1.0]], cw: .84, wz: [2.05, -2.1], wr: .37, wx: .88 },
+    stomper: { name: 'Stomper', cls: 'Monster truck', price: 2200, blurb: 'Tyres taller than you. Suspension you could live in.', feat: 'stomper',
+      W: 2.3, lower: [[-2.0, 1.45], [2.0, 1.45], [2.15, 1.75], [2.05, 2.05], [1.0, 2.15], [-2.0, 2.18], [-2.15, 1.85]],
+      cabin: [[1.0, 2.13], [.45, 2.8], [-1.1, 2.8], [-1.45, 2.16]], cw: .86, wz: [1.45, -1.45], wr: .85, wx: 1.0 },
+    arrow:   { name: 'Arrow', cls: 'Open-wheeler', price: 2400, blurb: 'Wheels out, wings on, nose like a needle.', feat: 'arrow', open: true, openTop: true, noFrame: true,
+      W: 1.0, lower: [[-1.95, .22], [2.3, .22], [2.5, .3], [2.45, .42], [1.0, .62], [-.6, .78], [-1.8, .78], [-2.0, .6]],
+      cabin: [[.4, .72], [.15, .95], [-.7, .95], [-.8, .76]], cw: .7, wz: [1.65, -1.45], wr: .42, wx: 2.0 },
+    brute:   { name: 'Brute', cls: 'Muscle', price: 1300, blurb: 'A supercharger poking out of the bonnet, side pipes, zero subtlety.', feat: 'brute',
+      W: 2.0, lower: [[-2.3, .36], [2.3, .36], [2.45, .62], [2.35, .92], [.6, 1.04], [-1.5, 1.06], [-2.3, .96], [-2.42, .66]],
+      cabin: [[.6, 1.02], [-.05, 1.58], [-1.0, 1.58], [-1.55, 1.05]], cw: .8, wz: [1.6, -1.5], wr: .4, wx: .92 },
+    wedge:   { name: 'Wedge', cls: 'Supercar', price: 1700, blurb: 'Pure eighties: pop-up lights, louvres, a ruler for a nose.', feat: 'wedge',
+      W: 2.05, lower: [[-2.25, .3], [2.35, .3], [2.5, .42], [2.45, .55], [.4, .95], [-1.9, 1.0], [-2.3, .9], [-2.35, .6]],
+      cabin: [[.5, .93], [-.25, 1.3], [-1.3, 1.3], [-1.85, .99]], cw: .78, wz: [1.5, -1.45], wr: .36, wx: .92 },
+    caddy:   { name: 'Caddy', cls: 'Golf cart', price: 900, blurb: 'Fore! Canopy roof, bag of clubs, surprisingly rapid.', feat: 'caddy', openTop: true,
+      W: 1.5, lower: [[-1.4, .32], [1.45, .32], [1.55, .5], [1.5, .7], [.9, .78], [-1.4, .82], [-1.5, .6]],
+      cabin: [[.85, .76], [.75, 1.85], [-.65, 1.85], [-.7, .8]], cw: .9, wz: [.95, -.95], wr: .27, wx: .82 },
+    blaze:   { name: 'Blaze', cls: 'Fire engine', price: 1900, blurb: 'Ladder, lights, hose reel. Arrives before the fire does.', feat: 'blaze',
+      W: 2.05, lower: [[-2.8, .42], [2.6, .42], [2.7, .7], [2.62, 1.1], [1.4, 1.2], [1.35, 2.1], [-2.8, 2.1], [-2.85, .8]],
+      cabin: [[2.5, 1.12], [2.2, 2.05], [1.4, 2.05], [1.38, 1.18]], cw: .9, wz: [1.75, -1.7], wr: .45, wx: .9 },
+    nomad:   { name: 'Nomad', cls: 'Camper', price: 1500, blurb: 'Awning out, bike on the back, permanently on holiday.', feat: 'nomad',
+      W: 2.05, lower: [[-2.6, .42], [2.4, .42], [2.5, .7], [2.4, 1.05], [1.6, 1.15], [1.55, 2.6], [-2.6, 2.6], [-2.65, .8]],
+      cabin: [[2.3, 1.1], [1.75, 1.95], [1.58, 1.95], [1.58, 1.15]], cw: .9, wz: [1.6, -1.6], wr: .42, wx: .9 },
+    dune:    { name: 'Dune', cls: 'Beach buggy', price: 1100, blurb: 'Roll cage, surfboard, sand in places sand should not be.', feat: 'dune', openTop: true,
+      W: 2.0, lower: [[-1.7, .5], [1.8, .5], [2.0, .7], [1.95, .88], [.7, 1.0], [-1.0, 1.0], [-1.75, .95], [-1.85, .7]],
+      cabin: [[.7, .98], [.45, 1.75], [-1.0, 1.75], [-1.1, 1.0]], cw: .82, wz: [1.3, -1.3], wr: .5, wx: 1.0 },
+    toasty:  { name: 'Toasty', cls: 'Toaster', price: 1600, blurb: 'Two slices loaded. Pops at the finish line.', feat: 'toasty', paintCabin: true,
+      W: 1.8, lower: [[-1.65, .38], [1.65, .38], [1.75, .62], [1.75, 1.95], [1.55, 2.05], [-1.55, 2.05], [-1.75, 1.95], [-1.75, .62]],
+      cabin: [[1.3, 2.03], [1.25, 2.08], [-1.25, 2.08], [-1.3, 2.03]], cw: .9, wz: [1.1, -1.1], wr: .33, wx: .86 },
+    booster: { name: 'Booster', cls: 'Rocket car', price: 2600, blurb: 'Twin thrusters glowing hot. Same top speed, much more drama.', feat: 'booster',
+      W: 1.9, lower: [[-2.3, .3], [2.6, .3], [2.8, .42], [2.7, .55], [.8, .9], [-1.7, 1.0], [-2.3, .95], [-2.35, .6]],
+      cabin: [[.8, .88], [.1, 1.3], [-.8, 1.3], [-1.4, .98]], cw: .7, wz: [1.7, -1.5], wr: .36, wx: .92 },
+    chomp:   { name: 'Chomp', cls: 'Shark', price: 1700, blurb: 'Dorsal fin, gills and a grille full of teeth. Smells blood (and fuel).', feat: 'chomp',
+      W: 1.95, lower: [[-2.25, .3], [2.3, .3], [2.45, .48], [2.35, .68], [.8, .9], [-1.6, .98], [-2.25, .86], [-2.35, .58]],
+      cabin: [[.8, .88], [.05, 1.38], [-.95, 1.38], [-1.6, .98]], cw: .78, wz: [1.5, -1.45], wr: .36, wx: .9 },
+    couch:   { name: 'Couch', cls: 'Sofa', price: 1400, blurb: 'Cushions, a floor lamp and the remote. Racing from the comfort of home.', feat: 'couch', paintCabin: true,
+      W: 2.1, lower: [[-1.6, .38], [1.6, .38], [1.7, .55], [1.7, 1.0], [1.5, 1.05], [-1.55, 1.05], [-1.7, 1.0], [-1.7, .55]],
+      cabin: [[-.8, 1.03], [-1.0, 1.95], [-1.6, 1.95], [-1.65, 1.03]], cw: .95, wz: [1.05, -1.05], wr: .25, wx: .85 },
+    shard:   { name: 'Shard', cls: 'Electric pickup', price: 2000, blurb: 'Folded from one sheet of steel. Light bar front and back.', feat: 'shard',
+      W: 2.1, lower: [[-2.4, .55], [2.4, .55], [2.55, .75], [2.5, 1.05], [1.4, 1.2], [-2.45, 1.25], [-2.5, .9]],
+      cabin: [[1.4, 1.18], [.05, 1.95], [-2.45, 1.25]], cw: .9, wz: [1.6, -1.6], wr: .48, wx: .92 },
+    slice:   { name: 'Slice', cls: 'Pizza delivery', price: 800, blurb: 'Giant slice on the roof, hot boxes in the back, thirty minutes or less.', feat: 'slice',
+      W: 1.85, lower: [[-1.85, .32], [1.9, .32], [2.0, .6], [1.9, .86], [.95, 1.0], [-1.8, 1.02], [-1.95, .72]],
+      cabin: [[1.0, .98], [.2, 1.65], [-1.4, 1.65], [-1.8, 1.0]], cw: .84, wz: [1.25, -1.25], wr: .36, wx: .86 },
+    dodgem:  { name: 'Dodgem', cls: 'Bumper car', price: 1000, blurb: 'Rubber ring, spark pole, fairground lights. Bumping not allowed.', feat: 'dodgem', paintCabin: true,
+      W: 1.9, lower: [[-1.5, .3], [1.5, .3], [1.7, .5], [1.7, .8], [1.2, .95], [-1.3, .95], [-1.7, .85], [-1.75, .5]],
+      cabin: [[-.7, .93], [-.95, 1.5], [-1.5, 1.5], [-1.55, .93]], cw: .8, wz: [.9, -.9], wr: .22, wx: .8 }
   };
-  DL.CAR_ORDER = ['pebble', 'comet', 'rallye', 'mule', 'ridge', 'vintage', 'bubble', 'loaf'];
+  DL.CAR_ORDER = ['pebble', 'comet', 'rallye', 'mule', 'ridge', 'vintage', 'bubble', 'loaf',
+    'slice', 'hailer', 'caddy', 'dodgem', 'dune', 'scoop', 'brute', 'tub', 'frank', 'couch', 'nomad', 'toasty', 'wedge', 'chomp', 'stretch', 'blaze', 'shard', 'stomper', 'arrow', 'booster'];
 
   DL.PARTS = {
     spoiler: [
@@ -196,6 +258,7 @@
     if (PROF[key]) return PROF[key];
     const P = spec.lower.map(p => p.slice());
     const k = knobby ? 1.1 : 1, wr = spec.wr * k, cy = wr, R = wr + 0.07, need = cy + R + 0.07, ramp = 0.4, pad = R + 0.04;
+    if (spec.open) { PROF[key] = P; PROF[key].arch = { cy, R }; return P; }
     let chain = P.slice(2);
     const spans = spec.wz.map(z0 => [z0 - pad, z0 + pad]);
     const bump = z => { let m = 0; for (const [lo, hi] of spans) { const d = z < lo ? lo - z : z > hi ? z - hi : 0; m = Math.max(m, need * (1 - Math.min(1, d / ramp))); } return m; };
@@ -266,7 +329,7 @@
     }
     // wheel-well liners: close off the arches so you never see through the car
     const { cy, R } = prof.arch, k = knobby ? 1.1 : 1, wxc = (spec.W / 2 - 0.05) * spec.wx / 0.9, lw = Math.max(0.2, wxc - 0.18 * k - 0.02);
-    spec.wz.forEach(z => parts.push(boxG(lw * 2, cy + R - spec.lower[0][1] - 0.01, R * 1.9, 0, spec.lower[0][1] + (cy + R - spec.lower[0][1]) / 2, z, 0, LINER)));
+    if (!spec.open) spec.wz.forEach(z => parts.push(boxG(lw * 2, cy + R - spec.lower[0][1] - 0.01, R * 1.9, 0, spec.lower[0][1] + (cy + R - spec.lower[0][1]) / 2, z, 0, LINER)));
     return mergeColored(parts);
   }
   // window frame: pillars and rails following the cabin outline, in body colour
@@ -427,6 +490,150 @@
       bx(W * 0.7, 0.35, 0.08, 0, 0.8, frontZ + 0.04, dark); bx(W * 1.0, 0.1, 0.1, 0, 0.45, frontZ + 0.05, cream);
       both(s => bx(0.06, 0.06, 0.4, s * (W / 2 + 0.02), 1.05, 1.0, chrome));                        // door handles
     }
+
+    // ---------- v2.5 cars ----------
+    const C = (k, col, emi, ei) => M('c25_' + k, () => new THREE.MeshLambertMaterial({ color: col, flatShading: true, emissive: emi || 0, emissiveIntensity: ei == null ? 1 : ei }));
+    const sp = (r, x, y, z, mat, sx, sy, sz) => { const m = new THREE.Mesh(new THREE.IcosahedronGeometry(r, 1), mat); m.position.set(x, y, z); if (sx) m.scale.set(sx, sy, sz); m.castShadow = !ghost; body.add(m); return m; };
+    const cone = (r, h, x, y, z, mat, rx, seg) => { const m = new THREE.Mesh(new THREE.ConeGeometry(r, h, seg || 8), mat); m.position.set(x, y, z); if (rx) m.rotation.x = rx; m.castShadow = !ghost; body.add(m); return m; };
+    // flat shape standing along the car (pts are [z, y]), thickness across
+    const fin = (pts, th, x, mat) => { const sh = new THREE.Shape(); pts.forEach((p, i) => i ? sh.lineTo(-p[0], p[1]) : sh.moveTo(-p[0], p[1])); const g = new THREE.ExtrudeGeometry(sh, { depth: th, bevelEnabled: false }); g.translate(0, 0, -th / 2); const m = new THREE.Mesh(g, mat); m.rotation.y = Math.PI / 2; m.position.x = x; m.castShadow = !ghost; body.add(m); return m; };
+    const paint = F.paintMat || chrome;
+    if (f === 'frank') {
+      const meat = C('sausage', 0xc0563a), mus = C('mustard', 0xf2c419);
+      cy(0.3, 4.4, 0, 1.82, -0.05, meat, 'z', 10); sp(0.3, 0, 1.82, 2.15, meat); sp(0.3, 0, 1.82, -2.25, meat);
+      for (let k = 0; k < 9; k++) bx(0.36, 0.06, 0.12, (k % 2 ? 0.1 : -0.1), 2.11, -1.8 + k * 0.45, mus, 0, 0, k % 2 ? 0.7 : -0.7);
+      both(s => bx(0.06, 0.08, 3.6, s * (W / 2 + 0.01), 0.98, 0, C('seed', 0xf3e2b5)));
+    } else if (f === 'tub') {
+      const water = C('water', 0x7cc3f2, 0x2a6fa8, 0.35), white = C('foam', 0xffffff), duck = C('duck', 0xf7d038), beak = C('beak', 0xf28a1e), gold = M('gold25', () => new THREE.MeshStandardMaterial({ color: 0xd9a441, roughness: 0.3, metalness: 0.85, flatShading: true }));
+      const enamel = C('enamel', 0xf7f7f4);
+      bx(W * 0.84, 0.06, 2.8, 0, 1.36, 0.22, water);
+      both(s2 => bx(0.12, 0.14, 3.0, s2 * (W * 0.46), 1.38, 0.2, enamel)); bx(W * 0.98, 0.14, 0.12, 0, 1.38, 1.68, enamel); bx(W * 0.98, 0.14, 0.12, 0, 1.38, -1.25, enamel);
+      [[0.4, 0.9, .18], [-.5, 1.4, .14], [.2, -.4, .2], [-.3, .3, .12], [.55, .1, .1], [-.55, -.5, .16]].forEach(([x, z, r]) => sp(r, x, 1.38, z, white));
+      sp(0.2, 0.2, 1.48, 0.6, duck, 1.15, 0.85, 1.3); sp(0.13, 0.2, 1.7, 0.8, duck); cone(0.05, 0.12, 0.2, 1.68, 0.96, beak, Math.PI / 2, 5);
+      cy(0.05, 0.4, -0.25, 1.52, 1.85, chrome, 'y', 8); bx(0.08, 0.06, 0.25, -0.25, 1.72, 1.75, chrome); cy(0.05, 0.4, 0.25, 1.52, 1.85, chrome, 'y', 8); bx(0.08, 0.06, 0.25, 0.25, 1.72, 1.75, chrome);
+      both(s => [1.85, -1.85].forEach(z => sp(0.13, s * (W / 2 - 0.1), 0.24, z, gold)));
+    } else if (f === 'scoop') {
+      const wafer = C('wafer', 0xd8a45c), pink = C('straw', 0xf2a0c4), mint = C('mint25', 0x9fe3c4), cherry = C('cherry', 0xd12f3a), ac = C('awnC', 0xf05a35), aw = C('awnW', 0xf7f3ea);
+      cone(0.42, 1.0, 0, roofY + 0.6, -0.6, wafer, Math.PI, 9); sp(0.46, 0, roofY + 1.2, -0.6, pink); sp(0.38, 0, roofY + 1.62, -0.6, mint); sp(0.11, 0, roofY + 2.02, -0.6, cherry);
+      bx(0.04, 0.7, 1.5, W * 0.48 + 0.02, 1.75, -0.7, dark);
+      for (let k = 0; k < 6; k++) bx(0.5, 0.05, 0.25, W * 0.48 + 0.25, 2.2, -1.32 + k * 0.25, k % 2 ? aw : ac, 0, -0.35);
+      cy(0.12, 0.1, 0, roofY + 0.07, 1.0, chrome, 'y', 8);
+    } else if (f === 'hailer') {
+      const sign = C('taxisign', 0xfff1b8, 0xffe08a, 0.6), ck = C('checkD', 0x14181f), cl = C('checkL', 0xf3ead7);
+      bx(0.95, 0.06, 0.4, 0, roofY + 0.04, -0.35, dark); bx(0.85, 0.26, 0.34, 0, roofY + 0.2, -0.35, sign);
+      both(s => { for (let k = 0; k < 18; k++) bx(0.03, 0.09, 0.2, s * (W / 2 + 0.01), 0.72 + (k % 2) * 0.09, -1.8 + k * 0.2, k % 2 ? cl : ck); });
+    } else if (f === 'stretch') {
+      bx(W + 0.1, 0.12, 0.14, 0, 0.48, frontZ + 0.05, chrome); bx(W + 0.1, 0.12, 0.14, 0, 0.48, rearZ - 0.05, chrome);
+      both(s => bx(0.04, 0.05, 5.6, s * (W / 2 + 0.01), 0.78, 0, chrome));
+      bx(W * 0.5, 0.28, 0.06, 0, lightY - 0.05, frontZ + 0.09, chrome); cy(0.06, 0.12, 0, 1.05, frontZ - 0.25, chrome, 'y', 8);
+      both(s => { cy(0.015, 0.45, s * W * 0.44, 1.12, frontZ - 0.2, chrome, 'y', 5); bx(0.02, 0.14, 0.22, s * W * 0.44, 1.28, frontZ - 0.3, coral); });
+      bx(W * 0.5, 0.04, 0.7, 0, roofY + 0.02, -0.4, glassSolid); cy(0.012, 0.6, -W * 0.3, roofY + 0.3, -1.8, dark, 'y', 4);
+    } else if (f === 'stomper') {
+      const shock = C('shock', 0xf05a35), spring = C('spring', 0xf2d14e);
+      both(s => bx(0.18, 0.18, 4.4, s * 0.55, 1.32, 0, dark));
+      both(s => spec.wz.forEach(z => { bx(0.12, 0.9, 0.12, s * 0.85, 1.25, z, shock, 0, s * 0.35); cy(0.11, 0.45, s * 0.86, 1.3, z + 0.18, spring, 'y', 8); bx(1.1, 0.1, 0.1, s * 0.6, 0.85, z, dark); }));
+      for (let k = 0; k < 5; k++) cy(0.12, 0.12, (k - 2) * 0.36, roofY + 0.2, 0.3, headMat, 'z', 8);
+      bx(W * 0.85, 0.1, 0.14, 0, roofY + 0.1, 0.3, dark);
+      both(s => cy(0.07, 1.0, s * 0.75, roofY - 0.05, -1.65, chrome, 'y', 8));
+      bx(W * 0.95, 0.14, 0.14, 0, 1.55, frontZ + 0.15, chrome); bx(W * 0.95, 0.14, 0.14, 0, 1.55, rearZ - 0.15, chrome);
+    } else if (f === 'arrow') {
+      const wing = dark;
+      bx(2.35, 0.05, 0.45, 0, 0.26, frontZ - 0.05, wing); both(s => bx(0.05, 0.2, 0.5, s * 1.18, 0.32, frontZ - 0.05, wing));
+      both(s => bx(0.06, 0.6, 0.12, s * 0.35, 0.95, rearZ + 0.2, wing)); bx(1.8, 0.07, 0.45, 0, 1.28, rearZ + 0.15, wing); bx(1.8, 0.05, 0.3, 0, 1.15, rearZ + 0.2, wing);
+      both(s => bx(0.05, 0.45, 0.6, s * 0.92, 1.12, rearZ + 0.15, wing));
+      bx(0.5, 0.42, 0.9, 0, 1.0, -0.9, paint); bx(0.36, 0.08, 0.4, 0, 1.24, -0.6, dark);
+      both(s => { bx(0.45, 0.32, 1.6, s * 0.62, 0.48, -0.35, paint); bx(0.08, 0.2, 0.06, s * 0.62, 0.48, 0.47, dark); });
+      both(s => spec.wz.forEach(z => { bx(0.7, 0.04, 0.06, s * 0.68, spec.wr + 0.05, z + 0.12, dark, 0, s * 0.08); bx(0.7, 0.04, 0.06, s * 0.68, spec.wr - 0.08, z - 0.12, dark, 0, -s * 0.08); }));
+    } else if (f === 'brute') {
+      bx(0.62, 0.32, 0.72, 0, 1.2, 1.25, chrome); bx(0.42, 0.22, 0.42, 0, 1.47, 1.3, dark); bx(0.5, 0.06, 0.5, 0, 1.6, 1.3, chrome);
+      both(s => bx(0.08, 0.3, 0.1, s * 0.22, 1.42, 1.62, dark));
+      both(s => { cy(0.07, 2.2, s * (W / 2 + 0.08), 0.42, -0.05, chrome, 'z', 10); cy(0.08, 0.06, s * (W / 2 + 0.08), 0.42, -1.16, dark, 'z', 10); });
+      wheelFlares(0.14, 0.02); bx(W * 0.85, 0.24, 0.07, 0, lightY - 0.04, frontZ + 0.09, dark);
+    } else if (f === 'wedge') {
+      both(s => { bx(0.5, 0.18, 0.42, s * W * 0.3, 0.78, frontZ - 0.75, paint, -0.25); bx(0.42, 0.12, 0.05, s * W * 0.3, 0.86, frontZ - 0.54, headMat, -0.25); });
+      for (let k = 0; k < 6; k++) bx(W * 0.7, 0.04, 0.08, 0, deckY + 0.04 + k * 0.012, rearZ + 0.25 + k * 0.12, dark);
+      both(s => { bx(0.06, 0.24, 0.7, s * (W / 2 + 0.01), 0.68, -0.9, dark); bx(0.06, 0.06, 3.4, s * (W / 2 + 0.01), 0.5, 0.1, coral); });
+      bx(W * 0.9, 0.08, 0.3, 0, 0.3, frontZ + 0.05, dark);
+    } else if (f === 'caddy') {
+      const canopy = C('canopy', 0xf3ead7), bag = C('golfbag', 0xd8452f), turf = C('turf', 0x5faa5a);
+      bx(W * 0.98, 0.08, 1.75, 0, 1.9, 0.05, canopy); bx(W * 1.02, 0.12, 0.08, 0, 1.86, 0.92, canopy); bx(W * 1.02, 0.12, 0.08, 0, 1.86, -0.82, canopy);
+      const b = cy(0.22, 0.95, 0, 1.25, -1.15, bag, 'y', 10); b.rotation.x = -0.35;
+      for (let k = 0; k < 4; k++) { cy(0.02, 0.5, (k - 1.5) * 0.08, 1.85, -1.38, chrome, 'y', 4); bx(0.09, 0.05, 0.14, (k - 1.5) * 0.08, 2.1, -1.36, chrome); }
+      bx(W * 0.8, 0.03, 0.5, 0, 0.83, -1.1, turf);
+    } else if (f === 'blaze') {
+      const rd = C('lightR', 0xff3b30, 0xff2a1a, 0.9), wt = C('lightW', 0xffffff, 0xfff6e0, 0.8), reel = C('hose', 0xf2d14e);
+      both(s => bx(0.06, 0.06, 3.7, s * 0.38, 2.25, -0.65, chrome)); for (let k = 0; k < 12; k++) bx(0.76, 0.04, 0.05, 0, 2.25, -2.45 + k * 0.32, chrome);
+      both(s => bx(0.08, 0.15, 0.08, s * 0.38, 2.15, 1.0, dark)); both(s => bx(0.08, 0.15, 0.08, s * 0.38, 2.15, -2.3, dark));
+      for (let k = 0; k < 4; k++) bx(0.32, 0.14, 0.26, (k - 1.5) * 0.36, roofY + 0.1, 1.85, k % 2 ? wt : rd);
+      both(s => { for (let k = 0; k < 3; k++) { bx(0.03, 0.75, 0.03, s * (W / 2 + 0.01), 1.5, 0.7 - k * 1.15, dark); bx(0.03, 0.03, 1.05, s * (W / 2 + 0.01), 1.95, 0.15 - k * 1.15, dark); } });
+      cy(0.42, 0.5, 0, 1.25, rearZ - 0.25, reel, 'x', 12); cy(0.18, 0.55, 0, 1.25, rearZ - 0.25, dark, 'x', 10);
+      bx(W * 1.02, 0.16, 0.18, 0, 0.5, frontZ + 0.1, chrome);
+    } else if (f === 'nomad') {
+      const ac = C('awnC2', 0x2f9a8a), aw = C('awnW2', 0xf7f3ea), tyre = C('biketyre', 0x14181f);
+      bx(W, 0.6, 0.75, 0, 2.3, 1.92, paint); bx(W * 0.7, 0.18, 0.04, 0, 2.3, 2.31, glassSolid);
+      both(s => { bx(0.04, 0.45, 0.8, s * (W / 2 + 0.01), 1.85, -0.3, glassSolid); bx(0.04, 0.45, 0.6, s * (W / 2 + 0.01), 1.85, -1.6, glassSolid); });
+      for (let k = 0; k < 9; k++) bx(0.6, 0.05, 0.4, W / 2 + 0.3, 2.45, -2.2 + k * 0.4, k % 2 ? aw : ac, 0, -0.3);
+      bx(0.05, 1.3, 0.75, -(W / 2 + 0.01), 1.5, 0.6, dark);
+      bx(0.9, 0.3, 0.8, 0, 2.75, -0.9, C('acunit', 0xf3ead7));
+      both(s => bx(0.05, 1.8, 0.05, s * 0.3, 1.6, rearZ - 0.04, dark)); for (let k = 0; k < 6; k++) bx(0.6, 0.04, 0.04, 0, 0.9 + k * 0.3, rearZ - 0.04, dark);
+      [-0.45, 0.45].forEach(x => { const t = new THREE.Mesh(new THREE.TorusGeometry(0.3, 0.05, 5, 12), tyre); t.position.set(x, 1.15, rearZ - 0.35); t.castShadow = !ghost; body.add(t); });
+      bx(0.95, 0.05, 0.05, 0, 1.3, rearZ - 0.35, coral, 0, 0.3); bx(0.05, 0.5, 0.05, 0.1, 1.35, rearZ - 0.35, coral);
+    } else if (f === 'dune') {
+      const board = C('board', 0xf3ead7), stripe = C('boardS', 0x2f9a8a);
+      const sb = bx(0.55, 0.07, 2.7, 0, roofY + 0.1, -0.25, board); bx(0.12, 0.08, 2.5, 0, roofY + 0.12, -0.25, stripe);
+      bx(0.8, 0.45, 0.6, 0, 1.15, rearZ + 0.2, chrome); for (let k = 0; k < 3; k++) bx(0.85, 0.05, 0.62, 0, 1.4 + k * 0.08, rearZ + 0.2, dark);
+      cy(0.06, 0.6, 0.3, 1.45, rearZ - 0.05, chrome, 'y', 8);
+      both(s => cy(0.14, 0.12, s * 0.35, roofY + 0.0, 0.5, headMat, 'z', 8));
+      wheelFlares(0.12, 0.05);
+    } else if (f === 'toasty') {
+      const bread = C('bread', 0xe9c48a), crust = C('crust2', 0xa86a32), knob = dark;
+      both(s => { bx(0.36, 0.03, 2.4, s * 0.42, 2.07, 0, dark); bx(0.24, 0.72, 2.0, s * 0.42, 2.36, 0, bread); bx(0.26, 0.1, 2.04, s * 0.42, 2.75, 0, crust); });
+      bx(0.04, 1.1, 0.16, W / 2 + 0.01, 1.35, -0.9, dark); bx(0.3, 0.14, 0.3, W / 2 + 0.15, 1.75, -0.9, knob);
+      cy(0.14, 0.08, W / 2 + 0.03, 1.2, 0.6, chrome, 'x', 12); bx(0.02, 0.14, 0.03, W / 2 + 0.08, 1.24, 0.6, dark);
+      both(s => bx(0.03, 0.03, 3.4, s * (W / 2 + 0.01), 0.9, 0, chrome));
+      cy(0.04, 1.4, 0, 0.55, rearZ - 0.7, dark, 'z', 6); bx(0.2, 0.14, 0.22, 0, 0.55, rearZ - 1.45, C('plug', 0xf3ead7));
+    } else if (f === 'booster') {
+      const glow = C('glow', 0xffb347, 0xff8a1e, 1.2), flame = M('flame25', () => new THREE.MeshBasicMaterial({ color: 0xffc66b, transparent: true, opacity: 0.55, depthWrite: false }));
+      both(s => { cy(0.3, 1.1, s * 0.5, 0.82, rearZ + 0.25, chrome, 'z', 12); cy(0.24, 0.05, s * 0.5, 0.82, rearZ - 0.31, glow, 'z', 12); cone(0.22, 0.9, s * 0.5, 0.82, rearZ - 0.8, flame, -Math.PI / 2, 10); });
+      fin([[-1.7, 1.0], [-2.3, 0.95], [-2.45, 1.75], [-2.15, 1.75]], 0.08, 0, paint);
+      both(s => fin([[-0.9, 0.55], [-2.0, 0.55], [-2.2, 0.35], [-1.3, 0.35]], 0.06, s * (W / 2 + 0.05), dark));
+      cone(0.22, 0.5, 0, 0.42, frontZ + 0.2, chrome, Math.PI / 2, 8);
+    } else if (f === 'chomp') {
+      const grey = C('sharkfin', 0x7d8a99), tooth = C('tooth', 0xffffff), eye = C('eye', 0x0b0d12);
+      fin([[0.1, 1.3], [-0.9, 1.3], [-0.85, 2.35]], 0.09, 0, grey);
+      fin([[-1.9, 0.9], [-2.3, 0.85], [-2.85, 1.85], [-2.55, 1.0], [-2.8, 0.55], [-2.3, 0.62]], 0.08, 0, grey);
+      for (let k = 0; k < 9; k++) { cone(0.07, 0.18, (k - 4) * 0.18, 0.62, frontZ + 0.08, tooth, Math.PI, 4); }
+      for (let k = 0; k < 8; k++) { cone(0.06, 0.15, (k - 3.5) * 0.18, 0.4, frontZ + 0.06, tooth, 0, 4); }
+      bx(W * 0.95, 0.24, 0.04, 0, 0.51, frontZ + 0.02, C('mouth', 0x5a1a22));
+      both(s => { sp(0.12, s * (W / 2 - 0.02), 0.7, 1.65, eye); sp(0.04, s * (W / 2 + 0.07), 0.75, 1.7, tooth); for (let k = 0; k < 3; k++) bx(0.04, 0.3, 0.05, s * (W / 2 + 0.01), 0.6, 0.85 - k * 0.18, dark, 0.3); });
+    } else if (f === 'couch') {
+      const cush = C('cushion', 0xf3ead7), pil = C('pillow', 0xf05a35), wood = C('wood', 0x7a5a3a), shade = C('shade', 0xf7e6b5, 0xf7d58a, 0.35);
+      both(s => bx(0.32, 0.55, 2.9, s * (W / 2 - 0.16), 1.32, 0.05, paint));
+      [-0.4, 0.4].forEach(x => bx(0.74, 0.16, 1.9, x, 1.13, 0.2, cush));
+      [-0.45, 0.45].forEach(x => bx(0.5, 0.45, 0.16, x, 1.42, -0.62, pil, -0.3, x > 0 ? 0.2 : -0.2));
+      bx(0.12, 0.04, 0.28, 0.35, 1.23, 0.9, dark);
+      cy(0.03, 1.4, -W / 2 + 0.25, 2.3, rearZ + 0.25, dark, 'y', 6); cone(0.32, 0.4, -W / 2 + 0.25, 3.05, rearZ + 0.25, shade, 0, 8);
+      both(s => [1.45, -1.45].forEach(z => bx(0.14, 0.14, 0.14, s * (W / 2 - 0.2), 0.32, z, wood)));
+    } else if (f === 'shard') {
+      const lw = C('barW', 0xffffff, 0xfff6e0, 1.0), lr = C('barR', 0xff3b30, 0xff2a1a, 0.9);
+      bx(W * 0.98, 0.05, 0.05, 0, 0.98, frontZ + 0.02, lw); bx(W * 0.98, 0.05, 0.05, 0, 1.05, rearZ - 0.02, lr);
+      bx(W * 0.9, 0.04, 1.3, 0, 1.27, -1.75, dark);
+      both(s => spec.wz.forEach(z => bx(0.03, spec.wr * 1.4, spec.wr * 1.4, s * (W / 2 - 0.05) * spec.wx / 0.9 + s * 0.16, spec.wr, z, C('aero', 0x9aa4b2))));
+    } else if (f === 'slice') {
+      const dough = C('dough', 0xf2c96b), crust = C('crust3', 0xb8742f), pep = C('pep', 0xc8243a), box = C('pbox', 0xd8c08f);
+      fin([[0.75, 0], [-0.75, 0], [0, 1.15]], 0.07, 0, dough).position.y = roofY + 0.12;
+      bx(0.1, 0.18, 1.55, 0, roofY + 0.12, 0, crust);
+      both(s => [[0, 0.55], [0.28, 0.32], [-0.25, 0.3], [0.05, 0.85]].forEach(([z, y]) => cy(0.09, 0.02, s * 0.045, roofY + 0.12 + y, z, pep, 'x', 8)));
+      bx(0.06, 0.12, 0.06, 0, roofY + 0.06, 0, dark);
+      for (let k = 0; k < 3; k++) bx(0.7, 0.07, 0.7, 0, 1.06 + k * 0.08, -1.45, box);
+    } else if (f === 'dodgem') {
+      const rub = C('rubber', 0x1b1e24), spark = C('spark', 0xfff2a8, 0xffe066, 1.4), bulb = C('bulb', 0xfff1cc, 0xffd27a, 0.9);
+      bx(W + 0.3, 0.3, 0.25, 0, 0.45, frontZ + 0.12, rub); bx(W + 0.3, 0.3, 0.25, 0, 0.45, rearZ - 0.12, rub);
+      both(s => bx(0.25, 0.3, 3.5, s * (W / 2 + 0.12), 0.45, 0, rub));
+      cy(0.04, 2.6, 0, 2.3, rearZ + 0.1, chrome, 'y', 6); bx(0.3, 0.06, 0.1, 0, 3.6, rearZ + 0.1, dark); sp(0.1, 0, 3.68, rearZ + 0.1, spark);
+      const wh = new THREE.Mesh(new THREE.TorusGeometry(0.2, 0.04, 5, 10), dark); wh.position.set(0, 1.25, 0.1); wh.rotation.x = -0.9; body.add(wh); cy(0.03, 0.4, 0, 1.08, 0.2, dark, 'z', 5);
+      both(s => { for (let k = 0; k < 6; k++) sp(0.05, s * (W / 2 + 0.01), 0.82, -1.25 + k * 0.5, bulb); });
+    }
   }
 
   // The Weekly cup champion's saucer: floats, no wheels, same physics as everything else
@@ -487,6 +694,10 @@
     const lower = extrudeProfile(prof, spec.W);
     const cab = extrudeProfile(spec.cabin, spec.W * spec.cw);
     const split = splitCabin(cab, spec.paintCabin);
+    if (spec.openTop) { const g = split.glass.attributes.position.array, keep = [];
+      for (let t = 0; t < g.length; t += 9) { const ux = g[t + 3] - g[t], uy = g[t + 4] - g[t + 1], uz = g[t + 5] - g[t + 2], vx = g[t + 6] - g[t], vy = g[t + 7] - g[t + 1], vz = g[t + 8] - g[t + 2], nz = ux * vy - uy * vx, l = Math.hypot(uy * vz - uz * vy, uz * vx - ux * vz, nz) || 1; if (nz / l > 0.35) keep.push(...Array.prototype.slice.call(g, t, t + 9)); }
+      const mk = arr => { const q = new THREE.BufferGeometry(); q.setAttribute('position', new THREE.Float32BufferAttribute(arr, 3)); q.computeVertexNormals(); return q; };
+      split.glass = mk(keep); split.roof = mk([]); }
     // bounding box for projection
     let minY = 1e9, maxY = -1e9, minZ = 1e9, maxZ = -1e9;
     prof.forEach(p => { minZ = Math.min(minZ, p[0]); maxZ = Math.max(maxZ, p[0]); minY = Math.min(minY, p[1]); maxY = Math.max(maxY, p[1]); });
@@ -519,9 +730,9 @@
     const paintMat = opts.ghost ? glassMat : new THREE.MeshStandardMaterial({ color: new THREE.Color(DL.PALETTE[opts.base == null ? DL.DEFAULT_BASE : opts.base]), flatShading: true, roughness: fin.roughness, metalness: fin.metalness });
     let frameMat = null;
     if (!opts.ghost) {
-      const intMesh = new THREE.Mesh(interiorGeo(spec, spec.paintCabin ? null : split.roof, prof, knob), sharedMat('interior', () => new THREE.MeshLambertMaterial({ vertexColors: true, flatShading: true })));
+      const intMesh = new THREE.Mesh(interiorGeo(spec, spec.paintCabin || spec.openTop ? null : split.roof, prof, knob), sharedMat('interior', () => new THREE.MeshLambertMaterial({ vertexColors: true, flatShading: true })));
       body.add(intMesh);
-      if (!spec.paintCabin) {
+      if (!spec.paintCabin && !spec.noFrame) {
         frameMat = new THREE.MeshStandardMaterial({ color: new THREE.Color(DL.PALETTE[opts.base == null ? DL.DEFAULT_BASE : opts.base]), flatShading: true, roughness: fin.roughness, metalness: fin.metalness });
         const fr = new THREE.Mesh(frameGeo(spec), frameMat); fr.castShadow = true; body.add(fr);
       }
@@ -617,7 +828,7 @@
       if (fz > -1e8) { const front = new THREE.Mesh(new THREE.PlaneGeometry(pw, ph), pm); front.position.set(0, py, fz + 0.06); body.add(front); }
     }
 
-    addFeatures({ body, spec, bodyMat, extraMat, headMat, tailMat, glassMat, glassSolid, frontZ, rearZ, roofY, lightY, deckY, ghost: !!opts.ghost });
+    addFeatures({ body, spec, bodyMat, extraMat, headMat, tailMat, glassMat, glassSolid, frontZ, rearZ, roofY, lightY, deckY, paintMat, ghost: !!opts.ghost });
 
     // wheels
     const wheels = [];
