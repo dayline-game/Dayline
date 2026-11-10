@@ -821,6 +821,11 @@
     Game.showcase(null);
     const body = $('isBody'); body.innerHTML = '';
     const rot = shopRotation(today());
+    if (DL.Ads && DL.Ads.enabled()) {
+      const left = DL.Ads.left(), ab = h(`<div class="is-adbar"><span class="coin"></span><div><b>Free coins</b><br><small>Watch a short ad for +${DL.Ads.REWARD} · ${left} left today</small></div><button ${left ? '' : 'disabled'}>${left ? 'Watch ad' : 'Back tomorrow'}</button></div>`);
+      ab.querySelector('button').onclick = e => { e.target.disabled = true; DL.Ads.watch().then(got => { if (got) renderCoins(); renderShop(); }); };
+      body.appendChild(ab);
+    }
     const f = h('<section class="is-sec"><h3>Featured <small>Today only</small></h3><div class="is-feat"></div></section>');
     rot.feat.forEach(it => f.lastElementChild.appendChild(shopTile(it, true)));
     body.appendChild(f);
