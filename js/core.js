@@ -80,8 +80,8 @@ window.DL = window.DL || {};
 
   // ---------- patch notes (major releases only, newest first) ----------
   DL.PATCHES = [
-    { v: '2.5', date: 'November 2026', title: '20 New Cars', art: 'newcars',
-      items: ['Twenty new cars join the shop: a hot dog, a bathtub, an ice cream van, a taxi, a limo, a monster truck, an open-wheeler, a muscle car, an eighties wedge, a golf cart, a fire engine, a camper, a beach buggy, a toaster, a rocket car, a shark, a sofa, an electric pickup, a pizza car and a bumper car', 'New Cars row in the shop: three extra cars rotate in every day, on top of the Featured car', 'Tyre squeal, rough-surface rumble, handbrake click, finish horn and thick smoke when you slide', 'Every car has the same speed, grip and hitbox, so pick whichever makes you laugh'] },
+    { v: '2.5', date: 'November 2026', title: '21 New Cars', art: 'newcars',
+      items: ['Twenty new cars join the shop: a hot dog, a bathtub, an ice cream van, a taxi, a limo, a monster truck, an open-wheeler, a muscle car, an eighties wedge, a golf cart, a fire engine, a camper, a beach buggy, a toaster, a rocket car, a shark, a sofa, an electric pickup, a pizza car, a bumper car and the Nocturne endurance hypercar', 'New Cars row in the shop: three extra cars rotate in every day, on top of the Featured car', 'Tyre squeal, rough-surface rumble, handbrake click, finish horn and thick smoke when you slide', 'Every car has the same speed, grip and hitbox, so pick whichever makes you laugh'] },
     { v: '2.4', date: 'November 2026', title: 'Handbrake Drifting', art: 'drift',
       lead: 'Slide your car round corners: hold the handbrake and steer.',
       items: ['Real sliding: pull the handbrake (Space, or the drift button on phones) and the rear tyres let go, the nose swings out and the car slides', 'Tap it for a quick flick into a corner, hold it for a long drift', 'Stay on the throttle to keep the slide going, steer the other way to straighten it', 'The grip comes back gradually when you let go, so you can catch and hold a drift', 'Driving without the handbrake feels exactly the same as before, so daily times and medals are not affected'] },

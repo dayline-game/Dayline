@@ -829,7 +829,7 @@
     const f = h('<section class="is-sec"><h3>Featured <small>Today only</small></h3><div class="is-feat"></div></section>');
     rot.feat.forEach(it => f.lastElementChild.appendChild(shopTile(it, true)));
     body.appendChild(f);
-    if (rot.cars && rot.cars.length) { const cr = h('<section class="is-sec"><h3>Cars <small>Three more in the showroom today · 28 to collect</small></h3><div class="is-grid"></div></section>'); rot.cars.forEach(it => cr.lastElementChild.appendChild(shopTile(it))); body.appendChild(cr); }
+    if (rot.cars && rot.cars.length) { const cr = h(`<section class="is-sec"><h3>Cars <small>Three more in the showroom today · ${DL.CAR_ORDER.length} to collect</small></h3><div class="is-grid"></div></section>`); rot.cars.forEach(it => cr.lastElementChild.appendChild(shopTile(it))); body.appendChild(cr); }
     const d = h('<section class="is-sec"><h3>Daily <small>New items every day · same for every driver</small></h3><div class="is-grid"></div></section>');
     rot.daily.forEach(it => d.lastElementChild.appendChild(shopTile(it)));
     body.appendChild(d);

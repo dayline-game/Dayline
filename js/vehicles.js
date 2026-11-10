@@ -90,10 +90,13 @@
       cabin: [[1.0, .98], [.2, 1.65], [-1.4, 1.65], [-1.8, 1.0]], cw: .84, wz: [1.25, -1.25], wr: .36, wx: .86 },
     dodgem:  { name: 'Dodgem', cls: 'Bumper car', price: 1000, blurb: 'Rubber ring, spark pole, fairground lights. Bumping not allowed.', feat: 'dodgem', paintCabin: true,
       W: 1.9, lower: [[-1.5, .3], [1.5, .3], [1.7, .5], [1.7, .8], [1.2, .95], [-1.3, .95], [-1.7, .85], [-1.75, .5]],
-      cabin: [[-.7, .93], [-.95, 1.5], [-1.5, 1.5], [-1.55, .93]], cw: .8, wz: [.9, -.9], wr: .22, wx: .8 }
+      cabin: [[-.7, .93], [-.95, 1.5], [-1.5, 1.5], [-1.55, .93]], cw: .8, wz: [.9, -.9], wr: .22, wx: .8 },
+    nocturne: { name: 'Nocturne', cls: 'Hypercar', price: 2800, blurb: 'Built for 24 hours flat out: shark fin, roof scoop, a wing the size of a door.', feat: 'nocturne',
+      W: 2.05, lower: [[-2.6, .25], [2.6, .25], [2.78, .34], [2.72, .48], [1.7, .74], [.4, .8], [-1.4, .95], [-2.6, .95], [-2.72, .6]],
+      cabin: [[.95, .78], [.25, 1.32], [-.85, 1.32], [-1.45, .95]], cw: .52, wz: [1.75, -1.7], wr: .4, wx: .92 }
   };
   DL.CAR_ORDER = ['pebble', 'comet', 'rallye', 'mule', 'ridge', 'vintage', 'bubble', 'loaf',
-    'slice', 'hailer', 'caddy', 'dodgem', 'dune', 'scoop', 'brute', 'tub', 'frank', 'couch', 'nomad', 'toasty', 'wedge', 'chomp', 'stretch', 'blaze', 'shard', 'stomper', 'arrow', 'booster'];
+    'slice', 'hailer', 'caddy', 'dodgem', 'dune', 'scoop', 'brute', 'tub', 'frank', 'couch', 'nomad', 'toasty', 'wedge', 'chomp', 'stretch', 'blaze', 'shard', 'stomper', 'arrow', 'booster', 'nocturne'];
 
   DL.PARTS = {
     spoiler: [
@@ -626,6 +629,19 @@
       both(s => [[0, 0.55], [0.28, 0.32], [-0.25, 0.3], [0.05, 0.85]].forEach(([z, y]) => cy(0.09, 0.02, s * 0.045, roofY + 0.12 + y, z, pep, 'x', 8)));
       bx(0.06, 0.12, 0.06, 0, roofY + 0.06, 0, dark);
       for (let k = 0; k < 3; k++) bx(0.7, 0.07, 0.7, 0, 1.06 + k * 0.08, -1.45, box);
+    } else if (f === 'nocturne') {
+      const carbon = C('carbon', 0x15181e), led = C('led', 0xffffff, 0xfff6e0, 1.1);
+      fin([[-0.6, 1.25], [-2.45, 0.95], [-2.45, 1.62], [-1.9, 1.62]], 0.05, 0, paint);                                  // shark fin to the wing
+      bx(0.42, 0.22, 0.6, 0, roofY + 0.1, -0.35, carbon); bx(0.34, 0.12, 0.05, 0, roofY + 0.1, -0.06, dark);            // roof scoop
+      both(s2 => { bx(0.55, 0.22, 1.3, s2 * (W / 2 - 0.3), 0.82, 1.7, paint); bx(0.46, 0.05, 0.5, s2 * (W / 2 - 0.3), 0.94, 1.55, carbon); });  // front fender tops + vents
+      both(s2 => { bx(0.05, 0.05, 0.4, s2 * 0.62, 1.02, 0.95, dark, 0, 0, s2 * 0.4); bx(0.22, 0.12, 0.08, s2 * 0.8, 1.04, 0.82, paint); }); // mirrors on stalks
+      both(s2 => { bx(0.06, 0.55, 0.12, s2 * 0.32, 1.25, rearZ + 0.45, carbon, -0.35); });                               // swan-neck mounts
+      bx(W * 1.0, 0.07, 0.5, 0, 1.58, rearZ + 0.25, carbon); bx(W * 1.0, 0.05, 0.28, 0, 1.47, rearZ + 0.32, carbon);       // rear wing, two elements
+      both(s2 => bx(0.05, 0.55, 0.75, s2 * W * 0.5, 1.4, rearZ + 0.3, paint));                                          // wing endplates
+      bx(W * 0.98, 0.05, 0.55, 0, 0.24, frontZ - 0.15, carbon); bx(W * 0.9, 0.18, 0.4, 0, 0.3, rearZ + 0.15, carbon, 0.3); // splitter, diffuser
+      both(s2 => { for (let k = 0; k < 3; k++) bx(0.24, 0.04, 0.05, s2 * W * 0.32, lightY + 0.06 - k * 0.07, frontZ + 0.12, led); });  // LED strips
+      bx(W * 0.8, 0.04, 0.05, 0, 0.92, rearZ - 0.04, C('ledR', 0xff3b30, 0xff2a1a, 1.0));                               // full-width tail light
+      cy(0.012, 0.35, 0.1, roofY + 0.2, -0.75, dark, 'y', 4);                                                           // antenna
     } else if (f === 'dodgem') {
       const rub = C('rubber', 0x1b1e24), spark = C('spark', 0xfff2a8, 0xffe066, 1.4), bulb = C('bulb', 0xfff1cc, 0xffd27a, 0.9);
       bx(W + 0.3, 0.3, 0.25, 0, 0.45, frontZ + 0.12, rub); bx(W + 0.3, 0.3, 0.25, 0, 0.45, rearZ - 0.12, rub);
