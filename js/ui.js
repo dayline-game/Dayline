@@ -75,6 +75,37 @@
     const s = Net.save, t = today();
     return (s.lastDay === t || s.lastDay === DL.addDays(t, -1) || (s.lastDay === DL.addDays(t, -2) && s.freezes > 0)) ? s.streak : 0;
   }
+  // ---------------- daily rewards ----------------
+  function renderDailyCard() {
+    const st = Net.dailyState(), card = $('mDaily'); if (!card) return;
+    $('mStreak').textContent = st.can ? 'Day ' + (st.step + 1) + ' ready' : 'Back tomorrow';
+    $('mStreakBars').innerHTML = Array.from({ length: 7 }, (_, i) => `<i class="${i < st.step ? 'on' : i === st.step && st.can ? 'now' : ''}${i === 6 ? ' car' : ''}"></i>`).join('');
+    card.classList.toggle('ready', st.can);
+  }
+  function openDaily() {
+    const st = Net.dailyState(), R = DL.DAILY_REWARDS;
+    const tiles = R.map((r, i) => {
+      const cls = i < st.step ? 'got' : i === st.step && st.can ? 'now' : '';
+      const what = r === 'car' ? '<svg class="dr-car" viewBox="0 0 64 34"><path d="M6 24 L8 15 L20 13 L28 5 H44 L52 13 L58 15 L59 24 Z" fill="#fff"/><path d="M30 8 H42 L48 13 H25Z" fill="#1c2536" opacity=".55"/><circle cx="18" cy="25" r="6" fill="#1c2536"/><circle cx="48" cy="25" r="6" fill="#1c2536"/><circle cx="18" cy="25" r="2.4" fill="#fff"/><circle cx="48" cy="25" r="2.4" fill="#fff"/></svg><b>Free car</b>' : `<div class="dr-coin"><span class="coin"></span></div><b>${r}</b>`;
+      return `<div class="dr-tile ${cls}${r === 'car' ? ' big' : ''}"><small>Day ${i + 1}</small>${what}${i < st.step ? '<em>✓</em>' : ''}</div>`;
+    }).join('');
+    const m = modal(`<h2 class="dr-h">Daily rewards</h2><p class="dr-sub">Claim once a day. Day 7 is a free car you don't own yet. Missing a day never resets your progress.</p><div class="dr-grid">${tiles}</div>
+      <div style="display:flex;gap:10px;align-items:stretch"><button class="btn btn-line" style="flex:none" id="drClose">Close</button><button class="btn btn-go" style="flex:1" id="drClaim" ${st.can ? '' : 'disabled'}>${st.can ? 'Claim day ' + (st.step + 1) : 'Come back tomorrow'}</button></div>`);
+    m.classList.add('dr-modal');
+    m.querySelector('#drClose').onclick = closeModal;
+    m.querySelector('#drClaim').onclick = () => {
+      const got = Net.claimDaily(); if (!got) return;
+      renderCoins(); renderDailyCard(); closeModal();
+      if (got.car) {
+        const info = DL.itemInfo('cars', got.car); UI.confetti && UI.confetti(); DL.Audio.chime();
+        const mm = modal(`<h2 class="dr-h">Day 7: a new car!</h2><p class="dr-sub">The <b>${esc(info.name)}</b> (${esc(info.sub)}) is now in your locker.</p><div style="display:flex;gap:10px;align-items:stretch"><button class="btn btn-line" style="flex:none" id="drOk">Nice</button><button class="btn btn-go" style="flex:1" id="drDrive">Drive it</button></div>`);
+        mm.querySelector('#drOk').onclick = closeModal;
+        mm.querySelector('#drDrive').onclick = () => { Net.save.car = got.car; if (!Net.save.paint[got.car]) Net.save.paint[got.car] = { l: DL.encodeLivery(DL.defaultLivery()), b: DL.DEFAULT_BASE }; Net.persist(); Net.pushProfile(); Game.refreshPlayerCar(); closeModal(); };
+      } else { DL.Audio.coin(); toast(`<b>Day ${got.step + 1} reward</b> +${got.coins} <span class="coin"></span>`, 3500); }
+    };
+  }
+  UI.openDaily = openDaily;
+  document.addEventListener('click', e => { if (e.target.closest && e.target.closest('#mDaily')) openDaily(); });
   function renderMenu() {
     if (Net.save && !Net.save.gift24) { Net.save.gift24 = 1; Net.save.coins += 500; Net.persist(); Net.pushProfile(); renderCoins(); setTimeout(() => toast('<b>Coin boost</b>: +500 <span class="coin"></span> and bigger rewards from now on', 5000), 800); }
     const t = trackFor(today()), d = today();
@@ -84,9 +115,8 @@
     $('mLength').textContent = (t.length / 1000).toFixed(2) + ' km · ' + t.checkpoints.length + ' checkpoints';
     const best = Net.save.best[d];
     $('mMedals').innerHTML = `<span class="lbl">Your best today</span><b class="num">${best ? DL.fmtTime(best).slice(1, 8) : 'No time yet'}</b>`;
-    const st = streakNow();
-    $('mStreak').textContent = st + (st === 1 ? ' day' : ' days') + (Net.save.lastDay === d ? '' : st ? ' · race today to keep it' : '') + (Net.save.freezes ? ' · ❄ ' + Net.save.freezes + ' freeze' + (Net.save.freezes > 1 ? 's' : '') : '');
-    $('mStreakBars').innerHTML = Array.from({ length: 7 }, (_, i) => `<i class="${i < Math.min(st, 7) ? 'on' : ''}"></i>`).join('');
+    renderDailyCard();
+    if (Net.dailyState().can && !UI._drShown) { UI._drShown = 1; setTimeout(() => { if (screen === 'menu' && !$('modalRoot').firstChild) openDaily(); }, 900); }
     renderNameBox();
     renderNet();
     $('lbPlaySub').textContent = 'Daily No. ' + DL.dayNumber(d) + ' · ' + t.B.name;
@@ -838,7 +868,7 @@
       rot.fresh.forEach(it => { const t = shopTile(it); if (!Net.owns(it.cat, it.id)) t.appendChild(h('<span class="badge new">New</span>')); w.lastElementChild.appendChild(t); });
       body.appendChild(w); weekTimer();
     }
-    body.appendChild(h('<p class="is-foot">You earn coins for finishing each daily, extra laps, personal bests, streaks and achievements. Nothing here changes speed, grip or hitbox.</p>'));
+    body.appendChild(h('<p class="is-foot">You earn coins for finishing each daily, extra laps, personal bests, daily rewards and achievements. Nothing here changes speed, grip or hitbox.</p>'));
   }
   const SHOW_3D = { cars: 1, spoiler: 1, wheels: 1, bumper: 1, finish: 1, tint: 1 };
   function renderInspect() {
@@ -1183,6 +1213,7 @@
   function patchPip() { const seen = DL.store.get('patchSeen', ''); const p = $('patchPip'); if (p) p.hidden = seen === DL.PATCH_VER; }
   const CAR = (x, y, s, fill, op) => `<g transform="translate(${x} ${y}) scale(${s})" opacity="${op || 1}"><path d="M-46 14 L-40 -2 Q-36 -14 -22 -16 L10 -16 Q22 -16 30 -6 L44 0 Q50 4 50 14 Z" fill="${fill}"/><path d="M-30 -2 L-24 -12 L-6 -12 L-6 -2 Z M0 -2 L0 -12 L14 -12 L24 -2 Z" fill="#cdd6de" opacity=".85"/><circle cx="-26" cy="15" r="9" fill="#1c2536"/><circle cx="28" cy="15" r="9" fill="#1c2536"/><circle cx="-26" cy="15" r="3.5" fill="#9aa6b3"/><circle cx="28" cy="15" r="3.5" fill="#9aa6b3"/></g>`;
   const ART = {
+    daily: () => [0, 1, 2, 3, 4, 5].map(i => `<g transform="translate(${34 + i * 46} ${i % 2 ? 58 : 50})"><rect width="38" height="54" rx="7" fill="${i < 4 ? '#f3ead7' : '#f3ead7'}" opacity="${i < 4 ? 1 : .55}"/><circle cx="19" cy="24" r="9" fill="#f2c14e" stroke="#1c2536" stroke-width="2"/>${i < 4 ? '<path d="M12 44 l5 5 l9 -10" stroke="#3f8d4e" stroke-width="3.5" fill="none" stroke-linecap="round"/>' : ''}</g>`).join('') + '<g transform="translate(312 30)"><rect width="66" height="94" rx="10" fill="#f2c14e" stroke="#1c2536" stroke-width="3"/><text x="33" y="22" font-size="13" font-weight="800" text-anchor="middle" fill="#1c2536" font-family="sans-serif">DAY 7</text></g>' + CAR(345, 92, 0.42, '#f05a35'),
     newcars: () => CAR(92, 132, 0.95, '#f3ead7') + '<g transform="translate(60 92)"><rect x="0" y="0" width="70" height="16" rx="8" fill="#c0563a"/><path d="M8 6 l8 4 l8 -4 l8 4 l8 -4 l8 4 l8 -4" stroke="#f2c419" stroke-width="3" fill="none"/></g>' + CAR(200, 120, 1.15, '#7cc3f2') + '<g transform="translate(186 40)"><path d="M14 40 L0 10 H28Z" fill="#d8a45c"/><circle cx="14" cy="6" r="12" fill="#f2a0c4"/><circle cx="14" cy="-10" r="9" fill="#9fe3c4"/><circle cx="14" cy="-21" r="3.5" fill="#d12f3a"/></g>' + CAR(312, 132, 0.95, '#f05a35') + '<g transform="translate(290 84)"><path d="M0 22 L22 -4 L44 22Z" fill="#f2c96b" stroke="#b8742f" stroke-width="4" stroke-linejoin="round"/><circle cx="16" cy="13" r="3.5" fill="#c8243a"/><circle cx="27" cy="9" r="3" fill="#c8243a"/><circle cx="24" cy="17" r="3" fill="#c8243a"/></g><g font-family="sans-serif" font-weight="800" fill="#f2c14e"><text x="340" y="44" font-size="26" text-anchor="middle">+20</text></g>',
     drift: () => '<g fill="#e9e4da" opacity=".85"><circle cx="86" cy="140" r="14"/><circle cx="64" cy="146" r="18" opacity=".7"/><circle cx="40" cy="150" r="20" opacity=".5"/><circle cx="108" cy="132" r="9"/></g><path d="M60 156 Q140 150 214 140" stroke="#11151d" stroke-opacity=".5" stroke-width="5" stroke-linecap="round" fill="none"/><path d="M56 150 Q136 144 210 134" stroke="#11151d" stroke-opacity=".4" stroke-width="5" stroke-linecap="round" fill="none"/><g transform="rotate(9 230 140)">' + CAR(230, 128, 1.3, '#f05a35') + '</g><g stroke="#f2c14e" stroke-width="3" stroke-linecap="round"><path d="M304 126 l18 -4"/><path d="M302 138 l20 2"/><path d="M300 114 l16 -9"/></g>',
     shop: () => ['#7a3bc4:70:44:Epic', '#2766b7:140:36:Rare', '#c4631c:210:44:Legendary', '#3f8d4e:280:36:New'].map(s => { const [c, x, y, t] = s.split(':'); return `<g transform="translate(${x} ${y})"><rect width="62" height="82" rx="8" fill="${c}"/><rect x="5" y="5" width="52" height="46" rx="5" fill="#fff" opacity=".18"/><circle cx="31" cy="28" r="12" fill="#f3ead7" opacity=".9"/><rect x="8" y="58" width="46" height="7" rx="3" fill="#f3ead7" opacity=".9"/><rect x="8" y="69" width="28" height="6" rx="3" fill="#f3ead7" opacity=".55"/></g>`; }).join('') + '<circle cx="332" cy="40" r="15" fill="#f2c14e" stroke="#1c2536" stroke-width="3"/><text x="332" y="46" font-size="17" font-weight="800" text-anchor="middle" fill="#1c2536" font-family="sans-serif">7</text>',

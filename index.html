@@ -763,6 +763,29 @@ body.fs #navFull{background:var(--cream-2);}
 .is-adbar small{opacity:.75;font-weight:600}
 .is-adbar button{margin-left:auto;background:#1c2536;color:#fff;border:0;border-radius:10px;padding:10px 16px;font-weight:800;font-family:'Barlow Condensed',sans-serif;font-size:18px;letter-spacing:.5px;cursor:pointer;text-transform:uppercase}
 .is-adbar button:disabled{opacity:.45;cursor:default}
+
+#mDaily{cursor:pointer;transition:transform .15s}
+#mDaily:hover{transform:translateY(-1px)}
+#mDaily.ready{box-shadow:0 0 0 3px #f2c14e inset}
+.lb-streak .bars i.now{background:#f2c14e;animation:drPulse 1.2s ease-in-out infinite}
+.lb-streak .bars i.car{width:16px;border-radius:4px}
+@keyframes drPulse{50%{opacity:.45}}
+.dr-modal{max-width:640px}
+.dr-h{font-family:var(--f-display);font-weight:800;font-size:34px;text-transform:uppercase;color:var(--navy);margin:0}
+.dr-sub{margin:4px 0 14px;color:var(--ink-2,#5d6b7d)}
+.dr-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:16px}
+.dr-tile{position:relative;background:var(--cream-2,#efe6d2);border-radius:14px;padding:10px 8px 12px;text-align:center;display:flex;flex-direction:column;align-items:center;gap:4px}
+.dr-tile small{font-family:var(--f-display);font-weight:800;letter-spacing:1px;text-transform:uppercase;opacity:.6}
+.dr-tile b{font-family:var(--f-display);font-weight:800;font-size:22px;color:var(--navy)}
+.dr-tile .dr-coin .coin{width:26px;height:26px;display:inline-block}
+.dr-tile .dr-car{width:64px;height:34px}
+.dr-tile.got{opacity:.5}
+.dr-tile.got em{position:absolute;top:6px;right:8px;font-style:normal;font-weight:800;color:#3f8d4e}
+.dr-tile.now{background:#f2c14e;box-shadow:0 6px 0 rgba(0,0,0,.15)}
+.dr-tile.big{grid-column:span 2;justify-content:center;background:linear-gradient(160deg,#f05a35,#f2c14e)}
+.dr-tile.big b,.dr-tile.big small{color:#fff;opacity:1}
+@media (max-width:760px){#mDaily.ready{display:flex}}
+@media (max-width:760px){.dr-grid{grid-template-columns:repeat(4,1fr);gap:6px}.dr-tile b{font-size:18px}.dr-h{font-size:28px}}
 </style>
 
 <canvas id="gl"></canvas>
@@ -796,7 +819,7 @@ body.fs #navFull{background:var(--cream-2);}
       <div class="lb-best" id="mMedals"></div>
       <div class="lb-next"><span class="lbl">Next track in</span><b class="num" id="mCountdown">--:--:--</b></div>
     </div>
-    <div class="lb-card lb-streak"><div><div class="lbl">Daily streak</div><b id="mStreak">0 days</b><div class="lbl" id="wxTag"></div></div><div class="bars" id="mStreakBars"></div></div>
+    <div class="lb-card lb-streak" id="mDaily" role="button" tabindex="0"><div><div class="lbl">Daily reward</div><b id="mStreak">Day 1 ready</b><div class="lbl" id="wxTag"></div></div><div class="bars" id="mStreakBars"></div></div>
     <button class="lb-name" id="lbName"><span class="lbl">Racing as</span><b id="lbNameTxt">Driver</b><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h4L19 9l-4-4L4 16zM14 6l4 4"/></svg></button>
     <div class="namebox" id="mNameBox">
       <label class="lbl" for="mTag">Your leaderboard name</label>
@@ -973,20 +996,20 @@ body.fs #navFull{background:var(--cream-2);}
 <div id="toasts"></div>
 
 <script src="https://cdn.jsdelivr.net/npm/three@0.158.0/build/three.min.js"></script>
-<script src="config.js?v=20261110hyp2"></script>
-<script src="js/core.js?v=20261110hyp2"></script>
-<script src="js/track.js?v=20261110hyp2"></script>
-<script src="js/physics.js?v=20261110hyp2"></script>
-<script src="js/vehicles.js?v=20261110hyp2"></script>
-<script src="js/items.js?v=20261110hyp2"></script>
-<script src="js/net.js?v=20261110hyp2"></script>
-<script src="js/thumbs.js?v=20261110hyp2"></script>
-<script src="js/auth.js?v=20261110hyp2"></script>
-<script src="js/game.js?v=20261110hyp2"></script>
-<script src="js/ui.js?v=20261110hyp2"></script>
-<script src="js/community.js?v=20261110hyp2"></script>
-<script src="js/rooms.js?v=20261110hyp2"></script>
-<script src="js/share.js?v=20261110hyp2"></script>
+<script src="config.js?v=20261110dr"></script>
+<script src="js/core.js?v=20261110dr"></script>
+<script src="js/track.js?v=20261110dr"></script>
+<script src="js/physics.js?v=20261110dr"></script>
+<script src="js/vehicles.js?v=20261110dr"></script>
+<script src="js/items.js?v=20261110dr"></script>
+<script src="js/net.js?v=20261110dr"></script>
+<script src="js/thumbs.js?v=20261110dr"></script>
+<script src="js/auth.js?v=20261110dr"></script>
+<script src="js/game.js?v=20261110dr"></script>
+<script src="js/ui.js?v=20261110dr"></script>
+<script src="js/community.js?v=20261110dr"></script>
+<script src="js/rooms.js?v=20261110dr"></script>
+<script src="js/share.js?v=20261110dr"></script>
 <div id="applixir-ad-container" hidden></div>
-<script src="js/ads.js?v=20261110hyp2"></script>
-<script src="js/mobile.js?v=20261110hyp2"></script>
+<script src="js/ads.js?v=20261110dr"></script>
+<script src="js/mobile.js?v=20261110dr"></script>

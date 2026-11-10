@@ -79,7 +79,10 @@ window.DL = window.DL || {};
   };
 
   // ---------- patch notes (major releases only, newest first) ----------
+  DL.DAILY_REWARDS = [100, 150, 200, 250, 300, 400, 'car'];
   DL.PATCHES = [
+    { v: '2.6', date: 'November 2026', title: 'Daily Rewards', art: 'daily',
+      items: ['Open Dayline each day to claim a reward: 100, 150, 200, 250, 300 and 400 coins, then a free car on day 7', 'Missing a day never resets your progress, you just pick up where you left off', 'The day 7 car is one you do not own yet, picked at random from the whole garage', 'Daily rewards replace the streak coin bonus. Streaks still count for achievements and your profile'] },
     { v: '2.5', date: 'November 2026', title: '21 New Cars', art: 'newcars',
       items: ['Twenty new cars join the shop: a hot dog, a bathtub, an ice cream van, a taxi, a limo, a monster truck, an open-wheeler, a muscle car, an eighties wedge, a golf cart, a fire engine, a camper, a beach buggy, a toaster, a rocket car, a shark, a sofa, an electric pickup, a pizza car, a bumper car and the Nocturne endurance hypercar', 'New Cars row in the shop: three extra cars rotate in every day, on top of the Featured car', 'Tyre squeal, rough-surface rumble, handbrake click, finish horn and thick smoke when you slide', 'Every car has the same speed, grip and hitbox, so pick whichever makes you laugh'] },
     { v: '2.4', date: 'November 2026', title: 'Handbrake Drifting', art: 'drift',

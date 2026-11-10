@@ -286,6 +286,28 @@
 
     // ---------- economy ----------
     spend(n) { if (this.save.coins < n) return false; this.save.coins -= n; this.persist(); return true; },
+    // ---------- daily rewards: claim once a day, day 7 gives a car ----------
+    dailyState() {
+      const s = this.save; if (!s.dr) s.dr = { n: 0, last: null };
+      return { step: s.dr.n % 7, can: s.dr.last !== DL.dayKey(), total: s.dr.n };
+    },
+    dailyCarPick() {
+      const s = this.save, pool = DL.CAR_ORDER.filter(id => id !== 'pebble' && !this.owns('cars', id));
+      if (!pool.length) return null;
+      const r = DL.mulberry32((DL.seedFor(DL.dayKey()) ^ ((s.dr && s.dr.n) || 0) * 7919) >>> 0);
+      return pool[Math.floor(r() * pool.length)];
+    },
+    claimDaily() {
+      const st = this.dailyState(); if (!st.can) return null;
+      const s = this.save, R = DL.DAILY_REWARDS[st.step], out = { step: st.step, coins: 0, car: null };
+      if (R === 'car') {
+        const car = this.dailyCarPick();
+        if (car) { s.owned.cars.push(car); out.car = car; if (s.owned.cars.length >= 3) this.award('collector'); }
+        else out.coins = 1500;
+      } else out.coins = R;
+      s.coins += out.coins; s.dr.n++; s.dr.last = DL.dayKey();
+      this.persist(); this.pushProfile(); return out;
+    },
     owns(cat, id) { if (cat === 'cars' && id === 'ufo') return this.hasUfo(); return (this.save.owned[cat] || []).includes(id); },
     // the Weekly cup champion's UFO: yours until the end of the week after you win
     hasUfo() { const u = this.save.ufoUntil; return !!u && u >= DL.dayKey(); },
@@ -366,7 +388,6 @@
           else if (s.lastDay === DL.addDays(today, -2) && s.freezes > 0) { s.freezes--; s.streak++; res.notes.push('Streak freeze used. Streak saved'); }
           else if (s.lastDay !== today) s.streak = 1;
           s.lastDay = today; s.bestStreak = Math.max(s.bestStreak, s.streak);
-          add('Streak bonus ×' + s.streak, 15 * Math.min(s.streak, 10));
           if (s.streak % 7 === 0 && s.freezes < 2) { s.freezes++; res.notes.push('Streak freeze earned (' + s.freezes + '/2)'); }
           if (s.streak >= 3) this.award('streak3', res.ach);
           if (s.streak >= 7) this.award('streak7', res.ach);
