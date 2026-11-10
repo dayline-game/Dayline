@@ -549,7 +549,7 @@
     r.finished = true; r.splits = r.prog.cpTimes.slice();
     record();
     logAttempt(r, true, t);
-    DL.Audio.chime();
+    DL.Audio.finish(); setTimeout(() => DL.Audio.chime(), 380);
     const enc = DL.encodeGhost(r.frames); r.enc = enc;
     const gh = DL.decodeGhost(enc);
     const valid = DL.validateRun(r.track, gh, t);
@@ -774,7 +774,7 @@
   const PMAX = 220;
   function initParticles() {
     parts = [];
-    partMesh = new THREE.InstancedMesh(new THREE.IcosahedronGeometry(0.5, 0), new THREE.MeshLambertMaterial({ flatShading: true, transparent: true, opacity: 0.85, depthWrite: false }), PMAX);
+    partMesh = new THREE.InstancedMesh(new THREE.IcosahedronGeometry(0.5, 0), new THREE.MeshLambertMaterial({ flatShading: true, transparent: true, opacity: 0.85, depthWrite: false, emissive: 0x3a3a3a }), PMAX);
     partMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
     partMesh.setColorAt(0, new THREE.Color(1, 1, 1));
     partMesh.count = 0; partMesh.frustumCulled = false;
@@ -820,7 +820,7 @@
   function clearSkids() { if (skid) { skid.n = 0; skid.head = 0; skid.mesh.count = 0; } }
   function skidMarks(c, dt) {
     if (!skid) initSkids();
-    if (!(c.grounded && c.surf === DL.SURF.ROAD && c.slip > 0.62 && c.speed > 7 && !c.inWater)) return;
+    if (!(c.grounded && c.surf === DL.SURF.ROAD && (c.slip > 0.62 || c.slideK > 0.2) && c.speed > 7 && !c.inWater)) return;
     skid.t += dt; if (skid.t < 0.035) return; skid.t = 0;
     const fx = Math.sin(c.yaw), fz = Math.cos(c.yaw), rx = -fz, rz = fx;
     skid.e.set(c.pitch, c.yaw, c.roll, 'YXZ'); skid.q.setFromEuler(skid.e);
@@ -846,6 +846,17 @@
         const side = Math.random() < 0.5 ? -1 : 1;
         spawn(c.x - fx * 1.4 - fz * side * 0.8, c.y + 0.3, c.z - fz * 1.4 + fx * side * 0.8, -c.vx * 0.15 + (Math.random() - .5), 0.6 + Math.random(), -c.vz * 0.15 + (Math.random() - .5), 0.9, 0.9, c.surf >= DL.SURF.GRAVEL ? dustColor(c.surf) : 0xe9e4da, 2.0);
       }
+    }
+    // handbrake slide: thick smoke pouring off both rear tyres, and the lever click on the pull
+    if (!r.view) {
+      const hb = !!input.handbrake && c.speed > 8;
+      if (hb && !r._hb) DL.Audio.ratchet();
+      r._hb = hb;
+    }
+    if (c.grounded && c.slideK > 0.15 && c.speed > 7 && c.surf === DL.SURF.ROAD && !c.inWater) {
+      const k = DL.clamp(c.slideK, 0, 1), rx = -fz, rz = fx;
+      for (let side = -1; side <= 1; side += 2) if (Math.random() < 0.55 + 0.4 * k)
+        spawn(c.x - fx * 1.2 + rx * 0.82 * side, c.y + 0.2, c.z - fz * 1.2 + rz * 0.82 * side, -c.vx * 0.12 + rx * side * (0.6 + Math.random()), 0.5 + Math.random() * 0.8, -c.vz * 0.12 + rz * side * (0.6 + Math.random()), 0.8 + 0.5 * k, 0.8 + 0.5 * k, 0xf1eee8, 2.6);
     }
     // exhaust
     if (eq.exhaust !== 'none' && r.running && !r.finished) {
@@ -1003,7 +1014,7 @@
         else r.car.step(DT, input, null);
         r.acc -= DT; n++;
       }
-      DL.Audio.updateEngine(r.car.vF, input.throttle, r.car.slip, r.car.grounded);
+      DL.Audio.updateEngine(r.car.vF, input.throttle, r.car.slip, r.car.grounded, r.car.slideK, r.car.surf);
     }
     // render between the last two physics steps so motion stays smooth whatever the frame rate
     const c = r.car, pv = r.prev, run = r.running && pv && pv.t != null;

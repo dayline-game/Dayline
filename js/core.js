@@ -248,9 +248,18 @@ window.DL = window.DL || {};
       const wf = ctx.createBiquadFilter(); wf.type = 'lowpass'; wf.frequency.value = 400;
       const wg = ctx.createGain(); wg.gain.value = 0;
       wn.connect(wf); wf.connect(wg); wg.connect(this.master); wn.start();
-      this.engine = { o1, o2, f, g, sg, wg, nodes: [o1, o2, sk, wn] };
+      // richer body: a quiet octave-up triangle, a tonal tyre squeal (wobbling band-pass saw) and a low rumble for rough surfaces
+      const o3 = ctx.createOscillator(); o3.type = 'triangle'; o3.detune.value = 1200; const g3 = ctx.createGain(); g3.gain.value = 0.35; o3.connect(g3); g3.connect(f); o3.start();
+      const qo = ctx.createOscillator(); qo.type = 'sawtooth'; qo.frequency.value = 880;
+      const ql = ctx.createOscillator(); ql.frequency.value = 11; const qd = ctx.createGain(); qd.gain.value = 40; ql.connect(qd); qd.connect(qo.frequency);
+      const qf = ctx.createBiquadFilter(); qf.type = 'bandpass'; qf.frequency.value = 1150; qf.Q.value = 9;
+      const qg = ctx.createGain(); qg.gain.value = 0; qo.connect(qf); qf.connect(qg); qg.connect(this.master); qo.start(); ql.start();
+      const rn = ctx.createBufferSource(); rn.buffer = this.noise; rn.loop = true;
+      const rf = ctx.createBiquadFilter(); rf.type = 'lowpass'; rf.frequency.value = 260;
+      const rg = ctx.createGain(); rg.gain.value = 0; rn.connect(rf); rf.connect(rg); rg.connect(this.master); rn.start();
+      this.engine = { o1, o2, f, g, sg, wg, qo, qf, qg, rg, nodes: [o1, o2, o3, sk, wn, qo, ql, rn] };
     },
-    updateEngine(speed, throttle, slip, onGround) {
+    updateEngine(speed, throttle, slip, onGround, slideK, surf) {
       const e = this.engine; if (!e) return;
       const t = this.ctx.currentTime;
       const gear = Math.min(5, Math.floor(Math.abs(speed) / 11));
@@ -265,6 +274,10 @@ window.DL = window.DL || {};
       e.g.gain.setTargetAtTime(0.05 + throttle * 0.07, t, 0.08);
       e.sg.gain.setTargetAtTime(onGround ? DL.clamp(slip - 0.25, 0, 1) * 0.18 : 0, t, 0.05);
       e.wg.gain.setTargetAtTime(DL.clamp(Math.abs(speed) / 50, 0, 1) * 0.12, t, 0.2);
+      const sq = onGround ? DL.clamp(Math.max(slip - 0.5, (slideK || 0) * 0.9) , 0, 1) * (Math.abs(speed) > 6 ? 1 : 0) : 0;
+      e.qg.gain.setTargetAtTime(sq * 0.07, t, 0.06);
+      e.qo.frequency.setTargetAtTime(760 + Math.abs(speed) * 7 + (slideK || 0) * 160, t, 0.1); e.qf.frequency.setTargetAtTime(1000 + Math.abs(speed) * 9, t, 0.1);
+      e.rg.gain.setTargetAtTime(onGround && surf > 0 ? DL.clamp(Math.abs(speed) / 30, 0, 1) * 0.16 : 0, t, 0.1);
     },
     stopEngine() {
       const e = this.engine; if (!e) return;
@@ -293,6 +306,21 @@ window.DL = window.DL || {};
       s.buffer = this.noise; f.type = 'bandpass'; f.frequency.value = fq || 700; f.Q.value = 1.2;
       g.gain.setValueAtTime(v, ctx.currentTime); g.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.09);
       s.connect(f); f.connect(g); g.connect(this.master); s.start(ctx.currentTime, Math.random()); s.stop(ctx.currentTime + 0.1);
+    },
+    ratchet() { // handbrake lever
+      if (!this.ctx) return; for (let i = 0; i < 3; i++) setTimeout(() => this.pop(0.1, 2400 + i * 300), i * 38);
+    },
+    whoosh(v) { // speed-up / boost-like air rush
+      if (!this.ctx) return;
+      const ctx = this.ctx, s = ctx.createBufferSource(), f = ctx.createBiquadFilter(), g = ctx.createGain(), t = ctx.currentTime;
+      s.buffer = this.noise; f.type = 'bandpass'; f.Q.value = 0.9; f.frequency.setValueAtTime(500, t); f.frequency.exponentialRampToValueAtTime(3200, t + 0.35);
+      g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(v || 0.25, t + 0.12); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.5);
+      s.connect(f); f.connect(g); g.connect(this.master); s.start(t, Math.random()); s.stop(t + 0.55);
+    },
+    finish() { // crossing the line: horn stab + crowd-like noise swell
+      if (!this.ctx) return; this.whoosh(0.3);
+      [[523, 0], [659, 70], [784, 140], [1047, 230]].forEach(([f, d]) => setTimeout(() => this.beep(f, 0.5, 'sawtooth', 0.07), d));
+      setTimeout(() => this.beep(1568, 0.7, 'triangle', 0.12), 330);
     },
     click() { this.beep(660, 0.06, 'square', 0.05); },
     chime() { [523, 659, 784, 1047].forEach((f, i) => setTimeout(() => this.beep(f, 0.35, 'triangle', 0.16), i * 110)); },
