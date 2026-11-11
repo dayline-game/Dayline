@@ -1226,8 +1226,10 @@
       const navy = flat(0x1f2a3d), cream = flat(0xf4ecdc);
       const px = HALF + 1.7;
       // slim posts that run below the road so they never float on a sloping verge
-      const post = new THREE.BoxGeometry(0.5, 9.2, 0.5);
-      for (const sx of [-1, 1]) { const p = new THREE.Mesh(post, navy); p.position.set(sx * px, 2.1, 0); p.castShadow = true; g.add(p); }
+      const post = DL.models.gatePost(), postMat = new THREE.MeshLambertMaterial({ vertexColors: true, flatShading: true });
+      for (const sx of [-1, 1]) { const p = new THREE.Mesh(post, postMat); p.position.set(sx * px, 0, 0); p.castShadow = true; g.add(p); }
+      // dark frame behind the banner so it reads as a proper gantry
+      const frame = new THREE.Mesh(new THREE.BoxGeometry(px * 2 - 0.4, 1.25, 0.2), navy); frame.position.set(0, 6.4, -0.02); g.add(frame);
       const banner = new THREE.Mesh(new THREE.BoxGeometry(px * 2 + 0.5, 1.0, 0.3), finish || start ? new THREE.MeshLambertMaterial({ map: checkerTex() }) : cream);
       banner.position.set(0, 6.4, 0); banner.castShadow = true; g.add(banner);
       const stripe = new THREE.Mesh(new THREE.BoxGeometry(px * 2 + 0.5, 0.3, 0.34), flat(0xf05a35));
@@ -1240,6 +1242,10 @@
     const lineAt = (x, y, z, tx, tz) => {
       const ln = new THREE.Mesh(new THREE.PlaneGeometry(HALF * 2, 1.4), new THREE.MeshLambertMaterial({ map: checkerTex(), polygonOffset: true, polygonOffsetFactor: -4 }));
       ln.rotation.set(-Math.PI / 2, Math.atan2(tx, tz), 0, 'YXZ'); ln.position.set(x, y + 0.06, z); group.add(ln);
+      for (const d of [-1, 1]) {   // navy border strips either side of the chequer
+        const bd = new THREE.Mesh(new THREE.PlaneGeometry(HALF * 2, 0.22), new THREE.MeshLambertMaterial({ color: 0x1f2a3d, polygonOffset: true, polygonOffsetFactor: -4 }));
+        bd.rotation.set(-Math.PI / 2, Math.atan2(tx, tz), 0, 'YXZ'); bd.position.set(x - tx * d * 0.81, y + 0.062, z - tz * d * 0.81); group.add(bd);
+      }
     };
     const nCP = track.checkpoints.length;
     track.checkpoints.forEach((cp, k) => { gates.push(makeGate(cp, k === nCP - 1 ? 'finish' : 'cp')); });
@@ -1250,9 +1256,7 @@
     // ---- obstacles ----
     const barrels = track.obstacles.filter(o => o.kind === 'barrel'), blocks = track.obstacles.filter(o => o.kind === 'block');
     if (barrels.length) {
-      const bg = DL.mergeColored([
-        { geo: new THREE.CylinderGeometry(0.8, 0.8, 1.4, 8), color: 0xf05a35, matrix: M4(0, 0.7, 0) },
-        { geo: new THREE.CylinderGeometry(0.82, 0.82, 0.3, 8), color: 0xf4ecdc, matrix: M4(0, 0.8, 0) }]);
+      const bg = DL.models.barrel();
       const im = new THREE.InstancedMesh(bg, new THREE.MeshLambertMaterial({ vertexColors: true, flatShading: true }), barrels.length);
       barrels.forEach((o, k) => im.setMatrixAt(k, M4(o.x, o.y, o.z)));
       im.castShadow = true; group.add(im);
