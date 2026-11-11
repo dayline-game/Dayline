@@ -718,6 +718,7 @@
   };
 
   function propGeometry(type) {
+    { const m = DL.models && DL.models.prop(type); if (m) return m; }
     switch (type) {
       case 'pine': return DL.mergeColored([
         { geo: new THREE.CylinderGeometry(0.25, 0.35, 2, 5), color: 0x6b5442, matrix: M4(0, 1, 0) },
@@ -886,6 +887,7 @@
   }
 
   function hazGeometry(t) {
+    { const m = DL.models && DL.models.haz(t); if (m) return m; }
     const CR = 0xf4ecdc, NV = 0x1f2a3d, CL = 0xf05a35, AM = 0xffc233, GR = 0xb9bfc6;
     const TOR = (x, y, z, c) => ({ geo: new THREE.TorusGeometry(0.55, 0.3, 5, 9), color: c, matrix: new THREE.Matrix4().makeRotationX(Math.PI / 2).premultiply(M4(x, y, z)) });
     switch (t) {
