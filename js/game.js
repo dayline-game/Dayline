@@ -38,6 +38,8 @@
     buildGarage();
     initParticles();
     initTrail();
+    // first visit on a weak device (few cores, low memory, software GL): start with the lighter scenery setting
+    if (!DL.store.get('settings', null) && Game.weakDevice()) settings.hq = false;
     Game.applySettings();
     window.addEventListener('resize', resize); resize();
     bindInput(canvas);
@@ -56,8 +58,8 @@
     Game.baseRatio = Math.min(window.devicePixelRatio || 1, cap);
     renderer.setPixelRatio(Game.baseRatio * (Game.resScale || 1));
     if (mob && sun.shadow.mapSize.x !== 1024) { sun.shadow.mapSize.set(1024, 1024); if (sun.shadow.map) { sun.shadow.map.dispose(); sun.shadow.map = null; } }
-    renderer.shadowMap.enabled = !!settings.shadows;
-    sun.castShadow = !!settings.shadows;
+    renderer.shadowMap.enabled = !!settings.shadows && !Game.perfNoShadow;
+    sun.castShadow = !!settings.shadows && !Game.perfNoShadow;
     scene.traverse(o => { if (o.material) o.material.needsUpdate = true; });
     DL.Audio.setVolume(settings.vol);
     document.body.classList.toggle('cb', !!settings.cb);
@@ -69,6 +71,21 @@
   Game.setResScale = function (k) {
     k = DL.clamp(k, 0.55, 1); if (Math.abs(k - (Game.resScale || 1)) < 0.01) return;
     Game.resScale = k; renderer.setPixelRatio(Game.baseRatio * k); resize();
+  };
+  // temporary shadow cut-out used by the frame-time governor (never saved to settings)
+  Game.setPerfShadows = function (off) {
+    if (!!Game.perfNoShadow === !!off || !settings.shadows) return;
+    Game.perfNoShadow = !!off;
+    renderer.shadowMap.enabled = !off; sun.castShadow = !off;
+    scene.traverse(o => { if (o.material) o.material.needsUpdate = true; });
+  };
+  Game.weakDevice = function () {
+    try {
+      const gl = renderer.getContext(), ext = gl.getExtension('WEBGL_debug_renderer_info'), name = ext ? String(gl.getParameter(ext.UNMASKED_RENDERER_WEBGL)) : '';
+      if (/swiftshader|llvmpipe|software|basic render/i.test(name)) return true;
+    } catch (e) { }
+    const cores = navigator.hardwareConcurrency || 8, mem = navigator.deviceMemory || 8;
+    return cores <= 4 || mem <= 4;
   };
   Game.renderer = () => renderer;
   Game.scenes = () => ({ scene, gScene });

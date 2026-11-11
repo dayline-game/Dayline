@@ -209,18 +209,30 @@
   const cp = UI.checkpoint; UI.checkpoint = function (k, total, delta) { buzz(delta != null && delta > 0 ? [10, 40, 10] : 18); return cp.apply(this, arguments); };
   const fin = UI.finished; if (fin) UI.finished = function () { buzz([30, 60, 50]); return fin.apply(this, arguments); };
 
-  // ---------------- adaptive resolution (every device) ----------------
-  let fr = [], lastT = 0, cool = 0;
+  // ---------------- adaptive quality (every device) ----------------
+  // Tier 1: render resolution steps down/up. Tier 2: if still slow at minimum resolution, shadows are cut (and return only with lots of headroom).
+  // Add ?perf=1 to the URL for a live readout.
+  let fr = [], lastT = 0, cool = 0, warned = false, hud = null, lastShadowOff = 0;
+  const showHud = /[?&]perf=1/.test(location.search);
+  function notify() { if (warned) return; warned = true; try { DL.UI && DL.UI.toast && DL.UI.toast('Lowering graphics to keep the game smooth'); } catch (e) { } }
   function watch(t) {
     requestAnimationFrame(watch);
-    if (Game.mode() !== 'race' || document.hidden) { lastT = 0; fr.length = 0; return; }
-    if (lastT) fr.push(t - lastT); lastT = t;
+    const md = Game.mode();
+    if ((md !== 'race' && md !== 'replay') || document.hidden) { lastT = 0; fr.length = 0; return; }
+    if (lastT) fr.push(Math.min(200, t - lastT)); lastT = t;
     if (fr.length < 90) return;
     fr.sort((a, b) => a - b); const med = fr[fr.length >> 1]; fr.length = 0;
-    if (t < cool) return;
     const k = Game.resScale || 1;
-    if (med > 24 && k > 0.56) { Game.setResScale(k - 0.15); cool = t + 2500; }
-    else if (med < 17.5 && k < 1) { Game.setResScale(k + 0.1); cool = t + 6000; }
+    if (showHud) {
+      if (!hud) { hud = document.createElement('div'); hud.style.cssText = 'position:fixed;left:6px;bottom:6px;z-index:99999;font:11px monospace;color:#fff;background:#0009;padding:3px 6px;border-radius:4px;pointer-events:none'; document.body.appendChild(hud); }
+      hud.textContent = Math.round(1000 / med) + ' fps · res ' + k.toFixed(2) + ' · shadows ' + (Game.perfNoShadow ? 'cut' : 'on');
+    }
+    if (t < cool) return;
+    if (med > 24) {
+      if (k > 0.56) { Game.setResScale(Math.max(0.55, k - 0.15)); cool = t + 2500; notify(); }
+      else if (!Game.perfNoShadow && Game.settings.shadows) { Game.setPerfShadows(true); lastShadowOff = t; cool = t + 4000; notify(); }
+    } else if (med < 17.5 && k < 1) { Game.setResScale(k + 0.1); cool = t + 6000; }
+    else if (med < 12.5 && k >= 1 && Game.perfNoShadow && t - lastShadowOff > 20000) { Game.setPerfShadows(false); cool = t + 8000; }
   }
   requestAnimationFrame(watch);
 
