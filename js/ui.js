@@ -1365,7 +1365,7 @@
     const m = modal(`<div class="lbl">Settings</div><h2>Settings</h2>
       <div class="field"><label class="lbl" for="sVol">Volume</label><input type="range" id="sVol" min="0" max="1" step="0.05" value="${s.vol}"></div>
       <div class="toggle-row"><span>Shadows</span><button class="chk ${s.shadows ? 'on' : ''}" id="sSh">${s.shadows ? 'On' : 'Off'}</button></div>
-      <div class="toggle-row"><span>Cinematic lighting (warm low sun, long shadows, vignette)</span><button class="chk ${s.light ? 'on' : ''}" id="sLight">${s.light ? 'On' : 'Off'}</button></div>
+      <div class="toggle-row"><span>Cinematic lighting (sunset sky, bloom, light shafts, long shadows)</span><button class="chk ${s.light ? 'on' : ''}" id="sLight">${s.light ? 'On' : 'Off'}</button></div>
       <div class="toggle-row"><span>High quality (sharper, denser scenery)</span><button class="chk ${s.hq ? 'on' : ''}" id="sHq">${s.hq ? 'On' : 'Off'}</button></div>
       <div class="field"><label class="lbl" for="sShake">Camera shake</label><input type="range" id="sShake" min="0" max="1" step="0.1" value="${s.shake}"></div>
       <div class="toggle-row"><span>Colour-blind friendly splits</span><button class="chk ${s.cb ? 'on' : ''}" id="sCb">${s.cb ? 'On' : 'Off'}</button></div>

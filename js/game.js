@@ -62,10 +62,10 @@
     if (mob && sun.shadow.mapSize.x !== 1024) { sun.shadow.mapSize.set(1024, 1024); if (sun.shadow.map) { sun.shadow.map.dispose(); sun.shadow.map = null; } }
     { const L = !!settings.light;   // improved lighting: filmic tone mapping, lower warmer sun, cool fill, softer shadow edge
       renderer.toneMapping = L ? THREE.ACESFilmicToneMapping : THREE.NoToneMapping;
-      renderer.toneMappingExposure = L ? 1.0 : 1;
+      renderer.toneMappingExposure = L ? 1.15 : 1;
       fill.intensity = L ? 0.7 : 0;
       SO[0] = L ? 120 : 60; SO[1] = L ? 48 : 110; SO[2] = L ? 70 : 40;   // low raking sun = long shadows
-      document.body.classList.toggle('cine', L); Game.cineLights();
+      document.body.classList.toggle('cine', L); if (Game.lastW && Game._litState !== L) { Game._litState = L; applyWeather(Game.lastW[0], Game.lastW[1]); } else Game.cineLights();
       sun.shadow.radius = L ? 4 : 1; sun.shadow.bias = L ? -0.0004 : -0.0006;
       const sc = sun.shadow.camera, e = L ? 85 : 70; if (sc.right !== e) { sc.left = -e; sc.right = e; sc.top = e; sc.bottom = -e; sc.updateProjectionMatrix(); } }
     renderer.shadowMap.enabled = !!settings.shadows && !Game.perfNoShadow;
@@ -207,7 +207,7 @@
       rainPts = new THREE.Points(g, new THREE.PointsMaterial({ color: 0xcfd8e0, size: 0.09, transparent: true, opacity: 0.6, depthWrite: false, fog: false }));
       rainPts.frustumCulled = false; scene.add(rainPts);
     }
-    Game.baseSunCol = sun.color.clone(); Game.cineLights();
+    Game.lastW = [day, B]; Game.baseSunCol = sun.color.clone(); Game.cineLights();
     const el = document.getElementById('wxTag'); if (el) el.textContent = w === WEATHER.clear ? '' : w.name;
   }
   // cinematic grade: warm strong key, dimmer sky fill for contrast, cool shadow fill
@@ -215,8 +215,92 @@
   Game.cineLights = function () {
     const w = Game.weather || WEATHER.clear, L = !!settings.light;
     if (!Game.baseSunCol) return;
-    hemi.intensity = w.hemi * (L ? 0.62 : 1); sun.intensity = w.sun * (L ? 1.45 : 1);
+    hemi.intensity = w.hemi * (L ? 0.55 : 1);
+    if (L) { hemi.color.set(0xffb9a4); hemi.groundColor.set(0x6a4660); } sun.intensity = w.sun * (L ? 1.45 : 1);
     sun.color.copy(Game.baseSunCol); if (L) sun.color.lerp(cineWarm, 0.7);
+    if (L && !w.rain && w !== WEATHER.fog) sunsetSky(); else if (sunDisc) sunDisc.visible = false;
+  };
+  // sunset sky: violet zenith -> rose -> amber horizon, glow around the sun, big sun disc, warm haze on distant land
+  let sunDisc = null;
+  function sunsetSky() {
+    const d = new THREE.Vector3(SO[0], SO[1], SO[2]).normalize();
+    const top = new THREE.Color(0x2c3a82), mid = new THREE.Color(0xd9628a), hor = new THREE.Color(0xffa45c), glow = new THREE.Color(0xffd08a), c = new THREE.Color(), v = new THREE.Vector3(), haze0 = new THREE.Color(0xd4805c);
+    const p = skyDome.geometry.attributes.position, col = skyDome.geometry.attributes.color;
+    for (let i = 0; i < p.count; i++) {
+      v.set(p.getX(i), p.getY(i), p.getZ(i)).normalize();
+      const h = Math.max(0, v.y);
+      if (v.y < 0) { c.copy(hor).lerp(haze0, Math.min(1, -v.y * 4)); col.setXYZ(i, c.r, c.g, c.b); continue; }
+      if (h < 0.28) c.copy(hor).lerp(mid, Math.pow(h / 0.28, 0.7)); else c.copy(mid).lerp(top, Math.min(1, Math.pow((h - 0.28) / 0.62, 0.8)));
+      const g = Math.max(0, v.dot(d)); c.lerp(glow, Math.pow(g, 6) * 0.75).lerp(hor, Math.pow(g, 24) * 0.5);
+      col.setXYZ(i, c.r, c.g, c.b);
+    }
+    col.needsUpdate = true;
+    const haze = new THREE.Color(0xf0a070);
+    scene.background = new THREE.Color(0xffa45c);
+    scene.fog = new THREE.Fog(haze, 140, 1500);
+    if (!sunDisc) {
+      const cv = document.createElement('canvas'); cv.width = cv.height = 128; const x = cv.getContext('2d'), gr = x.createRadialGradient(64, 64, 0, 64, 64, 64);
+      gr.addColorStop(0, '#fff8e0'); gr.addColorStop(0.18, '#fff0c0'); gr.addColorStop(0.24, 'rgba(255,190,110,.55)'); gr.addColorStop(0.6, 'rgba(255,140,80,.18)'); gr.addColorStop(1, 'rgba(255,120,60,0)');
+      x.fillStyle = gr; x.fillRect(0, 0, 128, 128);
+      sunDisc = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(cv), transparent: true, depthWrite: false, fog: false, toneMapped: false, blending: THREE.AdditiveBlending }));
+      sunDisc.scale.set(900, 900, 1); sunDisc.renderOrder = -9; sunDisc.frustumCulled = false;
+      sunDisc.onBeforeRender = (r, sc, cam) => sunDisc.lookAt(cam.position);
+      skyDome.add(sunDisc);
+    }
+    sunDisc.visible = true; sunDisc.position.copy(d).multiplyScalar(2700);
+  }
+
+  // ---------------- cinematic post: bloom + sun shafts + warm grade (only with the Cinematic lighting setting) ----------------
+  let cpost = null;
+  const FS_VS = 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = vec4(position.xy, 0., 1.); }';
+  function ppInit(w, h) {
+    const mk = (W, H, o) => new THREE.WebGLRenderTarget(Math.max(2, W | 0), Math.max(2, H | 0), Object.assign({ type: THREE.HalfFloatType, depthBuffer: false }, o));
+    if (!cpost) {
+      cpost = { cam: new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1), scn: new THREE.Scene(), q: new THREE.Mesh(new THREE.PlaneGeometry(2, 2)) };
+      cpost.scn.add(cpost.q); cpost.q.frustumCulled = false;
+      const sm = (fs, u) => new THREE.ShaderMaterial({ vertexShader: FS_VS, fragmentShader: fs, uniforms: u, depthTest: false, depthWrite: false, toneMapped: false });
+      cpost.bright = sm('uniform sampler2D t; varying vec2 vUv; void main(){ vec3 c = texture2D(t, vUv).rgb; float l = max(c.r, max(c.g, c.b)); gl_FragColor = vec4(c * smoothstep(0.8, 1.5, l), 1.); }', { t: { value: null } });
+      cpost.blur = sm('uniform sampler2D t; uniform vec2 d; varying vec2 vUv; void main(){ vec3 c = texture2D(t, vUv).rgb * 0.227; c += (texture2D(t, vUv + d * 1.38).rgb + texture2D(t, vUv - d * 1.38).rgb) * 0.316; c += (texture2D(t, vUv + d * 3.23).rgb + texture2D(t, vUv - d * 3.23).rgb) * 0.070; gl_FragColor = vec4(c, 1.); }', { t: { value: null }, d: { value: new THREE.Vector2() } });
+      cpost.comp = new THREE.ShaderMaterial({ vertexShader: FS_VS, depthTest: false, depthWrite: false,
+        uniforms: { t: { value: null }, b: { value: null }, sun: { value: new THREE.Vector3(.5, .5, 0) }, tint: { value: new THREE.Color(1.05, 0.98, 0.92) }, str: { value: 0.75 } },
+        fragmentShader: `uniform sampler2D t, b; uniform vec3 sun; uniform vec3 tint; uniform float str; varying vec2 vUv;
+          void main(){
+            vec3 c = texture2D(t, vUv).rgb; vec3 bl = texture2D(b, vUv).rgb;
+            vec3 rays = vec3(0.); vec2 dir = (sun.xy - vUv) / 22.; vec2 uv = vUv; float w = 1.;
+            for (int i = 0; i < 22; i++) { uv += dir; rays += texture2D(b, uv).rgb * w; w *= 0.93; }
+            rays *= sun.z * 0.11;
+            c += bl * str + rays * vec3(1., .72, .42);
+            c *= tint;
+            c = (c - 0.18) * 1.03 + 0.18;
+            float l = dot(c, vec3(.2126, .7152, .0722)); c = mix(vec3(l), c, 0.98);
+            gl_FragColor = vec4(max(c, 0.), 1.);
+            #include <tonemapping_fragment>
+            #include <colorspace_fragment>
+          }` });
+    }
+    const sz = new THREE.Vector2(); renderer.getDrawingBufferSize(sz);
+    if (cpost.w !== sz.x || cpost.h !== sz.y) {
+      ['rt', 'a', 'b'].forEach(k => cpost[k] && cpost[k].dispose());
+      cpost.rt = mk(sz.x, sz.y, { samples: 4, depthBuffer: true }); cpost.a = mk(sz.x / 4, sz.y / 4); cpost.b = mk(sz.x / 4, sz.y / 4);
+      cpost.w = sz.x; cpost.h = sz.y;
+    }
+  }
+  Game.draw = function (sc, cam) {
+    if (!settings.light || sc !== scene || Game.noPost) { renderer.render(sc, cam); return; }
+    const ts = renderer.getRenderTarget();
+    ppInit();
+    renderer.setRenderTarget(cpost.rt); renderer.clear(); renderer.render(sc, cam);
+    const q = (m, tgt) => { cpost.q.material = m; renderer.setRenderTarget(tgt); renderer.render(cpost.scn, cpost.cam); };
+    cpost.bright.uniforms.t.value = cpost.rt.texture; q(cpost.bright, cpost.a);
+    for (let i = 0; i < 2; i++) {
+      cpost.blur.uniforms.t.value = cpost.a.texture; cpost.blur.uniforms.d.value.set(1.6 / cpost.a.width, 0); q(cpost.blur, cpost.b);
+      cpost.blur.uniforms.t.value = cpost.b.texture; cpost.blur.uniforms.d.value.set(0, 1.6 / cpost.a.height); q(cpost.blur, cpost.a);
+    }
+    // sun position on screen (for the light shafts)
+    const sv = new THREE.Vector3(SO[0], SO[1], SO[2]).normalize(), fw = new THREE.Vector3(); cam.getWorldDirection(fw);
+    const pr = cam.position.clone().addScaledVector(sv, 1000).project(cam), vis = Math.max(0, fw.dot(sv));
+    const u = cpost.comp.uniforms; u.sun.value.set(pr.x * .5 + .5, pr.y * .5 + .5, Math.pow(vis, 1.5)); u.t.value = cpost.rt.texture; u.b.value = cpost.a.texture;
+    cpost.q.material = cpost.comp; renderer.setRenderTarget(ts); renderer.render(cpost.scn, cpost.cam);
   };
   Game.tickWeather = function (dt) {
     if (!rainPts) return;
@@ -1000,14 +1084,14 @@
       sun.position.set(race.car.x + SO[0], race.car.y + SO[1], race.car.z + SO[2]); sun.target.position.set(race.car.x, race.car.y, race.car.z);
       updateParticles(dt);
       shadowLive(true);
-      renderer.render(scene, camera);
+      Game.draw(scene, camera);
     } else if (mode === 'replay' && race) {
       updateReplay(dt);
       setOffset(camera, 'none');
       sun.position.set(race.car.x + SO[0], race.car.y + SO[1], race.car.z + SO[2]); sun.target.position.set(race.car.x, race.car.y, race.car.z);
       if (Game.camHook) Game.camHook(camera, race, scene);
       shadowLive(true);
-      renderer.render(scene, camera);
+      Game.draw(scene, camera);
       if (Game.onReplayFrame) Game.onReplayFrame(renderer.domElement);
       if (Game.photoReq) { Game.photoReq = false; renderer.domElement.toBlob(b => { if (!b) return; const a = document.createElement('a'); a.href = URL.createObjectURL(b); a.download = 'dayline-photo.png'; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 4000); DL.UI.toast && DL.UI.toast('Photo saved'); }, 'image/png'); }
     } else if (mode === 'garage' || mode === 'shop') {
@@ -1031,7 +1115,7 @@
       if (playerModel) playerModel.visible = false;
       sun.position.set(v.tx + SO[0], v.ty + SO[1], v.tz + SO[2]); sun.target.position.set(v.tx, v.ty, v.tz);
       shadowLive(true);
-      renderer.render(scene, camera);
+      Game.draw(scene, camera);
       if (Game.onEdFrame) Game.onEdFrame();
     } else if (track && playerModel) {
       // menu & overlay screens: cinematic idle shot of the player's car on today's track
@@ -1046,7 +1130,7 @@
       sun.position.set(s.x + SO[0], gy + SO[1], s.z + SO[2]); sun.target.position.set(s.x, gy, s.z);
       updateParticles(dt);
       shadowLive(false);
-      renderer.render(scene, camera);
+      Game.draw(scene, camera);
     }
   }
 
