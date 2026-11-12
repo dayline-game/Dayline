@@ -746,13 +746,14 @@
     const glass = new THREE.Mesh(split.glass, glassUse); glass.castShadow = false; glass.renderOrder = 3; body.add(glass);
     const extraMat = opts.ghost ? glassMat : sharedMat('trim', () => new THREE.MeshLambertMaterial({ color: 0x1f2a3d, flatShading: true }));
     // solid paint for add-on bodywork (wings, bed rails): box UVs would smear the livery texture across them
-    const paintMat = opts.ghost ? glassMat : new THREE.MeshStandardMaterial({ color: new THREE.Color(DL.PALETTE[opts.base == null ? DL.DEFAULT_BASE : opts.base]), flatShading: true, roughness: fin.roughness, metalness: fin.metalness });
+    const partCol = k => { const i = DL.partColour(livery, k); return i && DL.PALETTE[i] ? DL.PALETTE[i] : null; };
+    const paintMat = opts.ghost ? glassMat : new THREE.MeshStandardMaterial({ color: new THREE.Color(partCol('trim') || DL.PALETTE[opts.base == null ? DL.DEFAULT_BASE : opts.base]), flatShading: true, roughness: fin.roughness, metalness: fin.metalness });
     let frameMat = null;
     if (!opts.ghost) {
       const intMesh = new THREE.Mesh(interiorGeo(spec, spec.paintCabin || spec.openTop ? null : split.roof, prof, knob), sharedMat('interior', () => new THREE.MeshLambertMaterial({ vertexColors: true, flatShading: true })));
       body.add(intMesh);
       if (!spec.paintCabin && !spec.noFrame) {
-        frameMat = new THREE.MeshStandardMaterial({ color: new THREE.Color(DL.PALETTE[opts.base == null ? DL.DEFAULT_BASE : opts.base]), flatShading: true, roughness: fin.roughness, metalness: fin.metalness });
+        frameMat = new THREE.MeshStandardMaterial({ color: new THREE.Color(partCol('frame') || DL.PALETTE[opts.base == null ? DL.DEFAULT_BASE : opts.base]), flatShading: true, roughness: fin.roughness, metalness: fin.metalness });
         const fr = new THREE.Mesh(frameGeo(spec), frameMat); fr.castShadow = true; body.add(fr);
       }
     }
@@ -775,8 +776,9 @@
 
     // lights
     const frontZ = Math.max(...spec.lower.map(p => p[0])), rearZ = Math.min(...spec.lower.map(p => p[0]));
-    const headMat = opts.ghost ? glassMat : sharedMat('head', () => new THREE.MeshStandardMaterial({ color: 0xfff6e0, emissive: 0xfff1cc, emissiveIntensity: 0.6 }));
-    const tailMat = opts.ghost ? glassMat : new THREE.MeshStandardMaterial({ color: 0xc73a2e, emissive: 0xf05a35, emissiveIntensity: 0.15 });
+    const hc = partCol('head'), tc = partCol('tail');
+    const headMat = opts.ghost ? glassMat : new THREE.MeshStandardMaterial({ color: hc || 0xfff6e0, emissive: hc || 0xfff1cc, emissiveIntensity: 0.6 });
+    const tailMat = opts.ghost ? glassMat : tc ? new THREE.MeshStandardMaterial({ color: tc, emissive: tc, emissiveIntensity: 0.15 }) : new THREE.MeshStandardMaterial({ color: 0xc73a2e, emissive: 0xf05a35, emissiveIntensity: 0.15 });
     const lightY = (spec.lower[2][1] + spec.lower[3][1]) / 2;
     [-1, 1].forEach(s => {
       const h = new THREE.Mesh(new THREE.BoxGeometry(0.42, 0.16, 0.08), headMat); h.position.set(s * spec.W * 0.32, lightY, frontZ + 0.09); body.add(h);
@@ -875,7 +877,12 @@
         this.gridOn = true; DL.drawGridCanvas(this.gridCv, liv, base); this.gridTex.needsUpdate = true;
         if (bodyMat.map !== this.gridTex) { bodyMat.map = this.gridTex; bodyMat.needsUpdate = true; }
       },
-      setLivery(liv, base) { DL.drawLiveryCanvas(canvas, liv, base); if (this.gridOn) this.setGrid(true, liv, base); if (paintMat.color) paintMat.color.set(DL.PALETTE[base == null ? DL.DEFAULT_BASE : base]); tex.needsUpdate = true; if (frameMat) frameMat.color.set(DL.PALETTE[base == null ? DL.DEFAULT_BASE : base]); },
+      setLivery(liv, base) {
+        DL.drawLiveryCanvas(canvas, liv, base); if (this.gridOn) this.setGrid(true, liv, base);
+        const bc = DL.PALETTE[base == null ? DL.DEFAULT_BASE : base], pc = k => { const i = DL.partColour(liv, k); return i && DL.PALETTE[i] ? DL.PALETTE[i] : null; };
+        if (paintMat.color) paintMat.color.set(pc('trim') || bc); tex.needsUpdate = true; if (frameMat) frameMat.color.set(pc('frame') || bc);
+        if (!opts.ghost) { const h = pc('head'), t = pc('tail'); headMat.color.set(h || 0xfff6e0); headMat.emissive.set(h || 0xfff1cc); tailMat.color.set(t || 0xc73a2e); tailMat.emissive.set(t || 0xf05a35); }
+      },
       dispose() { root.traverse(o => { if (o.geometry) o.geometry.dispose(); }); tex.dispose(); if (this.gridTex) this.gridTex.dispose(); bodyMat.dispose(); }
     };
     return root;

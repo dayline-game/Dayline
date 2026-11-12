@@ -183,6 +183,9 @@ window.DL = window.DL || {};
     front: { x: 0, y: 32, w: 12, h: 10, label: 'Nose' },
     rear:  { x: 12, y: 32, w: 12, h: 10, label: 'Tail' }
   };
+  // Part colours live in spare atlas cells (x 24-27, row 32: no body panel maps there), so they ride along in the existing livery string. 0 = automatic.
+  DL.PART_SLOTS = { frame: [24, 32, 'Window frame'], head: [25, 32, 'Headlights'], tail: [26, 32, 'Tail lights'], trim: [27, 32, 'Wings & add-ons'] };
+  DL.partColour = (liv, key) => { const s = DL.PART_SLOTS[key]; return liv && liv.length > s[1] * DL.ATLAS_W + s[0] ? liv[s[1] * DL.ATLAS_W + s[0]] | 0 : 0; };
   const ALPH = '0123456789abcdefghijklmnopqrstuv';
   DL.encodeLivery = arr => { let s = ''; for (let i = 0; i < arr.length; i++) s += ALPH[arr[i] & 31]; return s; };
   DL.decodeLivery = function (s) {

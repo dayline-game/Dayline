@@ -537,7 +537,8 @@
   }
   function applyQuick() {
     pushUndo();
-    ed.liv.fill(0);
+    const keep = Object.keys(DL.PART_SLOTS).map(k => DL.partColour(ed.liv, k));
+    ed.liv.fill(0); Object.keys(DL.PART_SLOTS).forEach((k, i) => { const sl = DL.PART_SLOTS[k]; ed.liv[sl[1] * DL.ATLAS_W + sl[0]] = keep[i]; });
     const P = DL.PANELS, saved = ed.mirror; ed.mirror = false;
     for (const key in P) { const p = P[key]; for (let y = 0; y < p.h; y++) for (let x = 0; x < p.w; x++) if (patHit(QP.pat, key, x, y, p)) setCell(key, x, y, QP.col); }
     if (QP.num !== '') {
@@ -552,6 +553,20 @@
     }
     ed.mirror = saved; commit();
   }
+
+  // Colour the window frame, lights and add-ons separately from the body (stored in spare livery cells)
+  function partsSection(body, pickGet) {
+    const wrap = h('<div class="qp-sec"><div class="lbl">Parts</div></div>');
+    Object.keys(DL.PART_SLOTS).forEach(k => {
+      const sl = DL.PART_SLOTS[k], cur = DL.partColour(ed.liv, k), col = cur ? DL.PALETTE[cur] : null;
+      const row = h(`<div class="paint-tools" style="align-items:center"><span class="lbl" style="min-width:118px">${sl[2]}</span><span class="sw ${col ? '' : 'clear'}" style="width:28px;${col ? 'background:' + col : ''}"></span><button class="tool">Use selected colour</button><button class="tool" ${cur ? '' : 'disabled'}>Auto</button></div>`);
+      const set = v => { pushUndo(); ed.liv[sl[1] * DL.ATLAS_W + sl[0]] = v; commit(); renderGarage(); };
+      row.children[2].onclick = () => { const c = pickGet(); if (c) set(c); };
+      row.children[3].onclick = () => set(0);
+      wrap.appendChild(row);
+    });
+    body.appendChild(wrap);
+  }
   function renderQuick(body) {
     const sec = (t, node) => { const w = h(`<div class="qp-sec"><div class="lbl">${t}</div></div>`); w.appendChild(node); body.appendChild(w); };
     const sw = (get, set) => { const pal = h('<div class="palette"></div>'); DL.PALETTE.forEach((c, i) => { if (!i) return; const b = h(`<button class="sw ${get() === i ? 'on' : ''}" aria-label="${c}" style="background:${c}"></button>`); b.onclick = () => { set(i); renderGarage(); }; pal.appendChild(b); }); return pal; };
@@ -563,6 +578,8 @@
     const nr = h(`<div class="paint-tools" style="align-items:center"><input type="text" inputmode="numeric" maxlength="2" id="qpNum" value="${QP.num}" placeholder="--" style="width:64px;text-align:center"><span class="hint" style="margin:0">Race number, 1–2 digits (optional)</span></div>`);
     nr.firstElementChild.oninput = e => { QP.num = e.target.value.replace(/\D/g, '').slice(0, 2); e.target.value = QP.num; applyQuick(); };
     sec('Number', nr);
+    sec('Parts colour', sw(() => ed.partPick || 0, i => { ed.partPick = i; }));
+    partsSection(body, () => ed.partPick || ed.base);
     const act = h('<div class="paint-tools"><button class="tool">Undo</button><button class="tool">Reset to stock</button></div>');
     act.children[0].disabled = !ed.undo.length; act.children[0].onclick = () => undo();
     act.children[1].onclick = () => { pushUndo(); ed.liv = DL.defaultLivery(); ed.base = DL.DEFAULT_BASE; QP.pat = 'none'; QP.num = ''; commit(); renderGarage(); };
@@ -602,6 +619,7 @@
     bb[2].onclick = () => { pushUndo(); panelOp(ed.active, (x, y, p) => (y % 3 === 1) ? ed.color : null); commit(); };
     bb[3].onclick = () => { pushUndo(); panelOp(ed.active, (x, y) => ((x >> 1) + (y >> 1)) & 1 ? ed.color : null); commit(); };
     body.appendChild(baseRow);
+    partsSection(body, () => ed.color);
 
     if (ed.tool === 'stamp') {
       const st = h('<div class="stamps"></div>');
