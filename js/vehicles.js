@@ -780,9 +780,14 @@
     const headMat = opts.ghost ? glassMat : new THREE.MeshStandardMaterial({ color: hc || 0xfff6e0, emissive: hc || 0xfff1cc, emissiveIntensity: 0.6 });
     const tailMat = opts.ghost ? glassMat : tc ? new THREE.MeshStandardMaterial({ color: tc, emissive: tc, emissiveIntensity: 0.15 }) : new THREE.MeshStandardMaterial({ color: 0xc73a2e, emissive: 0xf05a35, emissiveIntensity: 0.15 });
     const lightY = (spec.lower[2][1] + spec.lower[3][1]) / 2;
+    const glowTex = sharedMat('glowTex', () => { const c = document.createElement('canvas'); c.width = c.height = 64; const g = c.getContext('2d'), gr = g.createRadialGradient(32, 32, 2, 32, 32, 32); gr.addColorStop(0, 'rgba(255,255,255,1)'); gr.addColorStop(0.45, 'rgba(255,255,255,0.55)'); gr.addColorStop(1, 'rgba(255,255,255,0)'); g.fillStyle = gr; g.fillRect(0, 0, 64, 64); return new THREE.CanvasTexture(c); });
+    const brakeGlow = [], brakeGlowMat = new THREE.MeshBasicMaterial({ map: glowTex, color: tc || 0xff2a1a, transparent: true, opacity: 0.9, blending: THREE.AdditiveBlending, depthWrite: false, fog: false });
     [-1, 1].forEach(s => {
       const h = new THREE.Mesh(new THREE.BoxGeometry(0.42, 0.16, 0.08), headMat); h.position.set(s * spec.W * 0.32, lightY, frontZ + 0.09); body.add(h);
       const t = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.14, 0.08), tailMat); t.position.set(s * spec.W * 0.33, lightY + 0.05, rearZ - 0.08); body.add(t);
+      if (!opts.ghost) {   // brake glow: a soft additive flare that only shows while braking
+        const gm = new THREE.Mesh(new THREE.PlaneGeometry(1.1, 0.7), brakeGlowMat); gm.position.set(s * spec.W * 0.33, lightY + 0.05, rearZ - 0.16); gm.rotation.y = Math.PI; gm.visible = false; gm.renderOrder = 5; body.add(gm); brakeGlow.push(gm);
+      }
     });
 
     // top of the hull (body + cabin + roof gear) at a given z, so add-ons sit on it instead of cutting through it
@@ -867,7 +872,7 @@
     body.position.y = lift;
 
     root.userData = {
-      spec, equip, body, bodyMesh, wheels, tailMat, canvas, tex, bodyMat,
+      spec, equip, body, bodyMesh, wheels, tailMat, brakeGlow, brakeGlowMat, tailBase: tc || 0xc73a2e, canvas, tex, bodyMat,
       exhaust: new THREE.Vector3(spec.W * 0.28, spec.lower[0][1] + 0.08, rearZ - 0.2), paintMat, deform: !opts.ghost,
       rearZ, frontZ, roofY,
       // paint mode: swap in an 8x texture with a visible pixel grid so every paintable cell shows on the car
@@ -881,7 +886,7 @@
         DL.drawLiveryCanvas(canvas, liv, base); if (this.gridOn) this.setGrid(true, liv, base);
         const bc = DL.PALETTE[base == null ? DL.DEFAULT_BASE : base], pc = k => { const i = DL.partColour(liv, k); return i && DL.PALETTE[i] ? DL.PALETTE[i] : null; };
         if (paintMat.color) paintMat.color.set(pc('trim') || bc); tex.needsUpdate = true; if (frameMat) frameMat.color.set(pc('frame') || bc);
-        if (!opts.ghost) { const h = pc('head'), t = pc('tail'); headMat.color.set(h || 0xfff6e0); headMat.emissive.set(h || 0xfff1cc); tailMat.color.set(t || 0xc73a2e); tailMat.emissive.set(t || 0xf05a35); }
+        if (!opts.ghost) { const h = pc('head'), t = pc('tail'); headMat.color.set(h || 0xfff6e0); headMat.emissive.set(h || 0xfff1cc); tailMat.color.set(t || 0xc73a2e); tailMat.emissive.set(t || 0xf05a35); brakeGlowMat.color.set(t || 0xff2a1a); this.tailBase = t || 0xc73a2e; }
       },
       dispose() { root.traverse(o => { if (o.geometry) o.geometry.dispose(); }); tex.dispose(); if (this.gridTex) this.gridTex.dispose(); bodyMat.dispose(); }
     };
@@ -915,7 +920,7 @@
         deformTire(w, w.c, spin || 0);
       }
     }
-    if (u.tailMat && u.tailMat.emissiveIntensity !== undefined) u.tailMat.emissiveIntensity = brake ? 1.4 : 0.15;
+    if (u.tailMat && u.tailMat.emissiveIntensity !== undefined) { u.tailMat.emissiveIntensity = brake ? 2.2 : 0.1; if (u.brakeGlow) for (const g of u.brakeGlow) g.visible = !!brake; }
   };
 
 })(window.DL);
