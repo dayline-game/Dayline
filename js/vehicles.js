@@ -439,8 +439,8 @@
     const W = spec.W, both = f => [-1, 1].forEach(f);
     const wheelFlares = (thick, up) => both(s => spec.wz.forEach(z => bx(thick, 0.16, spec.wr * 2.5, s * (W / 2 + thick / 2 - 0.02), spec.wr * 2 + up, z)));
     const f = spec.feat;
-    // real tailpipes on every paid car (the free starter keeps a plain rear). Pipe x matches the smoke emitter in userData.exhaust
-    if (spec.price > 0) {
+    // real tailpipes on every car. Pipe x matches the smoke emitter in userData.exhaust
+    {
       const EX = { comet: { n: 2, r: 0.058 }, vintage: { n: 2, r: 0.05 }, rallye: { n: 1, r: 0.07 }, ridge: { n: 1, r: 0.075 }, mule: { n: 1, r: 0.068 }, bubble: { n: 1, r: 0.04 }, loaf: { n: 1, r: 0.06 } }[f] || { n: 1, r: 0.055 };
       const r = EX.r, py = spec.lower[0][1] + r * 0.9, xs = EX.n === 2 ? [-1, 1] : [1];
       xs.forEach(sx => {
@@ -891,6 +891,7 @@
       spec, equip, body, bodyMesh, wheels, tailMat, brakeGlow, brakeGlowMat, tailBase: tc || 0xc73a2e, canvas, tex, bodyMat,
       exhaust: new THREE.Vector3(spec.W * 0.28, spec.lower[0][1] + 0.08, rearZ - 0.2), paintMat, deform: !opts.ghost,
       rearZ, frontZ, roofY,
+      exhaust2: (spec.feat === 'comet' || spec.feat === 'vintage') ? new THREE.Vector3(-spec.W * 0.28, spec.lower[0][1] + 0.08, rearZ - 0.2) : null,
       // paint mode: swap in an 8x texture with a visible pixel grid so every paintable cell shows on the car
       setGrid(on, liv, base) {
         if (!on) { if (bodyMat.map !== tex) { bodyMat.map = tex; bodyMat.needsUpdate = true; } this.gridOn = false; return; }

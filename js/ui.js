@@ -859,6 +859,7 @@
     return t;
   }
   function openShopItem(it) { shop.item = it; if (screen !== 'shop') show('shop'); else renderShop(); }
+  UI.openShopItem = openShopItem;
   function shopPip() { const p = $('shopPip'); if (p) p.hidden = DL.store.get('shopSeen', '') === today(); }
   function weekTimer() { const el = $('isWeek'); if (!el) return; const ms = DL.msToNextWeek(), d = Math.floor(ms / 86400000), hh = Math.floor(ms / 3600000) % 24; el.textContent = d ? d + 'd ' + hh + 'h' : hh + 'h ' + Math.floor(ms / 60000) % 60 + 'm'; }
   function renderShop() {
@@ -888,13 +889,14 @@
     }
     body.appendChild(h('<p class="is-foot">You earn coins for finishing each daily, extra laps, personal bests, daily rewards and achievements. Nothing here changes speed, grip or hitbox.</p>'));
   }
-  const SHOW_3D = { cars: 1, spoiler: 1, wheels: 1, bumper: 1, finish: 1, tint: 1 };
+  const SHOW_3D = { cars: 1, spoiler: 1, wheels: 1, bumper: 1, finish: 1, tint: 1, exhaust: 1, trail: 1 };
   function renderInspect() {
     const it = shop.item, s = Net.save, sc = $('shop'), box = $('isInspect');
     sc.classList.add('inspecting'); box.hidden = false; Game.sideView = 'inspect';
     const own = Net.owns(it.cat, it.id), eq = it.cat === 'cars' ? s.car === it.id : s.equip[it.cat] === it.id, R = DL.RARITIES[it.rarity];
     // try it on in the showroom
     const paint = s.paint[it.cat === 'cars' ? it.id : s.car] || {};
+    if (it.cat === 'exhaust' || it.cat === 'trail') { if (shop.rearFor !== it.key) { shop.rearFor = it.key; Game.rearView(it.cat === 'trail'); } } else shop.rearFor = null;
     if (SHOW_3D[it.cat]) {
       const e = Object.assign({}, s.equip); if (it.cat !== 'cars') e[it.cat] = it.id;
       Game.showcase({ car: it.cat === 'cars' ? it.id : s.car, livery: paint.l ? DL.decodeLivery(paint.l) : DL.defaultLivery(), base: paint.b == null ? DL.DEFAULT_BASE : paint.b, equip: e, label: it.name });

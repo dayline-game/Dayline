@@ -367,6 +367,7 @@
     gScene.add(gModel);
     return gModel;
   };
+  Game.rearView = function (far) { orbit.theta = far ? 4.55 : 4.0; orbit.phi = 0.22; orbit.dist = far ? 12.5 : 8.5; orbit.auto = false; };
   Game.setGarageLivery = function (liv, base) { if (gModel) gModel.userData.setLivery(liv, base); };
   let garageGrid = null;
   Game.setGarageGrid = function (on, liv, base) { garageGrid = on ? { liv, base } : null; if (gModel && gModel.userData.setGrid) gModel.userData.setGrid(on, liv, base); };
@@ -928,15 +929,49 @@
   }
 
   // ---------------- particles (low-poly puffs) ----------------
-  let parts, partMesh;
+  let parts, partMesh, raceFx, garFx;
   const PMAX = 220;
   function initParticles() {
-    parts = [];
+    parts = []; raceFx = makeFx(scene);
     partMesh = new THREE.InstancedMesh(new THREE.IcosahedronGeometry(0.5, 0), new THREE.MeshLambertMaterial({ flatShading: true, transparent: true, opacity: 0.85, depthWrite: false, emissive: 0x3a3a3a }), PMAX);
     partMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
     partMesh.setColorAt(0, new THREE.Color(1, 1, 1));
     partMesh.count = 0; partMesh.frustumCulled = false;
     scene.add(partMesh);
+  }
+  // exhaust smoke / flames: unlit so the item colours show true (the dust puffs above are lit)
+  const FXMAX = 160, fxMat = new THREE.MeshBasicMaterial({ transparent: true, opacity: 0.9, depthWrite: false });
+  function makeFx(sc) {
+    const m = new THREE.InstancedMesh(new THREE.IcosahedronGeometry(0.5, 0), fxMat, FXMAX);
+    m.instanceMatrix.setUsage(THREE.DynamicDrawUsage); m.setColorAt(0, new THREE.Color(1, 1, 1)); m.count = 0; m.frustumCulled = false; m.renderOrder = 2; sc.add(m);
+    return { a: [], m };
+  }
+  function fxSpawn(S, x, y, z, vx, vy, vz, life, size, color, grow) {
+    if (S.a.length >= FXMAX) S.a.shift();
+    S.a.push({ x, y, z, vx, vy, vz, life, max: life, size, color: new THREE.Color(color), grow, rot: Math.random() * 6 });
+  }
+  function fxStep(S, dt) {
+    let n = 0; const A = S.a;
+    for (let i = A.length - 1; i >= 0; i--) {
+      const p = A[i]; p.life -= dt; if (p.life <= 0) { A.splice(i, 1); continue; }
+      p.x += p.vx * dt; p.y += p.vy * dt; p.z += p.vz * dt; p.vx *= 0.96; p.vz *= 0.96; p.vy = p.vy * 0.96 + 0.5 * dt; p.rot += dt;
+      const a = 1 - p.life / p.max, s = p.size * (0.4 + a * p.grow) * (p.life < 0.2 ? p.life / 0.2 : 1);
+      pe.set(p.rot, p.rot * 0.7, 0); pq.setFromEuler(pe); ps.set(s, s, s); pp.set(p.x, p.y, p.z);
+      pm.compose(pp, pq, ps); S.m.setMatrixAt(n, pm); S.m.setColorAt(n, p.color); n++;
+    }
+    S.m.count = n; S.m.instanceMatrix.needsUpdate = true; if (S.m.instanceColor) S.m.instanceColor.needsUpdate = true;
+  }
+  // one puff / flame burst from a pipe, travelling back along (bx, bz); shared by the race and the showroom
+  function exhaustFx(S, xd, p, bx, bz, throttle, speedK) {
+    if (xd.k === 'flame') {
+      if (throttle && Math.random() < 0.5) fxSpawn(S, p.x, p.y, p.z, bx * (2 + speedK) + (Math.random() - .5) * .6, 0.3 + Math.random() * .4, bz * (2 + speedK) + (Math.random() - .5) * .6, 0.22 + Math.random() * 0.14, 0.45, xd.c[Math.random() < 0.6 ? 0 : 1], 1.2);
+    } else if (Math.random() < (throttle ? 0.7 : 0.2)) {
+      fxSpawn(S, p.x, p.y, p.z, bx * (1.2 + speedK) + (Math.random() - .5) * .5, 0.5, bz * (1.2 + speedK) + (Math.random() - .5) * .5, 0.9, 0.38, xd.c[Math.random() < 0.55 ? 0 : 1], 2.4);
+    }
+  }
+  function exhaustPop(S, xd, p, bx, bz) {        // backfire when you lift off
+    if (xd.k !== 'flame') return;
+    for (let k = 0; k < 9; k++) fxSpawn(S, p.x, p.y, p.z, bx * (4 + Math.random() * 4) + (Math.random() - .5) * 1.2, Math.random() * 1.2, bz * (4 + Math.random() * 4) + (Math.random() - .5) * 1.2, 0.22 + Math.random() * 0.15, 0.4, xd.c[k % 2], 1.4);
   }
   function spawn(x, y, z, vx, vy, vz, life, size, color, grow) {
     if (parts.length >= PMAX) parts.shift();
@@ -963,6 +998,7 @@
       pe.set(p.rot, p.rot * 0.7, 0); pq.setFromEuler(pe); ps.set(s, s, s); pp.set(p.x, p.y, p.z);
       pm.compose(pp, pq, ps); partMesh.setMatrixAt(n, pm); partMesh.setColorAt(n, p.color); n++;
     }
+    fxStep(raceFx, dt);
     partMesh.count = n;
     partMesh.instanceMatrix.needsUpdate = true; if (partMesh.instanceColor) partMesh.instanceColor.needsUpdate = true;
   }
@@ -1018,14 +1054,12 @@
     }
     // exhaust
     if (eq.exhaust !== 'none' && r.running && !r.finished) {
-      const ex = m.userData.exhaust;
-      tmpV.copy(ex).applyMatrix4(m.matrixWorld);
-      const xd = DL.EXHAUST[eq.exhaust] || DL.EXHAUST.smoke;
-      if (xd.k === 'flame') {
-        if (input.throttle && Math.random() < 0.08) for (let k = 0; k < 4; k++) spawn(tmpV.x, tmpV.y, tmpV.z, -fx * 6 + (Math.random() - .5), Math.random(), -fz * 6 + (Math.random() - .5), 0.18, 0.5, xd.c[k % 2], 0.6);
-      } else if (Math.random() < (input.throttle ? 0.6 : 0.15)) {
-        spawn(tmpV.x, tmpV.y, tmpV.z, -fx * 2 + (Math.random() - .5) * .5, 0.5, -fz * 2 + (Math.random() - .5) * .5, 0.8, 0.45, xd.c[Math.random() < 0.5 ? 0 : 1], 2.2);
-      }
+      const ud = m.userData, xd = DL.EXHAUST[eq.exhaust] || DL.EXHAUST.smoke, side = ud.exhaust2 && Math.random() < 0.5 ? ud.exhaust2 : ud.exhaust;
+      tmpV.copy(side).applyMatrix4(m.matrixWorld);
+      const sp = Math.min(1, (c.speed || 0) / 40);
+      exhaustFx(raceFx, xd, tmpV, -fx, -fz, input.throttle, sp * 3);
+      if (r.lastThr && !input.throttle && (c.speed || 0) > 8) exhaustPop(raceFx, xd, tmpV, -fx, -fz);
+      r.lastThr = input.throttle;
     }
     // trail ribbon
     if (eq.trail !== 'none' && r.running) {
@@ -1037,32 +1071,55 @@
 
   // ---------------- trail ribbon ----------------
   const trail = { points: [] };
-  function initTrail() {
+  function makeTrailMesh(sc) {
     const g = new THREE.BufferGeometry();
     g.setAttribute('position', new THREE.BufferAttribute(new Float32Array(100 * 3), 3));
     g.setAttribute('color', new THREE.BufferAttribute(new Float32Array(100 * 4), 4));
     const idx = []; for (let i = 0; i < 49; i++) { const v = i * 2; idx.push(v, v + 1, v + 2, v + 1, v + 3, v + 2); }
     g.setIndex(idx);
-    trail.mesh = new THREE.Mesh(g, new THREE.MeshBasicMaterial({ vertexColors: true, transparent: true, depthWrite: false, side: THREE.DoubleSide }));
-    trail.mesh.frustumCulled = false; trail.mesh.visible = false;
-    scene.add(trail.mesh);
+    const m = new THREE.Mesh(g, new THREE.MeshBasicMaterial({ vertexColors: true, transparent: true, depthWrite: false, side: THREE.DoubleSide, fog: false }));
+    m.frustumCulled = false; m.visible = false; m.renderOrder = 3; sc.add(m); return m;
   }
-  const ca = new THREE.Color(), cb = new THREE.Color();
-  function updateTrail(cols) {
-    const P = trail.points, n = P.length; if (n < 2) { trail.mesh.visible = false; return; }
-    trail.mesh.visible = true;
-    const pos = trail.mesh.geometry.attributes.position.array, col = trail.mesh.geometry.attributes.color.array;
+  function initTrail() { trail.mesh = makeTrailMesh(scene); }
+  const ca = new THREE.Color(), cb = new THREE.Color(), cc = new THREE.Color();
+  // a flat ribbon that fades from the colour pair's first tone at the tail to the second at the car, a little wider and brighter than before
+  function updateTrail(cols, T) {
+    T = T || trail;
+    const P = T.points, n = P.length; if (n < 2) { T.mesh.visible = false; return; }
+    T.mesh.visible = true;
+    const pos = T.mesh.geometry.attributes.position.array, col = T.mesh.geometry.attributes.color.array;
     ca.set(cols[0]); cb.set(cols[1]);
     for (let i = 0; i < 50; i++) {
       const k = Math.min(i, n - 1), p = P[k], q = P[Math.max(0, k - 1)], r2 = P[Math.min(n - 1, k + 1)];
       let dx = r2[0] - q[0], dz = r2[2] - q[2]; const l = Math.hypot(dx, dz) || 1; dx /= l; dz /= l;
-      const w = 0.32 * (k / n);
+      const t = k / n, w = 0.2 + 0.28 * t;
       pos[i * 6] = p[0] - dz * w; pos[i * 6 + 1] = p[1]; pos[i * 6 + 2] = p[2] + dx * w;
       pos[i * 6 + 3] = p[0] + dz * w; pos[i * 6 + 4] = p[1]; pos[i * 6 + 5] = p[2] - dx * w;
-      const t = k / n, c = ca.clone().lerp(cb, t), a = t * 0.85;
-      col.set([c.r, c.g, c.b, a, c.r, c.g, c.b, a], i * 8);
+      cc.copy(ca).lerp(cb, t); const a = Math.min(1, Math.pow(t, 0.7) * 1.05);
+      col.set([cc.r, cc.g, cc.b, a, cc.r, cc.g, cc.b, a], i * 8);
     }
-    trail.mesh.geometry.attributes.position.needsUpdate = true; trail.mesh.geometry.attributes.color.needsUpdate = true;
+    T.mesh.geometry.attributes.position.needsUpdate = true; T.mesh.geometry.attributes.color.needsUpdate = true;
+  }
+  // showroom: puffs and a ribbon behind the displayed car so exhaust and trail items can be seen before buying
+  const garTrail = { points: [] };
+  let garClock = 0;
+  function garageFx(dt) {
+    if (!garFx) { garFx = makeFx(gScene); garTrail.mesh = makeTrailMesh(gScene); }
+    garClock += dt;
+    const eq = (gModel && gModel.userData.equip) || {}, show = gModel && !paintZoomed;
+    if (show && eq.exhaust && eq.exhaust !== 'none') {
+      const ud = gModel.userData, xd = DL.EXHAUST[eq.exhaust] || DL.EXHAUST.smoke, side = ud.exhaust2 && Math.random() < 0.5 ? ud.exhaust2 : ud.exhaust;
+      tmpV.copy(side).applyMatrix4(gModel.matrixWorld);
+      const bk = new THREE.Vector3(0, 0, -1).transformDirection(gModel.matrixWorld);
+      exhaustFx(garFx, xd, tmpV, bk.x, bk.z, 1, 0.5);
+      if (xd.k === 'flame' && Math.floor(garClock * 0.8) !== Math.floor((garClock - dt) * 0.8)) exhaustPop(garFx, xd, tmpV, bk.x, bk.z);   // a backfire every ~1.2 s
+    }
+    fxStep(garFx, dt);
+    if (show && eq.trail && eq.trail !== 'none') {
+      const P = garTrail.points; P.length = 0;
+      for (let i = 0; i < 50; i++) { const d = (49 - i) * 0.17, wv = Math.sin(d * 0.9 - garClock * 2.4) * 0.28 * Math.min(1, d / 3); P.push(gModel.localToWorld(new THREE.Vector3(wv, 0.5, -2.2 - d)).toArray()); }
+      updateTrail(DL.TRAIL_COLORS[eq.trail] || DL.TRAIL_COLORS.cream, garTrail);
+    } else garTrail.mesh.visible = false;
   }
 
   // ---------------- per-frame ----------------
@@ -1103,6 +1160,7 @@
       setOffset(gCam, 'side');
       if (gModel) gModel.userData.wheels.forEach(w => { w.pivot.rotation.y = 0; });
       shadowLive(false);
+      garageFx(dt);
       renderer.render(gScene, gCam);
     } else if (mode === 'editor' && track) {
       const v = edv, cp = Math.cos(v.ph), w = window.innerWidth, h = window.innerHeight;
