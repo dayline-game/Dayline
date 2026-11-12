@@ -369,16 +369,19 @@
   // Blender-modelled tyres (models_tyres.js): [style] -> default rim colour, bigger-tyre flag
   const TYRES = { slick: [0xd7dde5, 0], rally: [0xc9d1da, 0], retro: [0xd7dde5, 0], turbine: [0x9aa4b2, 0], mud: [0x8c97a8, 1] };
   DL.TYRE_STYLES = TYRES;
+  const TYRE_HW = { slick: 0.47, rally: 0.405, retro: 0.47, turbine: 0.47, mud: 0.6 };
   const tyreGeo = {};
   function buildModelWheel(spec, style, col, r, side) {
     const g = new THREE.Group(), key = style + '@' + r.toFixed(3);
-    const scaled = n => tyreGeo[n + '@' + r.toFixed(3)] || (tyreGeo[n + '@' + r.toFixed(3)] = DL.models.tyre(n).clone().scale(r, r, r));
+    // tyre width is capped so it stays inside the arch (model axis Y is the width); rim and tyre share the squeeze so the rim face stays flush
+    const hw = TYRE_HW[style] || 0.47, kw = Math.min(1, (0.12 + 0.2 * r) / (hw * r));
+    const scaled = n => tyreGeo[n + '@' + r.toFixed(3)] || (tyreGeo[n + '@' + r.toFixed(3)] = DL.models.tyre(n).clone().scale(r, r * kw, r));
     const tire = new THREE.Mesh(scaled('tyre_' + style).clone(), sharedMat('tireVC', () => new THREE.MeshLambertMaterial({ vertexColors: true, flatShading: true })));
     tire.rotation.z = Math.PI / 2; tire.frustumCulled = false; g.add(tire);
     g.userData.tire = tire; g.userData.orig = Float32Array.from(tire.geometry.attributes.position.array); g.userData.r = r;
     const cc = col && DL.ITEM_COLORS[col], metal = !!(cc && DL.isMetalColor(col)), rimCol = cc ? cc[1] : TYRES[style][0];
-    const rim = new THREE.Mesh(scaled('rim_' + style), sharedMat('rimVC' + style + (cc ? '_' + col : ''), () => new THREE.MeshStandardMaterial({ vertexColors: true, color: rimCol, roughness: metal ? 0.3 : 0.55, metalness: metal ? 0.7 : 0.25, flatShading: true })));
-    rim.rotation.z = side > 0 ? -Math.PI / 2 : Math.PI / 2; g.add(rim);   // rim face always points away from the car
+    const rim = new THREE.Mesh(scaled('rim_' + style), sharedMat('rimVC' + style + (cc ? '_' + col : ''), () => new THREE.MeshStandardMaterial({ vertexColors: true, color: rimCol, roughness: metal ? 0.3 : 0.55, metalness: metal ? 0.7 : 0.25, flatShading: true, emissive: rimCol, emissiveIntensity: 0.22 })));
+    rim.rotation.z = side > 0 ? -Math.PI / 2 : Math.PI / 2; rim.position.x = side * 0.04 * r * kw; g.add(rim);   // rim face always points away from the car
     return g;
   }
   function buildWheel(spec, style, col, side) {
@@ -876,7 +879,7 @@
     const wheels = [];
     for (const z of spec.wz) for (const s of [-1, 1]) {
       const pivot = new THREE.Group();
-      pivot.position.set(s * (spec.W / 2 - 0.05) * spec.wx / 0.9, spec.wr * (knob ? 1.1 : 1), z);
+      pivot.position.set(s * ((spec.W / 2 - 0.05) * spec.wx / 0.9 - (TYRES[whB] ? 0.05 : 0)), spec.wr * (knob ? 1.1 : 1), z);
       const w = buildWheel(spec, whB, whC, s);
       if (opts.ghost) w.traverse(o => { if (o.material) { o.material = glassMat; } });
       else w.traverse(o => { if (o.isMesh) o.castShadow = true; });
