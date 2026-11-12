@@ -948,7 +948,7 @@
   const PLAY_SVG = '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M7 4l13 8-13 8z"/></svg>', PAUSE_SVG = '<svg viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4" width="4" height="16" rx="1"/><rect x="14" y="4" width="4" height="16" rx="1"/></svg>';
   let seeking = false;
   UI.openReplay = function (day, spec, enc, time) {
-    show('replay');
+    $('replay').classList.remove('nohud'); show('replay');
     if (!Game.startReplay(day, enc, spec)) { toast('That replay could not be played'); show(UI._replayBack || 'board'); return; }
     const r = Game.race();
     $('rpName').textContent = spec.label || 'Driver';
@@ -1013,6 +1013,8 @@
   $('rpPlay').onclick = () => { const r = rp(); if (r) { if (r.rt >= r.dur) { r.rt = 0; r.snap = true; } r.paused = !r.paused; } };
   $('rpRate').onclick = () => { const r = rp(); if (!r) return; r.rate = RATES[(RATES.indexOf(r.rate) + 1) % RATES.length]; $('rpRate').textContent = r.rate + '×'; };
   $('rpCam').onclick = () => Game.cycleCamera();
+  $('rpHide').onclick = () => $('replay').classList.add('nohud');
+  $('rpShow').onclick = () => $('replay').classList.remove('nohud');
   $('rpClose').onclick = () => show(UI._replayBack || 'board');
   $('rpSeek').addEventListener('input', e => { const r = rp(); if (r) { seeking = true; r.rt = e.target.value / 1000 * r.dur; r.snap = true; } });
   $('rpSeek').addEventListener('change', () => { seeking = false; });

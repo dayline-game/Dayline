@@ -642,9 +642,9 @@
         else if (e.code === 'Escape' || e.code === 'KeyP') { if (race.finished) return; Game.togglePause(); }
         else if (e.code === 'Enter' && race.finished) Game.restart();
       } else if (mode === 'replay' && (e.code === 'KeyH' || e.code === 'KeyF')) {
-        if (e.code === 'KeyH') { const rp = document.getElementById('replay'); rp.style.visibility = rp.style.visibility === 'hidden' ? '' : 'hidden'; }
+        if (e.code === 'KeyH') { document.getElementById('replay').classList.toggle('nohud'); }
         else Game.photoReq = true;
-      } else if (e.code === 'Escape') { const rp = document.getElementById('replay'); if (rp) rp.style.visibility = ''; DL.UI.back(); }
+      } else if (e.code === 'Escape') { const rp = document.getElementById('replay'); if (rp && rp.classList.contains('nohud')) { rp.classList.remove('nohud'); return; } DL.UI.back(); }
     });
     { const pb = document.getElementById('rpPhoto'); if (pb) pb.onclick = () => { Game.photoReq = true; }; }
     window.addEventListener('keyup', e => { keys[e.code] = false; });
