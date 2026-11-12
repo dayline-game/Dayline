@@ -93,10 +93,14 @@
       cabin: [[-.7, .93], [-.95, 1.5], [-1.5, 1.5], [-1.55, .93]], cw: .8, wz: [.9, -.9], wr: .22, wx: .8 },
     nocturne: { name: 'Nocturne', cls: 'Hypercar', price: 2800, blurb: 'Built for 24 hours flat out: shark fin, roof scoop, a wing the size of a door.', feat: 'nocturne',
       W: 2.1, lower: [[-2.7, .22], [2.7, .22], [2.92, .29], [2.88, .4], [2.1, .58], [1.2, .64], [.3, .7], [-1.2, .84], [-2.7, .86], [-2.84, .5]],
-      cabin: [[1.05, .68], [.45, 1.2], [-.6, 1.26], [-1.6, .88]], cw: .48, wz: [1.8, -1.75], wr: .42, wx: .93 }
+      cabin: [[1.05, .68], [.45, 1.2], [-.6, 1.26], [-1.6, .88]], cw: .48, wz: [1.8, -1.75], wr: .42, wx: .93 },
+    // Blender-modelled (models_gt3.js): lower/cabin are only rough outlines for the code that sizes add-ons; the real hull comes from the model
+    apex: { name: 'Apex GT3', cls: 'GT3', price: 2400, blurb: 'Track-day weapon: wide arches, bonnet louvres and a wing you can park a bike under.', feat: 'apex', model: 'gt3',
+      W: 2.2, lower: [[-2.38, .28], [-2.2, .16], [2.3, .16], [2.36, .5], [1.0, .92], [-2.0, .98]],
+      cabin: [[.8, .93], [.2, 1.3], [-.95, 1.38], [-1.55, 1.0]], cw: .66, wz: [1.45, -1.45], wr: .38, wx: .83 }
   };
   DL.CAR_ORDER = ['pebble', 'comet', 'rallye', 'mule', 'ridge', 'vintage', 'bubble', 'loaf',
-    'slice', 'hailer', 'caddy', 'dodgem', 'dune', 'scoop', 'brute', 'tub', 'frank', 'couch', 'nomad', 'toasty', 'wedge', 'chomp', 'stretch', 'blaze', 'shard', 'stomper', 'arrow', 'booster', 'nocturne'];
+    'slice', 'hailer', 'caddy', 'dodgem', 'dune', 'scoop', 'brute', 'tub', 'frank', 'couch', 'nomad', 'toasty', 'wedge', 'chomp', 'stretch', 'blaze', 'shard', 'stomper', 'arrow', 'booster', 'nocturne', 'apex'];
 
   DL.PARTS = {
     spoiler: [
@@ -741,7 +745,9 @@
     prof.forEach(p => { minZ = Math.min(minZ, p[0]); maxZ = Math.max(maxZ, p[0]); minY = Math.min(minY, p[1]); maxY = Math.max(maxY, p[1]); });
     if (spec.paintCabin) spec.cabin.forEach(p => { maxY = Math.max(maxY, p[1]); });
     const bb = { minX: -spec.W / 2 - 0.05, maxX: spec.W / 2 + 0.05, minY, maxY, minZ: minZ - 0.05, maxZ: maxZ + 0.05 };
-    const bodyGeo = mergeGeos([lower, split.roof]);
+    let bodyGeo = mergeGeos([lower, split.roof]);
+    const MD = spec.model ? (k => DL.models.tyre(spec.model + '_' + k).clone()) : null;
+    if (MD) { bodyGeo = MD('body'); split.glass = MD('glass'); bb.minY = 0.1; bb.maxY = 1.45; bb.minZ = -2.43; bb.maxZ = 2.43; bb.minX = -1.15; bb.maxX = 1.15; }
     projectUVs(bodyGeo, bb);
 
     const canvas = document.createElement('canvas');
@@ -763,12 +769,18 @@
     const tintDef = DL.TINTS[equip.tint];
     const glassUse = tintDef && opts.ghost ? sharedMat('gtint_' + equip.tint, () => new THREE.MeshBasicMaterial({ color: tintDef[0], transparent: true, opacity: 0.5, depthWrite: false })) : tintDef ? sharedMat('tint_' + equip.tint, () => new THREE.MeshStandardMaterial({ color: tintDef[0], roughness: 0.08, metalness: 0.45, flatShading: true, transparent: true, opacity: tintDef[1], depthWrite: false })) : glassMat;
     const glass = new THREE.Mesh(split.glass, glassUse); glass.castShadow = false; glass.renderOrder = 3; body.add(glass);
+    let modelHead = null, modelTail = null;
+    if (MD) {
+      const gm = (k, mat, shadow) => { const m = new THREE.Mesh(MD(k), mat); m.castShadow = shadow && !opts.ghost; body.add(m); return m; };
+      gm('dark', opts.ghost ? glassSolid : sharedMat('gtDark', () => new THREE.MeshLambertMaterial({ vertexColors: true, flatShading: true })), true);
+      modelHead = true; modelTail = true;
+    }
     const extraMat = opts.ghost ? glassMat : sharedMat('trim', () => new THREE.MeshLambertMaterial({ color: 0x1f2a3d, flatShading: true }));
     // solid paint for add-on bodywork (wings, bed rails): box UVs would smear the livery texture across them
     const partCol = k => { const i = DL.partColour(livery, k); return i && DL.PALETTE[i] ? DL.PALETTE[i] : null; };
     const paintMat = opts.ghost ? glassMat : new THREE.MeshStandardMaterial({ color: new THREE.Color(partCol('trim') || DL.PALETTE[opts.base == null ? DL.DEFAULT_BASE : opts.base]), flatShading: true, roughness: fin.roughness, metalness: fin.metalness });
     let frameMat = null;
-    if (!opts.ghost) {
+    if (!opts.ghost && !MD) {
       const intMesh = new THREE.Mesh(interiorGeo(spec, spec.paintCabin || spec.openTop ? null : split.roof, prof, knob), sharedMat('interior', () => new THREE.MeshLambertMaterial({ vertexColors: true, flatShading: true })));
       body.add(intMesh);
       if (!spec.paintCabin && !spec.noFrame) {
@@ -801,9 +813,13 @@
     const lightY = (spec.lower[2][1] + spec.lower[3][1]) / 2;
     const glowTex = sharedMat('glowTex', () => { const c = document.createElement('canvas'); c.width = c.height = 64; const g = c.getContext('2d'), gr = g.createRadialGradient(32, 32, 2, 32, 32, 32); gr.addColorStop(0, 'rgba(255,255,255,1)'); gr.addColorStop(0.45, 'rgba(255,255,255,0.55)'); gr.addColorStop(1, 'rgba(255,255,255,0)'); g.fillStyle = gr; g.fillRect(0, 0, 64, 64); return new THREE.CanvasTexture(c); });
     const brakeGlow = [], brakeGlowMat = new THREE.MeshBasicMaterial({ map: glowTex, color: tc || 0xff2a1a, transparent: true, opacity: 0.9, blending: THREE.AdditiveBlending, depthWrite: false, fog: false });
+    if (MD) {
+      const pm = new THREE.Mesh(MD('paint'), paintMat); pm.castShadow = !opts.ghost; body.add(pm);
+      body.add(new THREE.Mesh(MD('head'), headMat)); body.add(new THREE.Mesh(MD('tail'), tailMat));
+    }
     [-1, 1].forEach(s => {
-      const h = new THREE.Mesh(new THREE.BoxGeometry(0.42, 0.16, 0.08), headMat); h.position.set(s * spec.W * 0.32, lightY, frontZ + 0.09); body.add(h);
-      const t = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.14, 0.08), tailMat); t.position.set(s * spec.W * 0.33, lightY + 0.05, rearZ - 0.08); body.add(t);
+      const h = MD ? new THREE.Group() : new THREE.Mesh(new THREE.BoxGeometry(0.42, 0.16, 0.08), headMat); h.position.set(s * spec.W * 0.32, lightY, frontZ + 0.09); body.add(h);
+      const t = MD ? new THREE.Group() : new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.14, 0.08), tailMat); t.position.set(s * spec.W * 0.33, lightY + 0.05, rearZ - 0.08); body.add(t);
       if (!opts.ghost) {   // brake glow: a soft additive flare that only shows while braking
         const gm = new THREE.Mesh(new THREE.PlaneGeometry(1.1, 0.7), brakeGlowMat); gm.position.set(s * spec.W * 0.33, lightY + 0.05, rearZ - 0.16); gm.rotation.y = Math.PI; gm.visible = false; gm.renderOrder = 5; body.add(gm); brakeGlow.push(gm);
       }
