@@ -74,6 +74,15 @@
     later.forEach((it, i) => { it.wk = 1 + Math.floor(i / DL.WEEKLY_DROP); });
   }
   pool.forEach(it => { DL.PARTS[it.cat].push({ id: it.id, name: it.name, price: it.price, wk: it.wk, gen: 1 }); });
+  // ---------- Tyre drop: Blender-modelled tyre + rim sets (appended after the shuffle so the existing release order is untouched) ----------
+  DL.TYRE_SETS = [
+    ['slick', 'slick', 240, ['coral', 'cobalt', 'lemon', 'snow', 'onyx', 'chrome']],
+    ['rally', 'rally', 260, ['tangerine', 'cherry', 'lime', 'sky', 'gold', 'slate']],
+    ['retro', 'whitewall', 220, ['cream', 'snow', 'mint', 'bubblegum', 'chrome', 'gold']],
+    ['turbine', 'turbine', 300, ['teal', 'grape', 'magenta', 'lilac', 'bronze', 'chrome']],
+    ['mud', 'mud', 280, ['forest', 'tangerine', 'onyx', 'cobalt', 'bronze', 'lemon']]
+  ];
+  DL.TYRE_SETS.forEach(([b, bn, p, cols]) => cols.forEach(k => DL.PARTS.wheels.push({ id: b + '-' + k, name: C[k][0] + ' ' + bn, price: r10(p + (C[k][2] ? 120 : 20)), wk: 1, gen: 1 })));
   // anything in the base catalogue is week 0
   for (const cat in DL.PARTS) DL.PARTS[cat].forEach(p => { if (p.wk == null) p.wk = 0; });
   DL.released = (cat, id, day) => { if (cat === 'cars') return true; const p = DL.PARTS[cat] && DL.PARTS[cat].find(x => x.id === id); return !!p && p.wk <= DL.weekOf(day || DL.dayKey()); };

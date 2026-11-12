@@ -44,6 +44,7 @@
     barrel: () => fromData('barrel'),
     gatePost: () => fromData('gatepost'),
     prop: (t) => fromData(t),
+    tyre: (t) => fromData(t),
     haz: (t) => HAZ_MAP[t] ? fromData(HAZ_MAP[t]) : null
   };
 })(window.DL);
