@@ -10,7 +10,8 @@
   const orbit = { theta: 2.4, phi: 0.3, dist: 9, auto: true, drag: null };
   let mode = 'loading';
   let race = null, menuT = 0;
-  const settings = Game.settings = Object.assign({ vol: 0.6, shadows: true, hq: true, cam: 0, units: 'kmh', touch: 'auto', pbGhost: true, shake: 1, cb: false }, DL.store.get('settings', {}));
+  const settings = Game.settings = Object.assign({ vol: 0.6, shadows: true, hq: true, cam: 0, units: 'kmh', touch: 'auto', pbGhost: true, shake: 1, cb: false, light: false }, DL.store.get('settings', {}));
+  let fill; const SO = [60, 110, 40];
   const keys = {};
   const touch = { left: 0, right: 0, gas: 0, brake: 0, drift: 0 };
   const input = { throttle: 0, brake: 0, steer: 0, handbrake: false };
@@ -29,8 +30,9 @@
     sun.shadow.mapSize.set(2048, 2048);
     const sc = sun.shadow.camera; sc.left = -70; sc.right = 70; sc.top = 70; sc.bottom = -70; sc.near = 10; sc.far = 400;
     sun.shadow.bias = -0.0006; sun.shadow.normalBias = 0.04;
-    scene.add(hemi, sun, sun.target);
-    skyDome = new THREE.Mesh(new THREE.SphereGeometry(3000, 20, 12), new THREE.MeshBasicMaterial({ vertexColors: true, side: THREE.BackSide, fog: false, depthWrite: false }));
+    fill = new THREE.DirectionalLight(0xb8d0ff, 0); fill.position.set(-50, 40, -30);
+    scene.add(hemi, sun, sun.target, fill);
+    skyDome = new THREE.Mesh(new THREE.SphereGeometry(3000, 20, 12), new THREE.MeshBasicMaterial({ vertexColors: true, side: THREE.BackSide, fog: false, depthWrite: false, toneMapped: false }));
     skyDome.renderOrder = -10; skyDome.frustumCulled = false; skyDome.onBeforeRender = (r, s, cam) => skyDome.position.copy(cam.position);
     { const p = skyDome.geometry.attributes.position, n = p.count; skyDome.geometry.setAttribute('color', new THREE.BufferAttribute(new Float32Array(n * 3), 3)); }
     scene.add(skyDome);
@@ -58,6 +60,14 @@
     Game.baseRatio = Math.min(window.devicePixelRatio || 1, cap);
     renderer.setPixelRatio(Game.baseRatio * (Game.resScale || 1));
     if (mob && sun.shadow.mapSize.x !== 1024) { sun.shadow.mapSize.set(1024, 1024); if (sun.shadow.map) { sun.shadow.map.dispose(); sun.shadow.map = null; } }
+    { const L = !!settings.light;   // improved lighting: filmic tone mapping, lower warmer sun, cool fill, softer shadow edge
+      renderer.toneMapping = L ? THREE.ACESFilmicToneMapping : THREE.NoToneMapping;
+      renderer.toneMappingExposure = L ? 1.0 : 1;
+      fill.intensity = L ? 0.7 : 0;
+      SO[0] = L ? 120 : 60; SO[1] = L ? 48 : 110; SO[2] = L ? 70 : 40;   // low raking sun = long shadows
+      document.body.classList.toggle('cine', L); Game.cineLights();
+      sun.shadow.radius = L ? 4 : 1; sun.shadow.bias = L ? -0.0004 : -0.0006;
+      const sc = sun.shadow.camera, e = L ? 85 : 70; if (sc.right !== e) { sc.left = -e; sc.right = e; sc.top = e; sc.bottom = -e; sc.updateProjectionMatrix(); } }
     renderer.shadowMap.enabled = !!settings.shadows && !Game.perfNoShadow;
     sun.castShadow = !!settings.shadows && !Game.perfNoShadow;
     scene.traverse(o => { if (o.material) o.material.needsUpdate = true; });
@@ -197,8 +207,17 @@
       rainPts = new THREE.Points(g, new THREE.PointsMaterial({ color: 0xcfd8e0, size: 0.09, transparent: true, opacity: 0.6, depthWrite: false, fog: false }));
       rainPts.frustumCulled = false; scene.add(rainPts);
     }
+    Game.baseSunCol = sun.color.clone(); Game.cineLights();
     const el = document.getElementById('wxTag'); if (el) el.textContent = w === WEATHER.clear ? '' : w.name;
   }
+  // cinematic grade: warm strong key, dimmer sky fill for contrast, cool shadow fill
+  const cineWarm = new THREE.Color(0xffd2a0);
+  Game.cineLights = function () {
+    const w = Game.weather || WEATHER.clear, L = !!settings.light;
+    if (!Game.baseSunCol) return;
+    hemi.intensity = w.hemi * (L ? 0.62 : 1); sun.intensity = w.sun * (L ? 1.45 : 1);
+    sun.color.copy(Game.baseSunCol); if (L) sun.color.lerp(cineWarm, 0.7);
+  };
   Game.tickWeather = function (dt) {
     if (!rainPts) return;
     const a = rainPts.geometry.attributes.position, c = camera.position;
@@ -978,14 +997,14 @@
     if (mode === 'race' && race) {
       updateRace(dt);
       setOffset(camera, 'none');
-      sun.position.set(race.car.x + 60, race.car.y + 110, race.car.z + 40); sun.target.position.set(race.car.x, race.car.y, race.car.z);
+      sun.position.set(race.car.x + SO[0], race.car.y + SO[1], race.car.z + SO[2]); sun.target.position.set(race.car.x, race.car.y, race.car.z);
       updateParticles(dt);
       shadowLive(true);
       renderer.render(scene, camera);
     } else if (mode === 'replay' && race) {
       updateReplay(dt);
       setOffset(camera, 'none');
-      sun.position.set(race.car.x + 60, race.car.y + 110, race.car.z + 40); sun.target.position.set(race.car.x, race.car.y, race.car.z);
+      sun.position.set(race.car.x + SO[0], race.car.y + SO[1], race.car.z + SO[2]); sun.target.position.set(race.car.x, race.car.y, race.car.z);
       if (Game.camHook) Game.camHook(camera, race, scene);
       shadowLive(true);
       renderer.render(scene, camera);
@@ -1010,7 +1029,7 @@
       if (w > 760) camera.setViewOffset(w, h, -150, 0, w, h); else camera.clearViewOffset();
       camera.updateMatrixWorld();
       if (playerModel) playerModel.visible = false;
-      sun.position.set(v.tx + 60, v.ty + 110, v.tz + 40); sun.target.position.set(v.tx, v.ty, v.tz);
+      sun.position.set(v.tx + SO[0], v.ty + SO[1], v.tz + SO[2]); sun.target.position.set(v.tx, v.ty, v.tz);
       shadowLive(true);
       renderer.render(scene, camera);
       if (Game.onEdFrame) Game.onEdFrame();
@@ -1024,7 +1043,7 @@
       if (camera.fov !== 50) { camera.fov = 50; camera.updateProjectionMatrix(); }
       setOffset(camera, mode === 'menu' ? 'menu' : 'none');
       playerModel.visible = true;
-      sun.position.set(s.x + 60, gy + 110, s.z + 40); sun.target.position.set(s.x, gy, s.z);
+      sun.position.set(s.x + SO[0], gy + SO[1], s.z + SO[2]); sun.target.position.set(s.x, gy, s.z);
       updateParticles(dt);
       shadowLive(false);
       renderer.render(scene, camera);
