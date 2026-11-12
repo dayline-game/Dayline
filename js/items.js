@@ -85,5 +85,5 @@
   DL.TYRE_SETS.forEach(([b, bn, p, cols]) => cols.forEach(k => DL.PARTS.wheels.push({ id: b + '-' + k, name: C[k][0] + ' ' + bn, price: r10(p + (C[k][2] ? 120 : 20)), wk: 1, gen: 1 })));
   // anything in the base catalogue is week 0
   for (const cat in DL.PARTS) DL.PARTS[cat].forEach(p => { if (p.wk == null) p.wk = 0; });
-  DL.released = (cat, id, day) => { if (cat === 'cars') return true; const p = DL.PARTS[cat] && DL.PARTS[cat].find(x => x.id === id); return !!p && p.wk <= DL.weekOf(day || DL.dayKey()); };
+  DL.released = (cat, id, day) => { if (cat === 'cars' || (DL.Net && DL.Net.isDev && DL.Net.isDev())) return true; const p = DL.PARTS[cat] && DL.PARTS[cat].find(x => x.id === id); return !!p && p.wk <= DL.weekOf(day || DL.dayKey()); };
 })(window.DL);

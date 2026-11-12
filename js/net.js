@@ -37,6 +37,9 @@
     };
   }
 
+  DL.DEV_NAMES = ['the developer'];
+  DL.isDevName = n => !!n && DL.DEV_NAMES.includes(String(n).trim().toLowerCase());
+  DL.devBadge = () => '<span class="devb" title="Developer" aria-label="Developer"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M8 7l-5 5 5 5M16 7l5 5-5 5"/></svg>DEV</span>';
   const Net = DL.Net = {
     mode: 'local', status: 'Offline — progress is kept on this device', uid: null, db: null, user: null,
     save: null, canWrite: false,
@@ -308,7 +311,9 @@
       s.coins += out.coins; s.dr.n++; s.dr.last = DL.dayKey();
       this.persist(); this.pushProfile(); return out;
     },
-    owns(cat, id) { if (cat === 'cars' && id === 'ufo') return this.hasUfo(); return (this.save.owned[cat] || []).includes(id); },
+    // the developer account owns everything (including unreleased items and the UFO)
+    isDev() { return DL.isDevName(this.username); },
+    owns(cat, id) { if (this.isDev()) return true; if (cat === 'cars' && id === 'ufo') return this.hasUfo(); return (this.save.owned[cat] || []).includes(id); },
     // the Weekly cup champion's UFO: yours until the end of the week after you win
     hasUfo() { const u = this.save.ufoUntil; return !!u && u >= DL.dayKey(); },
     async checkChampion() {
@@ -319,7 +324,7 @@
           this.save.ufoUntil = r.j.until; this.persist(); DL.emit('champion', r.j);
         }
       } catch (e) { }
-      if (this.save.car === 'ufo' && !this.hasUfo()) { this.save.car = 'pebble'; this.persist(); this.pushProfile(); }
+      if (this.save.car === 'ufo' && !this.hasUfo() && !this.isDev()) { this.save.car = 'pebble'; this.persist(); this.pushProfile(); }
     },
     buy(cat, id, price) {
       if (this.owns(cat, id)) return true;

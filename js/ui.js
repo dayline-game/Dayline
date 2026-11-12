@@ -623,7 +623,7 @@
 
     if (ed.tool === 'stamp') {
       const st = h('<div class="stamps"></div>');
-      const owned = Net.save.owned.stickers;
+      const owned = Net.isDev() ? Object.values(DL.STAMPS).map(x => x.pack) : Net.save.owned.stickers;
       Object.keys(DL.STAMPS).forEach(k => {
         const S = DL.STAMPS[k], ok = owned.includes(S.pack);
         const b = h(`<button class="tool ${ed.stamp === k ? 'on' : ''}" ${ok ? '' : 'disabled style="opacity:.4" title="Sticker pack in the shop"'}>${k}</button>`);
@@ -1177,7 +1177,8 @@
   function whoCell(r, names) {
     const p = names[r.uid];
     const el = h(`<button class="who" style="text-align:left">${p && p.avatarUrl ? `<img alt="" src="${esc(p.avatarUrl)}">` : ''}<b></b>${r.uid === Net.uid ? '<span class="tag coral">You</span>' : ''}</button>`);
-    el.querySelector('b').textContent = displayName(r, names);
+    const dn = displayName(r, names); el.querySelector('b').textContent = dn;
+    if (DL.isDevName(dn) || (r.uid === Net.uid && Net.isDev())) el.insertAdjacentHTML('beforeend', DL.devBadge());
     el.onclick = () => openProfile(r.uid);
     return el;
   }
@@ -1294,6 +1295,7 @@
         : `<button class="btn btn-line" id="pFriend">${Net.isFriend(uid) ? 'Remove friend' : 'Add friend'}</button>`}
       <button class="btn btn-navy" id="pClose">Close</button>`);
     m.querySelector('#pName').textContent = name || (mine ? (p.tag || 'You') : 'Driver');
+    if (DL.isDevName(name) || (mine && Net.isDev())) m.querySelector('#pName').insertAdjacentHTML('beforeend', DL.devBadge());
     m.querySelector('#pClose').onclick = closeModal;
     const ab = m.querySelector('#acctBox'); if (ab) renderAccount(ab);
     const tag = m.querySelector('#pTag');
