@@ -37,8 +37,8 @@
     };
   }
 
-  DL.DEV_NAMES = ['the developer'];
-  DL.isDevName = n => !!n && DL.DEV_NAMES.includes(String(n).trim().toLowerCase());
+  DL.DEV_NAMES = ['thedeveloper'];
+  DL.isDevName = n => !!n && DL.DEV_NAMES.includes(String(n).toLowerCase().replace(/[^a-z0-9]/g, ''));
   DL.devBadge = () => '<span class="devb" title="Developer" aria-label="Developer"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M8 7l-5 5 5 5M16 7l5 5-5 5"/></svg>DEV</span>';
   const Net = DL.Net = {
     mode: 'local', status: 'Offline — progress is kept on this device', uid: null, db: null, user: null,
