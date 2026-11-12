@@ -114,6 +114,7 @@
     const pm = new THREE.PMREMGenerator(renderer);
     envTex = pm.fromScene(s, 0.02).texture;
     scene.environment = envTex;
+    if (DL.buildCarEnv) { try { DL.carEnv = DL.buildCarEnv(renderer); } catch (e) { console.warn('car env', e); } }
   }
 
   function buildGarage() {

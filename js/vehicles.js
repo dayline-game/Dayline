@@ -181,9 +181,47 @@
     ctx.stroke();
   };
 
+  // paint finishes: roughness/metalness plus clearcoat, sheen and iridescence so each one reads differently, and a separate studio reflection map (DL.carEnv) with hard highlights so shiny paint actually shows reflections
   const FINISH = {
-    matte: { roughness: 0.85, metalness: 0.0 }, gloss: { roughness: 0.32, metalness: 0.05 },
-    metal: { roughness: 0.28, metalness: 0.6 }, pearl: { roughness: 0.18, metalness: 0.32 }
+    matte:   { roughness: 0.92, metalness: 0.0,  env: 0.45 },
+    gloss:   { roughness: 0.5,  metalness: 0.05, cc: 1, ccr: 0.04, env: 1.0 },
+    metal:   { roughness: 0.36, metalness: 0.85, env: 1.5 },
+    pearl:   { roughness: 0.3,  metalness: 0.25, cc: 1, ccr: 0.06, irid: 0.8, env: 1.2 },
+    satin:   { roughness: 0.58, metalness: 0.15, cc: 0.35, ccr: 0.5, env: 0.9 },
+    ceramic: { roughness: 0.42, metalness: 0.0,  cc: 1, ccr: 0.0, env: 1.4 },
+    velvet:  { roughness: 1.0,  metalness: 0.0,  sheen: 1, env: 0.35 },
+    candy:   { roughness: 0.28, metalness: 0.7,  cc: 1, ccr: 0.03, env: 1.4 },
+    flake:   { roughness: 0.34, metalness: 0.92, cc: 0.8, ccr: 0.12, env: 1.7 },
+    chrome:  { roughness: 0.05, metalness: 1.0,  env: 1.9 }
+  };
+  // studio-style reflection scene for the paint: soft sky, a bright horizon band, a dark floor with a lighter patch, a sun and three softboxes
+  DL.buildCarEnv = function (renderer) {
+    const sc = new THREE.Scene(), R = 50, g = new THREE.SphereGeometry(R, 32, 16), cols = [], p = g.attributes.position;
+    const top = new THREE.Color(0x7fa9d6), hor = new THREE.Color(0xfff3dc), low = new THREE.Color(0x2c2b2a), c = new THREE.Color();
+    for (let i = 0; i < p.count; i++) {
+      const y = p.getY(i) / R;
+      if (y > 0) c.copy(hor).lerp(top, Math.pow(y, 0.6)); else c.copy(hor).multiplyScalar(0.35).lerp(low, Math.min(1, -y * 3));
+      if (Math.abs(y) < 0.05) c.copy(hor).multiplyScalar(1.6);                     // hard horizon line to reflect
+      cols.push(c.r, c.g, c.b);
+    }
+    g.setAttribute('color', new THREE.Float32BufferAttribute(cols, 3));
+    sc.add(new THREE.Mesh(g, new THREE.MeshBasicMaterial({ vertexColors: true, side: THREE.BackSide })));
+    const box = (w, h, x, y, z, k) => { const m = new THREE.Mesh(new THREE.PlaneGeometry(w, h), new THREE.MeshBasicMaterial({ color: new THREE.Color(1, 0.97, 0.9).multiplyScalar(k), side: THREE.DoubleSide })); m.position.set(x, y, z); m.lookAt(0, 0, 0); sc.add(m); };
+    box(34, 8, 0, 34, -12, 6);          // overhead strip
+    box(10, 26, -36, 12, 8, 5);         // tall side softbox
+    box(10, 22, 34, 10, -10, 4);        // fill on the other side
+    const sun = new THREE.Mesh(new THREE.CircleGeometry(4.5, 16), new THREE.MeshBasicMaterial({ color: new THREE.Color(1, 0.93, 0.78).multiplyScalar(14) })); sun.position.set(24, 30, 26); sun.lookAt(0, 0, 0); sc.add(sun);
+    const tx = new THREE.PMREMGenerator(renderer).fromScene(sc, 0.015).texture;
+    return tx;
+  };
+  const finish = (equip, extra) => {
+    const f = FINISH[equip.finish] || FINISH.matte, o = Object.assign({ flatShading: true, roughness: f.roughness, metalness: f.metalness }, extra);
+    if (f.cc) { o.clearcoat = f.cc; o.clearcoatRoughness = f.ccr; }
+    if (f.irid) { o.iridescence = f.irid; o.iridescenceIOR = 1.6; o.iridescenceThicknessRange = [180, 520]; }
+    if (f.sheen) { o.sheen = 1; o.sheenRoughness = 0.35; o.sheenColor = new THREE.Color(0xffffff); }
+    const m = new THREE.MeshPhysicalMaterial(o);
+    if (DL.carEnv) { m.envMap = DL.carEnv; m.envMapIntensity = (f.env == null ? 1 : f.env) * 0.7; }
+    return m;
   };
 
   // ---------- geometry builders ----------
@@ -758,8 +796,7 @@
     const tex = new THREE.CanvasTexture(canvas);
     tex.magFilter = THREE.NearestFilter; tex.minFilter = THREE.NearestFilter; tex.generateMipmaps = false;
     if ('colorSpace' in tex) tex.colorSpace = THREE.SRGBColorSpace;
-    const fx = DL.FINISH_EXTRA && DL.FINISH_EXTRA[equip.finish], fin = FINISH[equip.finish] || (fx ? { roughness: fx[1], metalness: fx[2] } : FINISH.matte);
-    const bodyMat = new THREE.MeshStandardMaterial({ map: tex, flatShading: true, roughness: fin.roughness, metalness: fin.metalness });
+    const bodyMat = finish(equip, { map: tex });
     if (opts.ghost) { bodyMat.transparent = true; bodyMat.opacity = 0.72; bodyMat.depthWrite = false; }
     const bodyMesh = new THREE.Mesh(bodyGeo, bodyMat);
     bodyMesh.castShadow = !opts.ghost; bodyMesh.receiveShadow = !opts.ghost;
@@ -795,13 +832,13 @@
     const extraMat = opts.ghost ? glassMat : sharedMat('trim', () => new THREE.MeshLambertMaterial({ color: 0x1f2a3d, flatShading: true }));
     // solid paint for add-on bodywork (wings, bed rails): box UVs would smear the livery texture across them
     const partCol = k => { const i = DL.partColour(livery, k); return i && DL.PALETTE[i] ? DL.PALETTE[i] : null; };
-    const paintMat = opts.ghost ? glassMat : new THREE.MeshStandardMaterial({ color: new THREE.Color(partCol('trim') || DL.PALETTE[opts.base == null ? DL.DEFAULT_BASE : opts.base]), flatShading: true, roughness: fin.roughness, metalness: fin.metalness });
+    const paintMat = opts.ghost ? glassMat : finish(equip, { color: new THREE.Color(partCol('trim') || DL.PALETTE[opts.base == null ? DL.DEFAULT_BASE : opts.base]) });
     let frameMat = null;
     if (!opts.ghost && !MD) {
       const intMesh = new THREE.Mesh(interiorGeo(spec, spec.paintCabin || spec.openTop ? null : split.roof, prof, knob), sharedMat('interior', () => new THREE.MeshLambertMaterial({ vertexColors: true, flatShading: true })));
       body.add(intMesh);
       if (!spec.paintCabin && !spec.noFrame) {
-        frameMat = new THREE.MeshStandardMaterial({ color: new THREE.Color(partCol('frame') || DL.PALETTE[opts.base == null ? DL.DEFAULT_BASE : opts.base]), flatShading: true, roughness: fin.roughness, metalness: fin.metalness });
+        frameMat = finish(equip, { color: new THREE.Color(partCol('frame') || DL.PALETTE[opts.base == null ? DL.DEFAULT_BASE : opts.base]) });
         const fr = new THREE.Mesh(frameGeo(spec), frameMat); fr.castShadow = true; body.add(fr);
       }
     }
