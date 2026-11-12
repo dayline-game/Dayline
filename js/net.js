@@ -33,10 +33,32 @@
       designs: [{ name: 'Factory', l, b: DL.DEFAULT_BASE }],
       best: {}, claimed: {}, ach: {},
       streak: 0, bestStreak: 0, freezes: 0, lastDay: null, runs: 0, days: 0, archiveDone: 0,
-      golds: 0, silvers: 0, bronzes: 0, score: 0, tag: '', friends: []
+      golds: 0, silvers: 0, bronzes: 0, score: 0, tag: '', friends: [], links: {}
     };
   }
 
+  // YouTube / Twitch links: only a plain channel handle is stored, and the URL is built here, so a profile can never point somewhere else
+  DL.SOCIAL = {
+    yt: { name: 'YouTube', ph: 'youtube.com/@yourchannel or @yourchannel', url: h => 'https://www.youtube.com/' + h },
+    tw: { name: 'Twitch', ph: 'twitch.tv/yourchannel or yourchannel', url: h => 'https://www.twitch.tv/' + h }
+  };
+  DL.parseSocial = (kind, input) => {
+    let v = String(input || '').trim(); if (!v) return '';
+    v = v.replace(/^https?:\/\/(www\.|m\.)?/i, '').replace(/[?#].*$/, '').replace(/\/+$/, '');
+    if (kind === 'yt') {
+      v = v.replace(/^youtube\.com\//i, '').replace(/^channel\//i, '');
+      if (/^UC[A-Za-z0-9_-]{22}$/.test(v)) return v;
+      if (v[0] !== '@') v = '@' + v.replace(/^@/, '');
+      return /^@[A-Za-z0-9._-]{3,30}$/.test(v) ? v : null;
+    }
+    v = v.replace(/^twitch\.tv\//i, '').replace(/^@/, '');
+    return /^[A-Za-z0-9_]{3,25}$/.test(v) ? v.toLowerCase() : null;
+  };
+  DL.socialLink = (kind, handle) => handle ? DL.SOCIAL[kind].url(handle) : '';
+  DL.SOCIAL_ICON = {
+    yt: '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="1.5" y="5" width="21" height="14" rx="4.2" fill="#ff2d2d"/><path d="M10 9l5.2 3L10 15z" fill="#fff"/></svg>',
+    tw: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 3h17v11.2l-4.6 4.6h-3.4L10.6 21H8v-2.2H4z" fill="#9146ff"/><path d="M11 7.6h1.8v4.4H11zm4.4 0h1.8v4.4h-1.8z" fill="#fff"/></svg>'
+  };
   DL.DEV_NAMES = ['thedeveloper', 'judethedude'];   // accounts with the DEV badge and every item
   DL.DEV_TITLE = 'The Developer';                  // the name shown for them; nobody else can register it
   DL.devAlias = n => DL.isDevName(n) ? DL.DEV_TITLE : n;
@@ -271,7 +293,7 @@
       return {
         car: s.car, l: p.l, b: p.b, equip: s.equip, tag: (s.tag || '').slice(0, 16),
         days: s.days, streak: s.streak, bestStreak: s.bestStreak, score: s.score, runs: s.runs,
-        friends: (s.friends || []).slice(0, 50),
+        friends: (s.friends || []).slice(0, 50), links: s.links || {},
         ach: Object.keys(s.ach || {}).length, at: Date.now()
       };
     },

@@ -1182,6 +1182,14 @@
     const dn = displayName(r, names); el.querySelector('b').textContent = dn;
     if (DL.isDevName(dn) || (r.uid === Net.uid && Net.isDev())) el.insertAdjacentHTML('beforeend', DL.devBadge());
     el.onclick = () => openProfile(r.uid);
+    const lk = r.uid === Net.uid ? (Net.save.links || {}) : (r.links || (p && p.links) || {});
+    for (const k of ['yt', 'tw']) {
+      if (!lk[k]) continue;
+      const a = h(`<span class="soc ${k}" role="link" tabindex="0" title="${DL.SOCIAL[k].name}: ${esc(lk[k])}" aria-label="${DL.SOCIAL[k].name} channel of ${esc(dn)}">${DL.SOCIAL_ICON[k]}</span>`);
+      const go = ev => { ev.stopPropagation(); ev.preventDefault(); window.open(DL.socialLink(k, lk[k]), '_blank', 'noopener,noreferrer'); };
+      a.onclick = go; a.onkeydown = ev => { if (ev.key === 'Enter' || ev.key === ' ') go(ev); };
+      el.appendChild(a);
+    }
     return el;
   }
 
@@ -1291,6 +1299,8 @@
         <div class="stat"><span class="lbl">Friends</span><b class="num">${(p.friends || []).length}</b></div>
       </div>
       <div class="lbl">Drives the ${esc((DL.CARS[p.car] || DL.CARS.pebble).name)}</div>
+      ${mine ? '' : `<div class="soc-row">${['yt', 'tw'].filter(k => p.links && p.links[k]).map(k => `<a class="soc-btn ${k}" href="${esc(DL.socialLink(k, p.links[k]))}" target="_blank" rel="noopener noreferrer">${DL.SOCIAL_ICON[k]}<span>${DL.SOCIAL[k].name}<small>${esc(p.links[k])}</small></span></a>`).join('')}</div>`}
+      ${mine ? `<div class="soc-edit"><div class="lbl">Show your channels next to your name on the leaderboards</div>${['yt', 'tw'].map(k => `<div class="field"><label class="lbl" for="soc_${k}">${DL.SOCIAL[k].name}</label><div class="soc-in">${DL.SOCIAL_ICON[k]}<input type="text" id="soc_${k}" maxlength="80" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="${esc(DL.SOCIAL[k].ph)}" value="${esc(((p.links || {})[k]) || '')}"></div></div>`).join('')}<p class="hint" id="socMsg">Paste a link or just the name. Leave empty to remove it.</p></div>` : ''}
       ${mine ? `<div id="acctBox"></div><div class="field"><label class="lbl" for="pTag">Callsign shown when your name is hidden</label><input type="text" id="pTag" maxlength="16" value="${esc(p.tag || '')}" placeholder="e.g. Sideways Sam"></div>
         <div><div class="lbl" style="margin-bottom:4px">Achievements · ${Object.keys(achDone).length} of ${DL.ACHIEVEMENTS.length}</div>
         ${DL.ACHIEVEMENTS.map(a => `<div class="ach ${achDone[a.id] ? '' : 'locked'}"><b>${esc(a.name)}</b><span class="price"><span class="coin"></span>${a.coins}</span><span class="meta">${esc(a.desc)}</span></div>`).join('')}</div>`
@@ -1302,6 +1312,16 @@
     const ab = m.querySelector('#acctBox'); if (ab) renderAccount(ab);
     const tag = m.querySelector('#pTag');
     if (tag) tag.addEventListener('change', () => { Net.save.tag = tag.value.trim().slice(0, 16); Net.persist(); Net.pushProfile(); toast('<b>Callsign saved</b>'); });
+    for (const k of ['yt', 'tw']) {
+      const inp = m.querySelector('#soc_' + k); if (!inp) continue;
+      inp.addEventListener('change', () => {
+        const v = DL.parseSocial(k, inp.value), msg = m.querySelector('#socMsg');
+        if (v === null) { inp.classList.add('bad'); msg.textContent = 'That does not look like a ' + DL.SOCIAL[k].name + ' channel name or link.'; return; }
+        inp.classList.remove('bad'); inp.value = v; msg.textContent = 'Paste a link or just the name. Leave empty to remove it.';
+        const L = Net.save.links || (Net.save.links = {}); if (v) L[k] = v; else delete L[k];
+        Net.persist(); Net.pushProfile(); toast(v ? '<b>' + DL.SOCIAL[k].name + ' linked</b>' : '<b>' + DL.SOCIAL[k].name + ' removed</b>');
+      });
+    }
     const fb = m.querySelector('#pFriend');
     if (fb) fb.onclick = () => { const on = Net.toggleFriend(uid); fb.textContent = on ? 'Remove friend' : 'Add friend'; if (screen === 'board') renderBoard(); };
   }
