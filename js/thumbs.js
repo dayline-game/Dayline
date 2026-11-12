@@ -88,7 +88,7 @@
   function render3d(sp) {
     if (!init()) return null;
     const m = DL.buildCar(sp.opts);
-    if (DL.decalTime) DL.decalTime.value = 2.4;
+    if (DL.decalTime) DL.decalTime.value = 3.7;
     S.add(m);
     DL.poseCar(m, 0, 0, 0, 0, 0, 0, 0, 0, false);
     const v = VIEWS[sp.view] || VIEWS.hero;
