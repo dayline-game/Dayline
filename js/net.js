@@ -40,6 +40,7 @@
   // YouTube / Twitch links: only a plain channel handle is stored, and the URL is built here, so a profile can never point somewhere else
   DL.SOCIAL = {
     yt: { name: 'YouTube', ph: 'youtube.com/@yourchannel or @yourchannel', url: h => 'https://www.youtube.com/' + h },
+    ig: { name: 'Instagram', ph: 'instagram.com/yourname or yourname', url: h => 'https://www.instagram.com/' + h },
     tw: { name: 'Twitch', ph: 'twitch.tv/yourchannel or yourchannel', url: h => 'https://www.twitch.tv/' + h }
   };
   DL.parseSocial = (kind, input) => {
@@ -51,12 +52,14 @@
       if (v[0] !== '@') v = '@' + v.replace(/^@/, '');
       return /^@[A-Za-z0-9._-]{3,30}$/.test(v) ? v : null;
     }
+    if (kind === 'ig') { v = v.replace(/^instagram\.com\//i, '').replace(/^@/, '').split('/')[0]; return /^[A-Za-z0-9._]{1,30}$/.test(v) ? v.toLowerCase() : null; }
     v = v.replace(/^twitch\.tv\//i, '').replace(/^@/, '');
     return /^[A-Za-z0-9_]{3,25}$/.test(v) ? v.toLowerCase() : null;
   };
   DL.socialLink = (kind, handle) => handle ? DL.SOCIAL[kind].url(handle) : '';
   DL.SOCIAL_ICON = {
     yt: '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="1.5" y="5" width="21" height="14" rx="4.2" fill="#ff2d2d"/><path d="M10 9l5.2 3L10 15z" fill="#fff"/></svg>',
+    ig: '<svg viewBox="0 0 24 24" aria-hidden="true"><defs><linearGradient id="igg" x1="0" y1="1" x2="1" y2="0"><stop offset="0" stop-color="#fdc468"/><stop offset=".45" stop-color="#e1306c"/><stop offset="1" stop-color="#833ab4"/></linearGradient></defs><rect x="2" y="2" width="20" height="20" rx="6" fill="url(#igg)"/><circle cx="12" cy="12" r="4.4" fill="none" stroke="#fff" stroke-width="2"/><circle cx="17.2" cy="6.8" r="1.2" fill="#fff"/></svg>',
     tw: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 3h17v11.2l-4.6 4.6h-3.4L10.6 21H8v-2.2H4z" fill="#9146ff"/><path d="M11 7.6h1.8v4.4H11zm4.4 0h1.8v4.4h-1.8z" fill="#fff"/></svg>'
   };
   DL.DEV_NAMES = ['thedeveloper', 'judethedude'];   // accounts with the DEV badge and every item
