@@ -187,6 +187,12 @@
       const h = DL.hashStr('wx:' + day) % 100;
       w = h < 44 ? WEATHER.clear : h < 60 ? WEATHER.golden : h < 76 ? WEATHER.fog : h < 90 ? WEATHER.rain : WEATHER.dusk;
     }
+    // always start from the biome's own sky and light, so switching Cinematic lighting off restores it
+    scene.background = new THREE.Color(B.sky); scene.fog = new THREE.Fog(B.fog, 260, 1700);
+    { const top = new THREE.Color(B.sky), hor = new THREE.Color(B.fog), c = new THREE.Color(), p = skyDome.geometry.attributes.position, col = skyDome.geometry.attributes.color;
+      for (let i = 0; i < p.count; i++) { const hh = Math.max(0, p.getY(i) / 3000); c.copy(hor).lerp(top, Math.pow(hh, 0.55)); col.setXYZ(i, c.r, c.g, c.b); }
+      col.needsUpdate = true; }
+    hemi.color.set(B.hemiSky); hemi.groundColor.set(B.hemiGround); sun.color.set(B.sun);
     Game.weather = w;
     hemi.intensity = w.hemi; sun.intensity = w.sun;
     if (w.tint) {

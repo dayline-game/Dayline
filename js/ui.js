@@ -1366,33 +1366,46 @@
 
   function openSettings(fromPause) {
     const s = Game.settings;
-    const m = modal(`<div class="lbl">Settings</div><h2>Settings</h2>
-      <div class="field"><label class="lbl" for="sVol">Volume</label><input type="range" id="sVol" min="0" max="1" step="0.05" value="${s.vol}"></div>
-      <div class="toggle-row"><span>Shadows</span><button class="chk ${s.shadows ? 'on' : ''}" id="sSh">${s.shadows ? 'On' : 'Off'}</button></div>
-      <div class="toggle-row"><span>Cinematic lighting (sunset sky, bloom, light shafts, long shadows)</span><button class="chk ${s.light ? 'on' : ''}" id="sLight">${s.light ? 'On' : 'Off'}</button></div>
-      <div class="toggle-row"><span>High quality (sharper, denser scenery)</span><button class="chk ${s.hq ? 'on' : ''}" id="sHq">${s.hq ? 'On' : 'Off'}</button></div>
-      <div class="field"><label class="lbl" for="sShake">Camera shake</label><input type="range" id="sShake" min="0" max="1" step="0.1" value="${s.shake}"></div>
-      <div class="toggle-row"><span>Colour-blind friendly splits</span><button class="chk ${s.cb ? 'on' : ''}" id="sCb">${s.cb ? 'On' : 'Off'}</button></div>
-      <div class="toggle-row"><span>Race your best automatically</span><button class="chk ${s.pbGhost ? 'on' : ''}" id="sPb">${s.pbGhost ? 'On' : 'Off'}</button></div>
-      <div class="toggle-row"><span>Quick start (1 second countdown)</span><button class="chk ${s.quick ? 'on' : ''}" id="sQuick">${s.quick ? 'On' : 'Off'}</button></div>
-      <div class="toggle-row"><label for="sCam">Default camera</label><select id="sCam"><option value="0">Chase</option><option value="1">Far chase</option><option value="2">Bonnet</option><option value="3">Low rally</option><option value="4">Drone</option></select></div>
-      <div class="toggle-row"><label for="sUnits">Speed units</label><select id="sUnits"><option value="kmh">km/h</option><option value="mph">mph</option></select></div>
-      <div class="toggle-row"><label for="sTouch">Touch controls</label><select id="sTouch"><option value="auto">Automatic</option><option value="on">Always</option><option value="off">Never</option></select></div>
-      <div class="mob-set" id="mobSet">
-        <div class="lbl" style="margin-top:6px">Phone and tablet</div>
-        <div class="toggle-row"><label for="sSteer">Steering</label><select id="sSteer"><option value="buttons">Left / right buttons</option><option value="slide">Slide thumb (smooth)</option><option value="tilt">Tilt the phone</option></select></div>
-        <div class="toggle-row"><span>Accelerate automatically</span><button class="chk ${s.autoGas ? 'on' : ''}" id="sAuto">${s.autoGas ? 'On' : 'Off'}</button></div>
-        <div class="toggle-row"><span>Swap sides (pedals on the left)</span><button class="chk ${s.swap ? 'on' : ''}" id="sSwap">${s.swap ? 'On' : 'Off'}</button></div>
-        <div class="field"><label class="lbl" for="sTs">Button size</label><input type="range" id="sTs" min="0.8" max="1.3" step="0.05" value="${s.tScale || 1}"></div>
-        <div class="toggle-row"><span>Vibrate on taps and checkpoints</span><button class="chk ${s.haptics ? 'on' : ''}" id="sHap">${s.haptics ? 'On' : 'Off'}</button></div>
-        <div class="toggle-row" id="fsRow"><span>Full screen when racing</span><button class="chk ${s.fsRace ? 'on' : ''}" id="sFs">${s.fsRace ? 'On' : 'Off'}</button></div>
-        <div class="toggle-row" id="orRow"><label for="sOr">Screen direction in full screen</label><select id="sOr"><option value="any">Follow the phone</option><option value="landscape">Always sideways</option></select></div>
+    const tgl = (id, k, title, desc) => `<div class="set-row"><div class="set-t"><b>${title}</b>${desc ? `<small>${desc}</small>` : ''}</div><button class="chk sw ${s[k] ? 'on' : ''}" id="${id}" role="switch" aria-checked="${!!s[k]}" aria-label="${title}">${s[k] ? 'On' : 'Off'}</button></div>`;
+    const sel = (id, title, opts, desc) => `<div class="set-row"><div class="set-t"><b><label for="${id}">${title}</label></b>${desc ? `<small>${desc}</small>` : ''}</div><select id="${id}">${opts}</select></div>`;
+    const rng = (id, title, min, max, step, val, fmt) => `<div class="set-row col"><div class="set-t"><b><label for="${id}">${title}</label></b><output data-for="${id}" data-fmt="${fmt}"></output></div><input type="range" id="${id}" min="${min}" max="${max}" step="${step}" value="${val}"></div>`;
+    const m = modal(`<div class="lbl">Your game</div><h2>Settings</h2>
+      <div class="set-sec"><div class="set-h">Sound and display</div>
+        ${rng('sVol', 'Volume', 0, 1, 0.05, s.vol, 'pct')}
+        ${sel('sUnits', 'Speed units', '<option value="kmh">km/h</option><option value="mph">mph</option>')}
+        ${tgl('sCb', 'cb', 'Colour-blind friendly splits', 'Blue and orange instead of green and red')}
+      </div>
+      <div class="set-sec"><div class="set-h">Graphics</div>
+        ${tgl('sLight', 'light', 'Cinematic lighting', 'Sunset sky, bloom, light shafts and long shadows. Uses more power')}
+        ${tgl('sSh', 'shadows', 'Shadows', 'Turn off for a smoother frame rate on older devices')}
+        ${tgl('sHq', 'hq', 'High quality', 'Sharper picture and denser scenery from the next track')}
+      </div>
+      <div class="set-sec"><div class="set-h">Driving</div>
+        ${sel('sCam', 'Default camera', '<option value="0">Chase</option><option value="1">Far chase</option><option value="2">Bonnet</option><option value="3">Low rally</option><option value="4">Drone</option>')}
+        ${rng('sShake', 'Camera shake', 0, 1, 0.1, s.shake, 'pct')}
+        ${tgl('sPb', 'pbGhost', 'Race your best', 'Your personal best ghost starts with you')}
+        ${tgl('sQuick', 'quick', 'Quick start', 'A 1 second countdown instead of 3-2-1')}
+      </div>
+      <div class="set-sec"><div class="set-h">Controls</div>
+        ${sel('sTouch', 'Touch controls', '<option value="auto">Automatic</option><option value="on">Always</option><option value="off">Never</option>')}
+      </div>
+      <div class="set-sec" id="mobSet"><div class="set-h">Phone and tablet</div>
+        ${sel('sSteer', 'Steering', '<option value="buttons">Left / right buttons</option><option value="slide">Slide thumb (smooth)</option><option value="tilt">Tilt the phone</option>')}
+        ${tgl('sAuto', 'autoGas', 'Accelerate automatically')}
+        ${tgl('sSwap', 'swap', 'Swap sides', 'Pedals on the left')}
+        ${rng('sTs', 'Button size', 0.8, 1.3, 0.05, s.tScale || 1, 'x')}
+        ${tgl('sHap', 'haptics', 'Vibration', 'On taps and checkpoints')}
+        <div id="fsRow">${tgl('sFs', 'fsRace', 'Full screen when racing')}</div>
+        <div id="orRow">${sel('sOr', 'Screen direction in full screen', '<option value="any">Follow the phone</option><option value="landscape">Always sideways</option>')}</div>
         <p class="hint" id="iosHint" hidden>On iPhone, full screen works from the home screen: tap Share, then Add to Home Screen.</p>
       </div>
       <div id="acctBox"></div>
       <div class="field" id="invBox"></div>
       <p class="hint">${esc(Net.status)}. Gamepads work too: right trigger accelerates, left trigger brakes, X or RB handbrake, Y recovers.</p>
       <button class="btn btn-navy" id="sDone">${fromPause === true ? 'Back to pause' : 'Done'}</button>`);
+    m.classList.add('settings');
+    m.querySelectorAll('output[data-for]').forEach(o => { const inp = m.querySelector('#' + o.dataset.for), f = () => { o.textContent = o.dataset.fmt === 'pct' ? Math.round(inp.value * 100) + '%' : (+inp.value).toFixed(2).replace(/0$/, '') + '×'; }; f(); inp.addEventListener('input', f); });
+    m.querySelectorAll('.chk.sw').forEach(b => new MutationObserver(() => b.setAttribute('aria-checked', b.classList.contains('on'))).observe(b, { attributes: true, attributeFilter: ['class'] }));
     renderAccount(m.querySelector('#acctBox'));
     if (Net.mode === 'online' && Net.uid) {
       const ib = m.querySelector('#invBox'); ib.innerHTML = `<span class="lbl">Invite friends</span><p class="hint">You both get coins: ${REF_WELCOME} for them, ${REF_BONUS} for you once they set a time.</p><button class="btn btn-line btn-sm" id="invCopy">Copy invite link</button> <span class="hint" id="invStat"></span>`;
