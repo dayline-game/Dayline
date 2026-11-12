@@ -324,7 +324,7 @@
       const sec = c - (i ? cp[i - 1] : 0), pbs = pb ? pb[i] - (i ? pb[i - 1] : 0) : null, d = pbs == null ? null : sec - pbs;
       const cls = d == null ? '' : d <= 0.0005 ? 'up' : 'down';
       sq.push(d == null ? '🟦' : d <= 0.0005 ? '🟩' : '🟥');
-      cells.push(`<div class="sp ${cls}"><small>${i + 1}</small><b class="num">${sec.toFixed(1)}</b><em class="num">${d == null ? '' : (d <= 0 ? '' : '+') + d.toFixed(2)}</em></div>`);
+      cells.push(`<div class="sp ${cls}"><small>${i + 1}</small><b class="num">${sec.toFixed(3)}</b><em class="num">${d == null ? '' : (d <= 0 ? '' : '+') + d.toFixed(3)}</em></div>`);
     });
     return { html: `<div class="splits-wrap"><div class="lbl">Sector times${pb ? ' vs your best' : ''}</div><div class="splits" style="grid-template-columns:repeat(${cells.length},minmax(0,1fr))">${cells.join('')}</div></div>`, squares: sq.join('') };
   }
@@ -991,6 +991,16 @@
   $('bNext').onclick = () => { const d = DL.addDays(board.day, 1); if (d <= today()) { board.day = d; renderBoard(); } };
   $('bRaceGhosts').onclick = () => startRace(board.day, Object.values(board.sel[board.day] || {}));
 
+  // checkpoint times of a leaderboard run, worked out from its ghost (cached)
+  async function splitsOf(r) {
+    const key = r.uid + '|' + board.day, c = board.spl || (board.spl = {});
+    if (c[key] !== undefined) return c[key];
+    const enc = await Net.ghost(r.uid === Net.uid ? 'me' : r.uid, board.day), gh = enc && DL.decodeGhost(enc);
+    if (!gh) return (c[key] = null);
+    const pg = new DL.Progress(trackFor(board.day));
+    for (let k = 1; k < gh.n; k++) pg.update(gh.f[(k - 1) * 8], gh.f[(k - 1) * 8 + 2], gh.f[k * 8], gh.f[k * 8 + 2], k / gh.hz);
+    return (c[key] = pg.cpTimes.length ? pg.cpTimes.slice() : null);
+  }
   async function renderBoard() {
     board.day = board.day || today();
     [...$('bTabs').children].forEach(t => t.classList.toggle('on', t.dataset.tab === board.tab));
@@ -1062,7 +1072,7 @@
         const row = h(`<tr class="${me ? 'me' : ''}"><td class="rk">${i + 1}</td><td></td>
           <td class="tm">${DL.fmtTime(r.time)}<div class="gap">${i ? DL.fmtDelta(r.time - lead) : 'Leader'}</div></td>
           <td class="hide-sm">${esc((DL.CARS[r.car] || DL.CARS.pebble).name)}</td>
-          <td class="gcell"><button class="chk ${sel[r.uid] ? 'on' : ''}" data-k="g">${sel[r.uid] ? 'On' : 'Race'}</button> <button class="chk" data-k="w" title="Watch a replay of this run">▶ Watch</button></td>
+          <td class="gcell"><button class="chk ${sel[r.uid] ? 'on' : ''}" data-k="g">${sel[r.uid] ? 'On' : 'Race'}</button> <button class="chk" data-k="w" title="Watch a replay of this run">▶ Watch</button> <button class="chk" data-k="s" title="Sector times for this run">Sectors</button></td>
           <td>${me ? '' : `<button class="chk ${Net.isFriend(r.uid) ? 'on' : ''}" data-k="f" title="${Net.isFriend(r.uid) ? 'Remove friend' : 'Add friend'}">${Net.isFriend(r.uid) ? '★' : '+'}</button>`}</td></tr>`);
         row.children[1].appendChild(whoCell(r, names));
         const gb = row.querySelector('[data-k=g]'), fb = row.querySelector('[data-k=f]'), wb = row.querySelector('[data-k=w]');
@@ -1075,6 +1085,28 @@
             UI._replayBack = 'board'; UI.openReplay(board.day, { uid: r.uid, label: me ? 'You' : nm, car: r.car, l: r.l, b: r.b, equip: r.equip }, enc, r.time);
           } catch (e) { toast('Could not load that replay'); }
           finally { wb.disabled = false; wb.textContent = '▶ Watch'; }
+        };
+        const sbtn = row.querySelector('[data-k=s]');
+        sbtn.onclick = async () => {
+          const nx = row.nextElementSibling;
+          if (nx && nx.classList.contains('spl')) { nx.remove(); sbtn.classList.remove('on'); return; }
+          sbtn.disabled = true; sbtn.textContent = '…';
+          try {
+            const mine = rows.find(x => x.uid === Net.uid), theirs = await splitsOf(r);
+            if (!theirs) { toast('No ghost saved for that run, so no sector times'); return; }
+            const vsYou = mine && !me ? await splitsOf(mine) : null, ref = vsYou || (i ? await splitsOf(rows[0]) : null);
+            const sec = a => a.map((c, k) => c - (k ? a[k - 1] : 0));
+            const ts = sec(theirs), rs = ref ? sec(ref) : null;
+            const cells = ts.map((s, k) => {
+              const d = rs && rs[k] != null ? (vsYou ? rs[k] - s : s - rs[k]) : null;   // vs you: how much YOU lose in this sector; vs leader: how much they lose
+              const cls = d == null ? '' : d <= 0.0005 ? 'up' : 'down';
+              return `<div class="sp ${cls}"><small>${k + 1}</small><b class="num">${s.toFixed(3)}</b><em class="num">${d == null ? '' : (d <= 0 ? '' : '+') + d.toFixed(3)}</em></div>`;
+            });
+            const cap = vsYou ? 'Sector times · red = where you lose time to this driver' : ref ? 'Sector times · +/− vs the leader' : 'Sector times';
+            const tr2 = h(`<tr class="spl"><td colspan="6"><div class="splits-wrap"><div class="lbl">${cap}</div><div class="splits" style="grid-template-columns:repeat(${cells.length},minmax(0,1fr))">${cells.join('')}</div></div></td></tr>`);
+            row.after(tr2); sbtn.classList.add('on');
+          } catch (e) { toast('Could not load sector times'); }
+          finally { sbtn.disabled = false; sbtn.textContent = 'Sectors'; }
         };
         gb.onclick = () => {
           if (sel[r.uid]) delete sel[r.uid];
