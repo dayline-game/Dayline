@@ -37,7 +37,9 @@
     };
   }
 
-  DL.DEV_NAMES = ['thedeveloper'];
+  DL.DEV_NAMES = ['thedeveloper', 'judethedude'];   // accounts with the DEV badge and every item
+  DL.DEV_TITLE = 'The Developer';                  // the name shown for them; nobody else can register it
+  DL.devAlias = n => DL.isDevName(n) ? DL.DEV_TITLE : n;
   DL.isDevName = n => !!n && DL.DEV_NAMES.includes(String(n).toLowerCase().replace(/[^a-z0-9]/g, ''));
   DL.devBadge = () => '<span class="devb" title="Developer" aria-label="Developer"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M8 7l-5 5 5 5M16 7l5 5-5 5"/></svg>DEV</span>';
   const Net = DL.Net = {
@@ -199,6 +201,7 @@
     // username + password: mode is 'register' (turns this guest into an account) or 'login'
     async passwordAuth(mode, username, password) {
       if (!this.api) return { ok: false, error: 'Accounts need the online leaderboard' };
+      if (mode === 'register' && DL.isDevName(username)) return { ok: false, error: 'That username is taken' };
       try {
         const r = await this._fetch('POST', '/api/auth/' + mode, { username, password });
         if (!r.j.ok) return { ok: false, error: r.j.error || ('Error ' + r.s) };

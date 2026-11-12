@@ -1173,7 +1173,7 @@
       }
     }
   }
-  function displayName(r, names) { const p = names[r.uid]; return (p && p.name) || r.tag || (r.uid === Net.uid ? 'You' : 'Driver'); }
+  function displayName(r, names) { const p = names[r.uid]; return DL.devAlias((p && p.name) || r.tag || (r.uid === Net.uid ? 'You' : 'Driver')); }
   function whoCell(r, names) {
     const p = names[r.uid];
     const el = h(`<button class="who" style="text-align:left">${p && p.avatarUrl ? `<img alt="" src="${esc(p.avatarUrl)}">` : ''}<b></b>${r.uid === Net.uid ? '<span class="tag coral">You</span>' : ''}</button>`);
@@ -1294,7 +1294,7 @@
         ${DL.ACHIEVEMENTS.map(a => `<div class="ach ${achDone[a.id] ? '' : 'locked'}"><b>${esc(a.name)}</b><span class="price"><span class="coin"></span>${a.coins}</span><span class="meta">${esc(a.desc)}</span></div>`).join('')}</div>`
         : `<button class="btn btn-line" id="pFriend">${Net.isFriend(uid) ? 'Remove friend' : 'Add friend'}</button>`}
       <button class="btn btn-navy" id="pClose">Close</button>`);
-    m.querySelector('#pName').textContent = name || (mine ? (p.tag || 'You') : 'Driver');
+    m.querySelector('#pName').textContent = DL.devAlias(name || (mine ? (p.tag || 'You') : 'Driver'));
     if (DL.isDevName(name) || (mine && Net.isDev())) m.querySelector('#pName').insertAdjacentHTML('beforeend', DL.devBadge());
     m.querySelector('#pClose').onclick = closeModal;
     const ab = m.querySelector('#acctBox'); if (ab) renderAccount(ab);
