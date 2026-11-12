@@ -48,6 +48,7 @@
     let last = performance.now(), dtS = 0;
     const loop = (now) => {
       requestAnimationFrame(loop);
+      if (DL.decalTime) DL.decalTime.value = now / 1000 % 3600;
       const raw = Math.min(0.05, (now - last) / 1000); last = now;
       dtS = dtS ? dtS + (raw - dtS) * 0.25 : raw;   // light smoothing removes timer jitter
       frame(Math.abs(raw - dtS) > 0.02 ? raw : dtS);

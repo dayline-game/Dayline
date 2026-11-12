@@ -39,6 +39,14 @@ float dFbm(vec2 p){ float a = 0.5, s = 0.0; for (int i = 0; i < 4; i++) { s += a
 vec3 dHsv(float h, float s, float v){ vec3 k = clamp(abs(mod(h * 6.0 + vec3(0.0, 4.0, 2.0), 6.0) - 3.0) - 1.0, 0.0, 1.0); return v * mix(vec3(1.0), k, s); }
 // returns rgb in .rgb, strength in .a ; glow written to dGlow
 float dGlow;
+float aa(float d, float w){ return smoothstep(w, -w, d); }           // anti-aliased edge: d<0 is inside
+float tongue(float x, float y, float seed, float t, float hmax){      // one flame tongue: returns signed distance (negative inside)
+  float cell = floor(x), f = fract(x) - 0.5, r = dHash(vec2(cell, seed));
+  float h = hmax * (0.45 + 0.55 * r) * (0.85 + 0.15 * sin(t * 6.0 + cell * 7.0 + seed));
+  f += sin(y * 5.0 - t * 4.0 + cell * 2.3) * 0.09 * (y / hmax);
+  float w = 0.54 * (1.0 - pow(clamp(y / h, 0.0, 1.0), 1.7));
+  return max(abs(f) - w, y - h) * 0.9;
+}
 vec4 decalFx(vec3 p0, vec3 n, float t, int fx){
   // surface coordinates that stay continuous on every face: sides use (z, y), top faces (z, x), front/back (x, y)
   float side, topM = 0.0; vec2 uv;
@@ -46,21 +54,24 @@ vec4 decalFx(vec3 p0, vec3 n, float t, int fx){
   else if (abs(n.x) > abs(n.z)) { uv = vec2(p0.z, p0.y); side = n.x < 0.0 ? -1.0 : 1.0; }
   else { uv = vec2(p0.x * 1.3 + 5.0, p0.y); side = n.z < 0.0 ? -2.0 : 2.0; }
   vec3 p = vec3(0.0, uv.y, uv.x); dGlow = 0.6;
-  if (fx == 0) {                                   // flames licking up from the sills
-    float h = clamp((p.y - 0.15) / 1.15, 0.0, 1.0);
-    float n = dFbm(vec2(p.z * 2.1 + side * 3.7, p.y * 2.6 - t * 1.7));
-    float heat = n * 1.25 + (1.0 - h * 1.2) - 0.18 * sin(p.z * 5.0 + t * 3.0);
-    float s = smoothstep(0.78, 0.92, heat);
-    vec3 c = mix(uDecC2, uDecC1, smoothstep(0.95, 1.45, heat));
-    dGlow = 1.1; return vec4(c, s);
+  if (fx == 0) {                                   // layered flame tongues rising from the sills
+    float y = uv.y - 0.12, x = uv.x * 2.4 + side * 4.7, aw = 0.025;
+    float d1 = tongue(x, y, 1.0, t, 1.0), d2 = tongue(x * 1.35 + 0.4, y, 2.0, t * 1.2, 0.8), d3 = tongue(x * 1.9 + 0.2, y, 3.0, t * 1.5, 0.55);
+    float base = aa(y - 0.05, aw);
+    float o = max(aa(d1, aw), base), m = aa(d2, aw), c = aa(d3, aw);
+    vec3 col = mix(uDecC2, mix(uDecC2, uDecC1, 0.55), m); col = mix(col, uDecC1, c); col = mix(col, vec3(1.0), c * 0.35);
+    dGlow = 1.3; return vec4(col, max(o, max(m, c)) * step(0.0, y));
   }
-  if (fx == 1) {                                   // forked lightning veins
-    float n = dFbm(uv * vec2(2.6, 3.2) + vec2(t * 0.33, side * 4.0));
-    float core = 1.0 - smoothstep(0.0, 0.028, abs(n - 0.5));
-    float halo = 1.0 - smoothstep(0.0, 0.14, abs(n - 0.5));
-    float fl = step(0.3, fract(sin(floor(t * 8.0) * 12.9898) * 43758.5453));
-    float s = max(core, halo * 0.4) * (0.55 + 0.45 * fl);
-    dGlow = 1.6; return vec4(mix(uDecC2, uDecC1, core), s);
+  if (fx == 1) {                                   // jagged lightning bolts that flash on and off
+    float acc = 0.0, glow = 0.0, y = uv.y;
+    for (int i = 0; i < 3; i++) {
+      float fi = float(i), slot = floor(t * 4.0 + fi * 1.7), on = step(0.28, dHash(vec2(slot, fi + 3.0)));
+      float x = uv.x * 0.55 + fi * 0.37 + dHash(vec2(slot, fi)) * 4.0, lane = floor(x), fx0 = fract(x) - 0.5;
+      float disp = (dNoise(vec2(y * 7.0 + lane * 9.0 + fi * 13.0, slot * 1.3)) - 0.5) * 0.7 + (dNoise(vec2(y * 21.0 + lane, slot)) - 0.5) * 0.18;
+      float d = abs(fx0 - disp), taper = smoothstep(0.0, 0.1, y) * (1.0 - smoothstep(1.0, 1.35, y));
+      acc = max(acc, aa(d - 0.014, 0.012) * on * taper); glow = max(glow, (1.0 - smoothstep(0.0, 0.22, d)) * on * taper * 0.55);
+    }
+    dGlow = 1.8; return vec4(mix(uDecC2, uDecC1, acc), max(acc, glow));
   }
   if (fx == 2) {                                   // swirling nebula with twinkling stars
     vec2 q = uv * vec2(0.55, 0.8) + vec2(side * 1.7, 0.0);
@@ -72,10 +83,11 @@ vec4 decalFx(vec3 p0, vec3 n, float t, int fx){
     c += vec3(star);
     dGlow = 0.8; return vec4(c, 0.86);
   }
-  if (fx == 3) {                                   // colour flowing front to back
-    float ph = p.z * 0.24 + p.y * 0.3 + side * 0.08 - t * 0.28;
-    vec3 c = uDecV > 0.5 ? dHsv(fract(ph), 0.78, 1.0) : mix(uDecC1, uDecC2, 0.5 + 0.5 * sin(6.2831 * ph));
-    dGlow = 0.35; return vec4(c, 0.58);
+  if (fx == 3) {                                   // bold two-tone stripes flowing front to back
+    float ph = (p.z * 0.9 + p.y * 1.1 + side * 0.4) * 0.55 - t * 0.32;
+    float st = fract(ph * 2.0), band = aa(abs(st - 0.5) - 0.28, 0.02), rim = aa(abs(st - 0.5) - 0.28, 0.02) - aa(abs(st - 0.5) - 0.22, 0.02);
+    vec3 c = uDecV > 0.5 ? dHsv(fract(ph * 0.8), 0.8, 1.0) : mix(uDecC1, uDecC2, 0.5 + 0.5 * sin(6.2831 * ph));
+    dGlow = 0.6; return vec4(mix(c, vec3(1.0), rim * 0.7), band * 0.82);
   }
   if (fx == 4) {                                   // scrolling neon grid with a pulse
     vec2 g = vec2(p.z * 2.2 - t * 0.7, p.y * 3.2);
@@ -95,19 +107,27 @@ vec4 decalFx(vec3 p0, vec3 n, float t, int fx){
     vec3 c = mix(uDecC1, uDecC2, step(0.5, dHash(vec2(row + 7.0, tt))));
     dGlow = 1.0; return vec4(c, s);
   }
-  if (fx == 6) {                                   // glitter twinkling across the paint
-    vec2 cell = floor(uv * vec2(34.0, 30.0) + side * 11.0); float hh = dHash(cell);
-    float tw = pow(max(0.0, sin(t * 3.6 + hh * 70.0)), 6.0);
-    float star = step(0.82, hh) * tw;
-    float sh = smoothstep(0.0, 0.5, 0.5 - abs(fract(p.z * 0.2 - t * 0.22) - 0.5)) * 0.22;
-    dGlow = 1.6; return vec4(mix(uDecC1, uDecC2, hh), max(star, sh));
+  if (fx == 6) {                                   // glitter: little four-point star flares twinkling
+    float a = 0.0; vec3 col = vec3(1.0);
+    for (int i = 0; i < 2; i++) {
+      float sc = i == 0 ? 7.0 : 12.0;
+      vec2 q = uv * sc + side * 9.0 + float(i) * 31.0, c = floor(q), f = fract(q) - 0.5;
+      float hh = dHash(c + float(i) * 17.0), hh2 = dHash(c + 41.0);
+      f -= (vec2(hh, hh2) - 0.5) * 0.5;
+      float tw = pow(max(0.0, sin(t * 3.4 + hh * 60.0)), 3.0) * step(0.5, hh2);
+      float cross = exp(-abs(f.x) * 55.0) * exp(-abs(f.y) * 7.0) + exp(-abs(f.y) * 55.0) * exp(-abs(f.x) * 7.0) + exp(-length(f) * 26.0);
+      a = max(a, clamp(cross * tw, 0.0, 1.0)); col = mix(uDecC1, uDecC2, hh);
+    }
+    dGlow = 1.9; return vec4(col, a);
   }
-  if (fx == 7) {                                   // rolling waves with foam
-    float w = sin(p.z * 5.0 - t * 2.6 + sin(p.y * 4.0 + t * 1.1) * 1.3);
-    float band = smoothstep(0.55, 0.9, w), foam = smoothstep(0.92, 1.0, w);
-    float fade = 1.0 - smoothstep(0.1, 1.5, p.y) * 0.55;
-    vec3 c = mix(uDecC1, uDecC2, foam);
-    dGlow = 0.7; return vec4(c, (band * 0.62 + foam * 0.35) * fade);
+  if (fx == 7) {                                   // layered rolling waves with foam crests
+    float a = 0.0, foam = 0.0; vec3 col = uDecC1;
+    for (int i = 0; i < 3; i++) {
+      float fi = float(i), yl = 0.34 + fi * 0.22 + 0.07 * sin(uv.x * (3.6 + fi * 1.1) - t * (1.6 + fi * 0.7) + fi * 2.0);
+      float crest = aa(abs(uv.y - yl) - 0.022, 0.012), body = aa(uv.y - yl, 0.012) * (0.22 - fi * 0.05);
+      a = max(a, max(crest * 0.95, body)); foam = max(foam, crest);
+    }
+    dGlow = 0.8; return vec4(mix(uDecC1, uDecC2, foam), a);
   }
   if (fx == 8) {                                   // light chase along the bonnet, roof and boot
     float ax = abs(p0.x);
