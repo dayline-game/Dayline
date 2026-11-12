@@ -83,6 +83,9 @@
     ['mud', 'mud', 280, ['forest', 'tangerine', 'onyx', 'cobalt', 'bronze', 'lemon']]
   ];
   DL.TYRE_SETS.forEach(([b, bn, p, cols]) => cols.forEach(k => DL.PARTS.wheels.push({ id: b + '-' + k, name: C[k][0] + ' ' + bn, price: r10(p + (C[k][2] ? 120 : 20)), wk: 1, gen: 1 })));
+  // ---------- Animated decals (decals.js): their own category, released from the start ----------
+  DL.PARTS.decal = [{ id: 'none', name: 'No decal', price: 0, wk: 0, gen: 1 }];
+  Object.keys(DL.DECALS).forEach(k => DL.PARTS.decal.push({ id: k, name: DL.DECALS[k][0], price: r10(DL.DECALS[k][5]), wk: 0, gen: 1 }));
   // anything in the base catalogue is week 0
   for (const cat in DL.PARTS) DL.PARTS[cat].forEach(p => { if (p.wk == null) p.wk = 0; });
   DL.released = (cat, id, day) => { if (cat === 'cars' || (DL.Net && DL.Net.isDev && DL.Net.isDev())) return true; const p = DL.PARTS[cat] && DL.PARTS[cat].find(x => x.id === id); return !!p && p.wk <= DL.weekOf(day || DL.dayKey()); };

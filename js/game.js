@@ -293,6 +293,7 @@
     }
   }
   Game.draw = function (sc, cam) {
+    if (DL.decalTime) DL.decalTime.value = performance.now() / 1000 % 3600;
     if (!settings.light || sc !== scene || Game.noPost) { renderer.render(sc, cam); return; }
     const ts = renderer.getRenderTarget();
     ppInit();

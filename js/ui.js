@@ -414,7 +414,7 @@
   $('gRace').onclick = () => startRace(today(), []);
 
   // ---------- locker: loadout slots on the left, the car in the middle, a drawer of items on the right ----------
-  const SLOTS = ['cars', 'paint', 'spoiler', 'wheels', 'bumper', 'finish', 'tint', 'plate', 'exhaust', 'trail'];
+  const SLOTS = ['cars', 'paint', 'spoiler', 'wheels', 'bumper', 'finish', 'tint', 'decal', 'plate', 'exhaust', 'trail'];
   const SVG_PAINT = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a9 9 0 1 0 0 18c1.5 0 2-1 2-2 0-1.5-1.5-1.6-1.5-3s1-2 2.5-2H18a3 3 0 0 0 3-3c0-4.4-4-8-9-8z"/><circle cx="7.5" cy="11" r="1.2"/><circle cx="10" cy="7" r="1.2"/><circle cx="15" cy="7.5" r="1.2"/></svg>';
   const SVG_LOCK = '<svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.6" stroke-linecap="round"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>';
   const rarVars = (el, r) => { const R = DL.RARITIES[r] || DL.RARITIES.common; el.style.setProperty('--rc', R.c); el.style.setProperty('--ra', R.a); };
@@ -841,7 +841,7 @@
     const big = parts.filter(p => p.price >= 240), bigPart = take(big);
     const rest = parts.filter(p => p.key !== bigPart.key);
     // daily: one per category where possible so the six slots feel varied
-    const daily = [], cats = ['spoiler', 'wheels', 'bumper', 'tint', 'plate', 'exhaust', 'trail', 'finish', 'stickers'];
+    const daily = [], cats = ['spoiler', 'wheels', 'bumper', 'tint', 'plate', 'exhaust', 'trail', 'finish', 'stickers', 'decal', 'decal'];
     while (daily.length < 6 && rest.length) {
       const want = cats[Math.floor(r() * cats.length)], pickFrom = rest.filter(p => p.cat === want && !daily.some(d => d.cat === want));
       const it = pickFrom.length ? pickFrom[Math.floor(r() * pickFrom.length)] : (daily.length >= 4 ? take(rest) : null);
@@ -889,7 +889,7 @@
     }
     body.appendChild(h('<p class="is-foot">You earn coins for finishing each daily, extra laps, personal bests, daily rewards and achievements. Nothing here changes speed, grip or hitbox.</p>'));
   }
-  const SHOW_3D = { cars: 1, spoiler: 1, wheels: 1, bumper: 1, finish: 1, tint: 1, exhaust: 1, trail: 1 };
+  const SHOW_3D = { cars: 1, spoiler: 1, wheels: 1, bumper: 1, finish: 1, tint: 1, decal: 1, exhaust: 1, trail: 1 };
   function renderInspect() {
     const it = shop.item, s = Net.save, sc = $('shop'), box = $('isInspect');
     sc.classList.add('inspecting'); box.hidden = false; Game.sideView = 'inspect';

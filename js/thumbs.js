@@ -2,9 +2,9 @@
 'use strict';
 (function (DL) {
   // ---------------- catalogue ----------------
-  DL.CAT_ORDER = ['cars', 'spoiler', 'wheels', 'bumper', 'finish', 'tint', 'plate', 'exhaust', 'trail', 'stickers'];
-  DL.CAT_NAMES = { cars: 'Cars', spoiler: 'Spoilers', wheels: 'Wheels', bumper: 'Bumpers', finish: 'Finishes', tint: 'Window tints', plate: 'Plates', exhaust: 'Exhaust', trail: 'Trails', stickers: 'Sticker packs' };
-  DL.CAT_ONE = { cars: 'Car', spoiler: 'Spoiler', wheels: 'Wheels', bumper: 'Bumper', finish: 'Finish', tint: 'Tint', plate: 'Plates', exhaust: 'Exhaust', trail: 'Trail', stickers: 'Stickers', paint: 'Paint' };
+  DL.CAT_ORDER = ['cars', 'spoiler', 'wheels', 'bumper', 'finish', 'tint', 'decal', 'plate', 'exhaust', 'trail', 'stickers'];
+  DL.CAT_NAMES = { cars: 'Cars', spoiler: 'Spoilers', wheels: 'Wheels', bumper: 'Bumpers', finish: 'Finishes', tint: 'Window tints', decal: 'Animated decals', plate: 'Plates', exhaust: 'Exhaust', trail: 'Trails', stickers: 'Sticker packs' };
+  DL.CAT_ONE = { cars: 'Car', spoiler: 'Spoiler', wheels: 'Wheels', bumper: 'Bumper', finish: 'Finish', tint: 'Tint', decal: 'Decal', plate: 'Plates', exhaust: 'Exhaust', trail: 'Trail', stickers: 'Stickers', paint: 'Paint' };
   DL.RARITIES = {
     common: { n: 'Common', c: '#7d8796', a: '#a9b2bf' },
     uncommon: { n: 'Uncommon', c: '#3f8d4e', a: '#7ccf6a' },
@@ -31,7 +31,7 @@
   };
   const BLURB = {
     spoiler: 'Bolts onto the back of any car.', wheels: 'Fits every car in your garage.', bumper: 'A new front end for every car.',
-    finish: 'Changes how your paint catches the light.', tint: 'Darkens or colours the windows.', plate: 'Number plates front and back. Type your own text in the locker.',
+    finish: 'Changes how your paint catches the light.', tint: 'Darkens or colours the windows.', decal: 'An animated effect that plays across your paint.', plate: 'Number plates front and back. Type your own text in the locker.',
     exhaust: 'Shows behind your car while you race.', trail: 'A ribbon that follows your car while you race.', stickers: 'Extra stamps for the paint editor.'
   };
   DL.allItems = function () {
@@ -81,12 +81,14 @@
     if (cat === 'wheels') return { opts: { car: sv.car, livery: lk.livery, base: lk.base, equip: { wheels: id } }, view: 'wheel' };
     if (cat === 'bumper') return { opts: { car: sv.car, livery: lk.livery, base: lk.base, equip: { bumper: id } }, view: 'front' };
     if (cat === 'finish') return { opts: { car: sv.car, livery: lk.livery, base: lk.base, equip: { finish: id } }, view: 'hero' };
+    if (cat === 'decal') return { opts: { car: sv.car, livery: lk.livery, base: lk.base, equip: { decal: id } }, view: 'hero' };
     if (cat === 'tint') return { opts: { car: sv.car, livery: lk.livery, base: lk.base, equip: { tint: id } }, view: 'side' };
     return null;
   }
   function render3d(sp) {
     if (!init()) return null;
     const m = DL.buildCar(sp.opts);
+    if (DL.decalTime) DL.decalTime.value = 2.4;
     S.add(m);
     DL.poseCar(m, 0, 0, 0, 0, 0, 0, 0, 0, false);
     const v = VIEWS[sp.view] || VIEWS.hero;

@@ -765,7 +765,7 @@
   DL.buildCar = function (opts) {
     const spec = DL.CARS[opts.car] || DL.CARS.pebble;
     if (spec.kind === 'ufo') return buildUfo(opts, spec);
-    const equip = Object.assign({ spoiler: 'none', wheels: 'std', bumper: 'std', finish: 'matte', plate: 'none', tint: 'clear' }, opts.equip || {});
+    const equip = Object.assign({ spoiler: 'none', wheels: 'std', bumper: 'std', finish: 'matte', plate: 'none', tint: 'clear', decal: 'none' }, opts.equip || {});
     const root = new THREE.Group();          // follows physics position/yaw
     const body = new THREE.Group();          // pitch/roll
     root.add(body);
@@ -797,6 +797,7 @@
     tex.magFilter = THREE.NearestFilter; tex.minFilter = THREE.NearestFilter; tex.generateMipmaps = false;
     if ('colorSpace' in tex) tex.colorSpace = THREE.SRGBColorSpace;
     const bodyMat = finish(equip, { map: tex });
+    if (equip.decal && equip.decal !== 'none' && !opts.ghost && DL.applyDecal) DL.applyDecal(bodyMat, equip.decal);
     if (opts.ghost) { bodyMat.transparent = true; bodyMat.opacity = 0.72; bodyMat.depthWrite = false; }
     const bodyMesh = new THREE.Mesh(bodyGeo, bodyMat);
     bodyMesh.castShadow = !opts.ghost; bodyMesh.receiveShadow = !opts.ghost;
