@@ -187,6 +187,11 @@ td.tm{font-family:var(--f-display);font-weight:700;font-size:20px;color:var(--na
 .rp-bar{position:absolute;left:50%;bottom:calc(16px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);width:min(760px,calc(100% - 24px));display:flex;align-items:center;gap:10px;padding:8px 12px;}
 .rp-bar input[type=range]{flex:1;min-width:0;accent-color:var(--coral);}
 .rp-t{font-family:var(--f-display);font-weight:700;font-size:15px;min-width:52px;text-align:center;}
+#rpSec{position:absolute;left:50%;bottom:calc(76px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);display:flex;align-items:center;gap:8px;flex-wrap:wrap;justify-content:center;padding:6px 10px;max-width:calc(100% - 24px);}
+.rp-chips{display:flex;gap:5px;flex-wrap:wrap;} .rp-gaps{display:flex;gap:10px;font-weight:700;font-size:13px;} .rp-gaps .good{color:var(--good);} .rp-gaps .bad{color:var(--bad);}
+#rpCmpList{position:absolute;left:50%;bottom:calc(130px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);width:min(420px,calc(100% - 24px));max-height:46vh;overflow:auto;padding:10px;display:flex;flex-direction:column;gap:6px;}
+#rpCmpList .rowc{display:flex;align-items:center;gap:8px;justify-content:space-between;font-size:14px;} #rpCmpList .rowc span:first-child{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+@media (max-width:760px){#rpSec{bottom:calc(128px + env(safe-area-inset-bottom,0px));} #rpCmpList{bottom:calc(180px + env(safe-area-inset-bottom,0px));}}
 @media (max-width:760px){.rp-bar{flex-wrap:wrap;} .rp-bar input[type=range]{order:5;flex-basis:100%;}}
 .hud-top{position:absolute;top:calc(12px + env(safe-area-inset-top,0px));left:50%;transform:translateX(-50%);display:flex;flex-direction:column;align-items:center;gap:4px;pointer-events:none;}
 .timer{background:var(--cream);border:1px solid var(--line);border-radius:6px;padding:4px 18px 2px;font-family:var(--f-display);font-weight:800;font-size:48px;color:var(--navy);line-height:1.05;font-variant-numeric:tabular-nums;min-width:220px;text-align:center;}
@@ -953,6 +958,8 @@ body.fs #navFull{background:var(--cream-2);}
     <div class="kspd"><b class="num" id="rpSpd">0</b><small id="rpSpdU">km/h</small></div>
     <div class="knote">Inputs reconstructed from the replay</div>
   </div>
+  <div class="rp-sec panel" id="rpSec" hidden><div class="rp-chips" id="rpChips"></div><button class="chk" id="rpCmp" hidden>Compare</button><div class="rp-gaps num" id="rpGaps"></div></div>
+  <div class="rp-cmp panel" id="rpCmpList" hidden></div>
   <div class="rp-bar panel">
     <button class="icon-btn" id="rpPlay" aria-label="Play or pause"><svg viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4" width="4" height="16" rx="1"/><rect x="14" y="4" width="4" height="16" rx="1"/></svg></button>
     <span class="num rp-t" id="rpNow">0:00.0</span>
@@ -1007,8 +1014,8 @@ body.fs #navFull{background:var(--cream-2);}
 <script src="js/net.js?v=20261110dr"></script>
 <script src="js/thumbs.js?v=20261110dr"></script>
 <script src="js/auth.js?v=20261110dr"></script>
-<script src="js/game.js?v=20261111dr5"></script>
-<script src="js/ui.js?v=20261112sp"></script>
+<script src="js/game.js?v=20261112rc"></script>
+<script src="js/ui.js?v=20261112rc"></script>
 <script src="js/community.js?v=20261110dr"></script>
 <script src="js/rooms.js?v=20261110dr"></script>
 <script src="js/share.js?v=20261110dr"></script>

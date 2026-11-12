@@ -478,8 +478,30 @@
       rt: 0, dur: (gh.n - 1) / gh.hz, rate: 1, paused: false, hold: 0, spin: 0, snap: true,
       camYaw: 0, shake: 0, camMode: settings.rcam == null ? CAM_COUNT : settings.rcam % (CAM_COUNT + 1), trailT: 0, prev: null, keys: { gas: false, brake: false, left: false, right: false, st: 0 }
     };
+    { const pg = new DL.Progress(track); for (let i = 1; i < gh.n; i++) pg.update(gh.f[(i - 1) * 8], gh.f[(i - 1) * 8 + 2], gh.f[i * 8], gh.f[i * 8 + 2], i / gh.hz); race.cp = pg.cpTimes.slice(); }
     trail.points.length = 0; clearSkids(); trail.mesh.visible = false;
     return true;
+  };
+  // compare other runs in the replay: they start together (or enter the chosen sector together) so you can see who gains where
+  Game.replayAddGhost = function (spec, enc) {
+    const r = race; if (!r || !r.replay) return null;
+    const gh = DL.decodeGhost(enc); if (!gh || r.ghosts.some(x => x.cmp && x.spec.uid === spec.uid)) return null;
+    const model = DL.buildCar({ car: spec.car, livery: spec.l ? DL.decodeLivery(spec.l) : DL.defaultLivery(), base: spec.b, equip: spec.equip, ghost: true });
+    const label = makeLabel(spec.label || 'Ghost', spec.mine); model.add(label); scene.add(model);
+    try { renderer.compile(scene, camera); } catch (e) {}
+    const pg = new DL.Progress(r.track); for (let i = 1; i < gh.n; i++) pg.update(gh.f[(i - 1) * 8], gh.f[(i - 1) * 8 + 2], gh.f[i * 8], gh.f[i * 8 + 2], i / gh.hz);
+    const o = { spec, gh, model, label, cmp: true, time: (gh.n - 1) / gh.hz, cp: pg.cpTimes.slice(), gap: null };
+    r.ghosts.push(o); return o;
+  };
+  Game.replayRemoveGhost = function (uid) {
+    const r = race; if (!r || !r.replay) return;
+    const i = r.ghosts.findIndex(x => x.cmp && x.spec.uid === uid); if (i < 0) return;
+    const o = r.ghosts[i]; scene.remove(o.model); o.model.userData.dispose(); r.ghosts.splice(i, 1);
+  };
+  Game.replaySector = function (k) {
+    const r = race; if (!r || !r.replay || !r.cp) return;
+    if (k == null || r.cp[k] == null) { r.loop = null; return; }
+    r.loop = { k, a: k ? r.cp[k - 1] : 0, b: r.cp[k] }; r.rt = Math.max(0, r.loop.a - 0.6); r.snap = true; r.paused = false;
   };
   const rs0 = new Float32Array(8), rs1 = new Float32Array(8), rk0 = new Float32Array(8), rk1 = new Float32Array(8), rgT = {};
   function updateReplay(dt) {
@@ -488,6 +510,7 @@
       if (r.rt >= r.dur) { r.hold += dt; if (r.hold > 1.6) { r.rt = 0; r.hold = 0; r.snap = true; } }
       else { r.rt = Math.min(r.dur, r.rt + dt * r.rate); r.hold = 0; }
     }
+    if (r.loop && !r.paused && r.rt >= r.loop.b + 0.5) { r.rt = Math.max(0, r.loop.a - 0.6); r.snap = true; r.hold = 0; }
     const t = DL.clamp(r.rt, 0, r.dur);
     DL.sampleGhost(r.gh, t, rs1);
     const t0 = Math.max(0, t - 0.08), t1 = Math.max(t, t0 + 0.08);
@@ -511,6 +534,21 @@
     r.keys = { gas: live && !brk && (acc > -1.2 || vN > 48), brake: live && brk, hb: live && hbk, left: stv < -0.2, right: stv > 0.2, st: stv, v: vN };
     DL.poseCar(r.model, x, y, z, c.yaw, c.pitch, c.roll, c.steerVis, r.spin, rs1[7] > 0.5);
     r.model.updateMatrixWorld();
+    // compared runs, lined up at the start of the run or of the looped sector
+    const cpm = r.cp || [], k0 = r.loop ? r.loop.k : -1;
+    for (const o of r.ghosts) {
+      if (!o.cmp) continue;
+      const off = k0 > 0 && o.cp[k0 - 1] != null && cpm[k0 - 1] != null ? o.cp[k0 - 1] - cpm[k0 - 1] : 0;
+      const tg = DL.clamp(t + off, 0, o.time);
+      DL.sampleGhost(o.gh, tg, rs0);
+      DL.poseCar(o.model, rs0[0], rs0[1], rs0[2], rs0[3], rs0[4], rs0[5], rs0[6], tg * 20, rs0[7] > 0.5);
+      { const dd = Math.hypot(rs0[0] - camera.position.x, rs0[1] + 1.5 - camera.position.y, rs0[2] - camera.position.z); o.label.material.opacity = DL.clamp((dd - 6) / 8, 0, 0.9); }
+      // gap at the last checkpoint passed: + means the replayed driver is slower
+      let k = -1; for (let i = 0; i < cpm.length; i++) if (cpm[i] <= t + 1e-6) k = i;
+      if (r.loop) k = t >= cpm[k0] ? k0 : -1;
+      o.gap = k < 0 || o.cp[k] == null ? null : r.loop ? (cpm[k] - (k ? cpm[k - 1] : 0)) - (o.cp[k] - (k ? o.cp[k - 1] : 0)) : cpm[k] - o.cp[k];
+      o.gapK = k;
+    }
     const snap = r.snap; r.snap = false;
     placeCamera(snap, r.paused ? 0 : dt);
     DL.UI.replayHud(r, t);

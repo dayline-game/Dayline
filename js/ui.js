@@ -954,7 +954,47 @@
     $('rpName').textContent = spec.label || 'Driver';
     $('rpTime').textContent = DL.fmtTime(time);
     $('rpEnd').textContent = fmtS(r.dur); $('rpRate').textContent = '1×'; $('rpPlay').innerHTML = PAUSE_SVG;
+    setupReplaySectors(day, spec);
   };
+  // sector loop chips + compare list
+  let rpSel = 0, rpCmpOn = {};
+  function setupReplaySectors(day, spec) {
+    const r = Game.race(), n = r && r.cp ? r.cp.length : 0, wrap = $('rpChips'), cmpB = $('rpCmp'), list = $('rpCmpList');
+    rpSel = 0; rpCmpOn = {}; list.hidden = true; list.innerHTML = ''; $('rpGaps').innerHTML = '';
+    $('rpSec').hidden = n < 2; wrap.innerHTML = '';
+    const chips = [['Full run', null]].concat(r && r.cp ? r.cp.map((c, i) => ['S' + (i + 1), i]) : []);
+    chips.forEach(([txt, k]) => {
+      const b = h(`<button class="chk ${k == null ? 'on' : ''}">${txt}</button>`);
+      b.onclick = () => { Game.replaySector(k); [...wrap.children].forEach(x => x.classList.toggle('on', x === b)); };
+      wrap.appendChild(b);
+    });
+    const rows = board.rowsDay === day ? board.rowsNow || [] : [];
+    cmpB.hidden = !rows.length; cmpB.textContent = 'Compare';
+    cmpB.onclick = () => {
+      if (!list.hidden) { list.hidden = true; return; }
+      list.hidden = false; list.innerHTML = '<div class="lbl">Race another run alongside this one (up to 2)</div>';
+      rows.slice(0, 30).forEach((x, i) => {
+        if (x.uid === spec.uid) return;
+        const me = x.uid === Net.uid, nm = me ? 'You' : displayName(x, board.names || {}), on = !!rpCmpOn[x.uid];
+        const row = h(`<div class="rowc"><span>${i + 1}. ${esc(nm)} · <b class="num">${DL.fmtTime(x.time)}</b></span><button class="chk ${on ? 'on' : ''}">${on ? 'On' : 'Add'}</button></div>`);
+        const btn = row.querySelector('button');
+        btn.onclick = async () => {
+          if (rpCmpOn[x.uid]) { Game.replayRemoveGhost(x.uid); delete rpCmpOn[x.uid]; btn.classList.remove('on'); btn.textContent = 'Add'; cmpB.textContent = Object.keys(rpCmpOn).length ? 'Compare · ' + Object.keys(rpCmpOn).length : 'Compare'; return; }
+          if (Object.keys(rpCmpOn).length >= 2) { toast('Two comparisons at a time'); return; }
+          btn.disabled = true; btn.textContent = '…';
+          try {
+            const enc = await Net.ghost(me ? 'me' : x.uid, day), g = enc && Game.replayAddGhost({ uid: x.uid, label: me ? 'You' : nm, car: x.car, l: x.l, b: x.b, equip: x.equip, mine: me }, enc);
+            if (!g) { toast('No replay saved for that run'); btn.textContent = 'Add'; return; }
+            rpCmpOn[x.uid] = { name: me ? 'You' : nm }; btn.classList.add('on'); btn.textContent = 'On';
+            cmpB.textContent = 'Compare · ' + Object.keys(rpCmpOn).length;
+          } catch (e) { toast('Could not load that run'); btn.textContent = 'Add'; }
+          finally { btn.disabled = false; }
+        };
+        list.appendChild(row);
+      });
+    };
+  }
+
   UI.replayHud = function (r, t) {
     const k = r.keys;
     if (k) {
@@ -964,6 +1004,7 @@
       $('rpSpd').textContent = Math.round((k.v || 0) * (Game.settings.units === 'mph' ? 2.237 : 3.6));
       $('rpSpdU').textContent = Game.settings.units === 'mph' ? 'mph' : 'km/h';
     }
+    { const gs = r.ghosts.filter(g => g.cmp), el = $('rpGaps'); if (gs.length || el.firstChild) el.innerHTML = gs.map(g => g.gap == null ? `<span>${esc(g.spec.label || '')} …</span>` : `<span class="${g.gap <= 0 ? 'good' : 'bad'}" title="Gap at the last checkpoint passed (green = the replayed driver is ahead of this run)">${esc((g.spec.label || '').slice(0, 12))} ${g.gap > 0 ? 'ahead' : 'behind'} ${Math.abs(g.gap).toFixed(3)}</span>`).join(''); }
     $('rpNow').textContent = fmtS(t);
     if (!seeking) $('rpSeek').value = Math.round(t / r.dur * 1000);
     $('rpPlay').innerHTML = r.paused ? PLAY_SVG : PAUSE_SVG;
@@ -1063,6 +1104,7 @@
           : '<div class="empty"><h3>Nobody has set a time yet</h3><p>Be first on the board for this track.</p></div>';
         return;
       }
+      board.rowsNow = rows; board.rowsDay = board.day; board.names = names;
       const lead = rows[0].time;
       tbl.innerHTML = '';
       const t = h(`<table><thead><tr><th>#</th><th>Driver</th><th>Time</th><th class="hide-sm">Car</th><th>Ghost</th><th></th></tr></thead><tbody></tbody></table>`);
