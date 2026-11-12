@@ -441,8 +441,10 @@
     const dark = M('dark2', () => new THREE.MeshLambertMaterial({ color: 0x14181f, flatShading: true }));
     const coral = M('coral2', () => new THREE.MeshLambertMaterial({ color: 0xf05a35, flatShading: true }));
     const cream = M('cream2', () => new THREE.MeshLambertMaterial({ color: 0xf3ead7, flatShading: true }));
-    const bx = (w, h, d, x, y, z, mat, rx, rz, ry) => { const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat || dark); m.position.set(x, y, z); if (rx) m.rotation.x = rx; if (rz) m.rotation.z = rz; if (ry) m.rotation.y = ry; m.castShadow = !ghost; body.add(m); return m; };
-    const cy = (r, h, x, y, z, mat, ax, seg) => { const m = new THREE.Mesh(new THREE.CylinderGeometry(r, r, h, seg || 10), mat); m.position.set(x, y, z); if (ax === 'x') m.rotation.z = Math.PI / 2; else if (ax === 'z') m.rotation.x = Math.PI / 2; m.castShadow = !ghost; body.add(m); return m; };
+    const bx = (w, h, d, x, y, z, mat, rx, rz, ry) => { const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat || dark); m.position.set(x, y, z); if (rx) m.rotation.x = rx; if (rz) m.rotation.z = rz; if (ry) m.rotation.y = ry; m.castShadow = !ghost; body.add(m); if (tag) T[tag].push(m); return m; };
+    const cy = (r, h, x, y, z, mat, ax, seg) => { const m = new THREE.Mesh(new THREE.CylinderGeometry(r, r, h, seg || 10), mat); m.position.set(x, y, z); if (ax === 'x') m.rotation.z = Math.PI / 2; else if (ax === 'z') m.rotation.x = Math.PI / 2; m.castShadow = !ghost; body.add(m); if (tag) T[tag].push(m); return m; };
+    // slots that a fitted accessory can replace: built-in wings (rear spoiler), roof gear (roof rack), front bumper gear (bumper add-ons)
+    const T = F.tags = { wing: [], roof: [], front: [] }; let tag = null;
     const W = spec.W, both = f => [-1, 1].forEach(f);
     const wheelFlares = (thick, up) => both(s => spec.wz.forEach(z => bx(thick, 0.16, spec.wr * 2.5, s * (W / 2 + thick / 2 - 0.02), spec.wr * 2 + up, z)));
     const f = spec.feat;
@@ -460,29 +462,29 @@
     if (f === 'comet') {
       wheelFlares(0.2, 0.0);
       both(s => bx(0.07, 0.2, 0.8, s * (W / 2 + 0.02), 0.58, -0.7, dark));                      // side intakes
-      bx(W * 0.9, 0.07, 0.4, 0, 0.3, frontZ + 0.05, dark);                                         // front splitter
+      tag = 'front'; bx(W * 0.9, 0.07, 0.4, 0, 0.3, frontZ + 0.05, dark); tag = null;                                         // front splitter
       bx(W * 0.5, 0.05, 0.7, 0, 0.9, 1.0, dark);                                                   // bonnet vent
       bx(W * 0.9, 0.09, 0.1, 0, lightY - 0.1, frontZ + 0.08, coral);                               // nose stripe
     } else if (f === 'rallye') {
       wheelFlares(0.16, 0.05);
       bx(0.8, 0.2, 0.9, 0, 1.2, 1.0, dark, 0.12);                                                  // bonnet scoop
-      for (let k = 0; k < 4; k++) cy(0.15, 0.14, (k - 1.5) * 0.4, roofY - 0.02, 0.95, headMat, 'z');   // roof light pods
-      bx(W * 0.72, 0.06, 0.1, 0, roofY - 0.1, 0.78, dark);
+      tag = 'roof'; for (let k = 0; k < 4; k++) cy(0.15, 0.14, (k - 1.5) * 0.4, roofY - 0.02, 0.95, headMat, 'z'); tag = null;   // roof light pods
+      tag = 'roof'; bx(W * 0.72, 0.06, 0.1, 0, roofY - 0.1, 0.78, dark); tag = null;
       both(s => spec.wz.forEach(z => bx(0.05, 0.3, 0.3, s * (W / 2 + 0.1), 0.35, z - Math.sign(z) * (spec.wr + 0.15), dark)));  // mud flaps
       cy(0.1, 0.1, 0.0, 0.62, frontZ + 0.04, coral, 'z', 8);
-      cy(0.3, 0.14, 0, roofY + 0.28, -1.0, M('spare', () => new THREE.MeshLambertMaterial({ color: 0x1b1e24, flatShading: true })), 'y', 9);   // spare on roof
+      tag = 'roof'; cy(0.3, 0.14, 0, roofY + 0.28, -1.0, M('spare', () => new THREE.MeshLambertMaterial({ color: 0x1b1e24, flatShading: true })), 'y', 9); tag = null;   // spare on roof
     } else if (f === 'mule') {
-      bx(W * 0.5, 0.14, 0.5, 0, roofY + 0.08, -0.4, dark); bx(0.45, 0.12, 0.45, 0, roofY + 0.08, 0.4, dark);   // roof vents
-      both(s => bx(0.06, 0.07, 3.6, s * W * 0.42, roofY + 0.07, -0.2, dark));                       // roof rails
-      for (let k = 0; k < 5; k++) bx(W * 0.84, 0.05, 0.06, 0, roofY + 0.14, -1.7 + k * 0.85, dark);
+      tag = 'roof'; bx(W * 0.5, 0.14, 0.5, 0, roofY + 0.08, -0.4, dark); bx(0.45, 0.12, 0.45, 0, roofY + 0.08, 0.4, dark); tag = null;   // roof vents
+      tag = 'roof'; both(s => bx(0.06, 0.07, 3.6, s * W * 0.42, roofY + 0.07, -0.2, dark)); tag = null;                       // roof rails
+      tag = 'roof'; for (let k = 0; k < 5; k++) bx(W * 0.84, 0.05, 0.06, 0, roofY + 0.14, -1.7 + k * 0.85, dark); tag = null;
       bx(0.05, 1.05, 0.04, 0, 1.6, rearZ - 0.03, dark); bx(W * 0.3, 0.12, 0.04, W * 0.2, 1.5, rearZ - 0.04, dark); // barn doors
       both(s => { bx(0.12, 0.26, 0.1, s * (W / 2 + 0.16), 1.9, 1.1, dark); bx(0.05, 0.9, 0.04, s * (W / 2 + 0.03), 1.5, -0.4, dark); }); // mirrors + door seam
       bx(W * 0.8, 0.28, 0.08, 0, 0.72, frontZ + 0.1, dark);                                         // grille
       bx(W * 1.02, 0.14, 0.2, 0, 0.45, frontZ + 0.1, chrome); bx(W * 1.02, 0.14, 0.2, 0, 0.45, rearZ - 0.1, chrome);
     } else if (f === 'ridge') {
       wheelFlares(0.24, 0.1);
-      for (let k = 0; k < 5; k++) cy(0.12, 0.12, (k - 2) * 0.34, roofY + 0.2, 0.45, headMat, 'z', 8);   // roof light bar
-      bx(W * 0.82, 0.1, 0.14, 0, roofY + 0.1, 0.45, dark);
+      tag = 'roof'; for (let k = 0; k < 5; k++) cy(0.12, 0.12, (k - 2) * 0.34, roofY + 0.2, 0.45, headMat, 'z', 8); tag = null;   // roof light bar
+      tag = 'roof'; bx(W * 0.82, 0.1, 0.14, 0, roofY + 0.1, 0.45, dark); tag = null;
       both(s => { bx(0.1, 0.8, 0.1, s * (W / 2 - 0.1), 1.8, -2.0, dark); bx(0.12, 0.08, 1.2, s * (W / 2 - 0.1), 1.45, -1.6, dark); }); // sports bar
       bx(W * 0.9, 0.1, 0.1, 0, 2.15, -2.0, dark);
       bx(0.14, 0.9, 0.14, W * 0.42, 1.6, 0.85, dark); bx(0.14, 0.14, 0.4, W * 0.42, 2.05, 0.7, dark);    // snorkel
@@ -491,7 +493,7 @@
       bx(W * 0.9, 0.18, 0.2, 0, 0.7, frontZ + 0.08, dark);                                           // skid plate
       bx(0.5, 0.1, 0.5, 0, 1.31, 1.1, dark);
     } else if (f === 'vintage') {
-      bx(W + 0.12, 0.12, 0.14, 0, 0.5, frontZ + 0.05, chrome); bx(W + 0.12, 0.12, 0.14, 0, 0.5, rearZ - 0.05, chrome);
+      tag = 'front'; bx(W + 0.12, 0.12, 0.14, 0, 0.5, frontZ + 0.05, chrome); tag = null; bx(W + 0.12, 0.12, 0.14, 0, 0.5, rearZ - 0.05, chrome);
       bx(0.14, 0.16, 0.2, W * 0.46, 0.5, frontZ + 0.02, chrome); bx(0.14, 0.16, 0.2, -W * 0.46, 0.5, frontZ + 0.02, chrome);
       both(s => { cy(0.22, 0.12, s * W * 0.3, lightY + 0.05, frontZ + 0.1, chrome, 'z', 12); cy(0.17, 0.14, s * W * 0.3, lightY + 0.05, frontZ + 0.13, headMat, 'z', 12); });
       bx(W * 0.4, 0.3, 0.06, 0, lightY - 0.1, frontZ + 0.1, chrome);                                // grille
@@ -519,15 +521,15 @@
 
     // ---------- v2.5 cars ----------
     const C = (k, col, emi, ei) => M('c25_' + k, () => new THREE.MeshLambertMaterial({ color: col, flatShading: true, emissive: emi || 0, emissiveIntensity: ei == null ? 1 : ei }));
-    const sp = (r, x, y, z, mat, sx, sy, sz) => { const m = new THREE.Mesh(new THREE.IcosahedronGeometry(r, 1), mat); m.position.set(x, y, z); if (sx) m.scale.set(sx, sy, sz); m.castShadow = !ghost; body.add(m); return m; };
-    const cone = (r, h, x, y, z, mat, rx, seg) => { const m = new THREE.Mesh(new THREE.ConeGeometry(r, h, seg || 8), mat); m.position.set(x, y, z); if (rx) m.rotation.x = rx; m.castShadow = !ghost; body.add(m); return m; };
+    const sp = (r, x, y, z, mat, sx, sy, sz) => { const m = new THREE.Mesh(new THREE.IcosahedronGeometry(r, 1), mat); m.position.set(x, y, z); if (sx) m.scale.set(sx, sy, sz); m.castShadow = !ghost; body.add(m); if (tag) T[tag].push(m); return m; };
+    const cone = (r, h, x, y, z, mat, rx, seg) => { const m = new THREE.Mesh(new THREE.ConeGeometry(r, h, seg || 8), mat); m.position.set(x, y, z); if (rx) m.rotation.x = rx; m.castShadow = !ghost; body.add(m); if (tag) T[tag].push(m); return m; };
     // flat shape standing along the car (pts are [z, y]), thickness across
-    const fin = (pts, th, x, mat) => { const sh = new THREE.Shape(); pts.forEach((p, i) => i ? sh.lineTo(-p[0], p[1]) : sh.moveTo(-p[0], p[1])); const g = new THREE.ExtrudeGeometry(sh, { depth: th, bevelEnabled: false }); g.translate(0, 0, -th / 2); const m = new THREE.Mesh(g, mat); m.rotation.y = Math.PI / 2; m.position.x = x; m.castShadow = !ghost; body.add(m); return m; };
+    const fin = (pts, th, x, mat) => { const sh = new THREE.Shape(); pts.forEach((p, i) => i ? sh.lineTo(-p[0], p[1]) : sh.moveTo(-p[0], p[1])); const g = new THREE.ExtrudeGeometry(sh, { depth: th, bevelEnabled: false }); g.translate(0, 0, -th / 2); const m = new THREE.Mesh(g, mat); m.rotation.y = Math.PI / 2; m.position.x = x; m.castShadow = !ghost; body.add(m); if (tag) T[tag].push(m); return m; };
     const paint = F.paintMat || chrome;
     if (f === 'frank') {
       const meat = C('sausage', 0xc0563a), mus = C('mustard', 0xf2c419);
-      cy(0.3, 4.4, 0, 1.82, -0.05, meat, 'z', 10); sp(0.3, 0, 1.82, 2.15, meat); sp(0.3, 0, 1.82, -2.25, meat);
-      for (let k = 0; k < 9; k++) bx(0.36, 0.06, 0.12, (k % 2 ? 0.1 : -0.1), 2.11, -1.8 + k * 0.45, mus, 0, 0, k % 2 ? 0.7 : -0.7);
+      tag = 'roof'; cy(0.3, 4.4, 0, 1.82, -0.05, meat, 'z', 10); sp(0.3, 0, 1.82, 2.15, meat); sp(0.3, 0, 1.82, -2.25, meat); tag = null;
+      tag = 'roof'; for (let k = 0; k < 9; k++) bx(0.36, 0.06, 0.12, (k % 2 ? 0.1 : -0.1), 2.11, -1.8 + k * 0.45, mus, 0, 0, k % 2 ? 0.7 : -0.7); tag = null;
       both(s => bx(0.06, 0.08, 3.6, s * (W / 2 + 0.01), 0.98, 0, C('seed', 0xf3e2b5)));
     } else if (f === 'tub') {
       const water = C('water', 0x7cc3f2, 0x2a6fa8, 0.35), white = C('foam', 0xffffff), duck = C('duck', 0xf7d038), beak = C('beak', 0xf28a1e), gold = M('gold25', () => new THREE.MeshStandardMaterial({ color: 0xd9a441, roughness: 0.3, metalness: 0.85, flatShading: true }));
@@ -540,13 +542,13 @@
       both(s => [1.85, -1.85].forEach(z => sp(0.13, s * (W / 2 - 0.1), 0.24, z, gold)));
     } else if (f === 'scoop') {
       const wafer = C('wafer', 0xd8a45c), pink = C('straw', 0xf2a0c4), mint = C('mint25', 0x9fe3c4), cherry = C('cherry', 0xd12f3a), ac = C('awnC', 0xf05a35), aw = C('awnW', 0xf7f3ea);
-      cone(0.42, 1.0, 0, roofY + 0.6, -0.6, wafer, Math.PI, 9); sp(0.46, 0, roofY + 1.2, -0.6, pink); sp(0.38, 0, roofY + 1.62, -0.6, mint); sp(0.11, 0, roofY + 2.02, -0.6, cherry);
+      tag = 'roof'; cone(0.42, 1.0, 0, roofY + 0.6, -0.6, wafer, Math.PI, 9); sp(0.46, 0, roofY + 1.2, -0.6, pink); sp(0.38, 0, roofY + 1.62, -0.6, mint); sp(0.11, 0, roofY + 2.02, -0.6, cherry); tag = null;
       bx(0.04, 0.7, 1.5, W * 0.48 + 0.02, 1.75, -0.7, dark);
       for (let k = 0; k < 6; k++) bx(0.5, 0.05, 0.25, W * 0.48 + 0.25, 2.2, -1.32 + k * 0.25, k % 2 ? aw : ac, 0, -0.35);
       cy(0.12, 0.1, 0, roofY + 0.07, 1.0, chrome, 'y', 8);
     } else if (f === 'hailer') {
       const sign = C('taxisign', 0xfff1b8, 0xffe08a, 0.6), ck = C('checkD', 0x14181f), cl = C('checkL', 0xf3ead7);
-      bx(0.95, 0.06, 0.4, 0, roofY + 0.04, -0.35, dark); bx(0.85, 0.26, 0.34, 0, roofY + 0.2, -0.35, sign);
+      tag = 'roof'; bx(0.95, 0.06, 0.4, 0, roofY + 0.04, -0.35, dark); bx(0.85, 0.26, 0.34, 0, roofY + 0.2, -0.35, sign); tag = null;
       both(s => { for (let k = 0; k < 18; k++) bx(0.03, 0.09, 0.2, s * (W / 2 + 0.01), 0.72 + (k % 2) * 0.09, -1.8 + k * 0.2, k % 2 ? cl : ck); });
     } else if (f === 'stretch') {
       bx(W + 0.1, 0.12, 0.14, 0, 0.48, frontZ + 0.05, chrome); bx(W + 0.1, 0.12, 0.14, 0, 0.48, rearZ - 0.05, chrome);
@@ -558,15 +560,15 @@
       const shock = C('shock', 0xf05a35), spring = C('spring', 0xf2d14e);
       both(s => bx(0.18, 0.18, 4.4, s * 0.55, 1.32, 0, dark));
       both(s => spec.wz.forEach(z => { bx(0.12, 0.9, 0.12, s * 0.85, 1.25, z, shock, 0, s * 0.35); cy(0.11, 0.45, s * 0.86, 1.3, z + 0.18, spring, 'y', 8); bx(1.1, 0.1, 0.1, s * 0.6, 0.85, z, dark); }));
-      for (let k = 0; k < 5; k++) cy(0.12, 0.12, (k - 2) * 0.36, roofY + 0.2, 0.3, headMat, 'z', 8);
-      bx(W * 0.85, 0.1, 0.14, 0, roofY + 0.1, 0.3, dark);
+      tag = 'roof'; for (let k = 0; k < 5; k++) cy(0.12, 0.12, (k - 2) * 0.36, roofY + 0.2, 0.3, headMat, 'z', 8); tag = null;
+      tag = 'roof'; bx(W * 0.85, 0.1, 0.14, 0, roofY + 0.1, 0.3, dark); tag = null;
       both(s => cy(0.07, 1.0, s * 0.75, roofY - 0.05, -1.65, chrome, 'y', 8));
       bx(W * 0.95, 0.14, 0.14, 0, 1.55, frontZ + 0.15, chrome); bx(W * 0.95, 0.14, 0.14, 0, 1.55, rearZ - 0.15, chrome);
     } else if (f === 'arrow') {
       const wing = dark;
-      bx(2.35, 0.05, 0.45, 0, 0.26, frontZ - 0.05, wing); both(s => bx(0.05, 0.2, 0.5, s * 1.18, 0.32, frontZ - 0.05, wing));
-      both(s => bx(0.06, 0.6, 0.12, s * 0.35, 0.95, rearZ + 0.2, wing)); bx(1.8, 0.07, 0.45, 0, 1.28, rearZ + 0.15, wing); bx(1.8, 0.05, 0.3, 0, 1.15, rearZ + 0.2, wing);
-      both(s => bx(0.05, 0.45, 0.6, s * 0.92, 1.12, rearZ + 0.15, wing));
+      tag = 'front'; bx(2.35, 0.05, 0.45, 0, 0.26, frontZ - 0.05, wing); both(s => bx(0.05, 0.2, 0.5, s * 1.18, 0.32, frontZ - 0.05, wing)); tag = null;
+      tag = 'wing'; both(s => bx(0.06, 0.6, 0.12, s * 0.35, 0.95, rearZ + 0.2, wing)); bx(1.8, 0.07, 0.45, 0, 1.28, rearZ + 0.15, wing); bx(1.8, 0.05, 0.3, 0, 1.15, rearZ + 0.2, wing); tag = null;
+      tag = 'wing'; both(s => bx(0.05, 0.45, 0.6, s * 0.92, 1.12, rearZ + 0.15, wing)); tag = null;
       bx(0.5, 0.42, 0.9, 0, 1.0, -0.9, paint); bx(0.36, 0.08, 0.4, 0, 1.24, -0.6, dark);
       both(s => { bx(0.45, 0.32, 1.6, s * 0.62, 0.48, -0.35, paint); bx(0.08, 0.2, 0.06, s * 0.62, 0.48, 0.47, dark); });
       both(s => spec.wz.forEach(z => { bx(0.7, 0.04, 0.06, s * 0.68, spec.wr + 0.05, z + 0.12, dark, 0, s * 0.08); bx(0.7, 0.04, 0.06, s * 0.68, spec.wr - 0.08, z - 0.12, dark, 0, -s * 0.08); }));
@@ -579,7 +581,7 @@
       both(s => { bx(0.5, 0.18, 0.42, s * W * 0.3, 0.78, frontZ - 0.75, paint, -0.25); bx(0.42, 0.12, 0.05, s * W * 0.3, 0.86, frontZ - 0.54, headMat, -0.25); });
       for (let k = 0; k < 6; k++) bx(W * 0.7, 0.04, 0.08, 0, deckY + 0.04 + k * 0.012, rearZ + 0.25 + k * 0.12, dark);
       both(s => { bx(0.06, 0.24, 0.7, s * (W / 2 + 0.01), 0.68, -0.9, dark); bx(0.06, 0.06, 3.4, s * (W / 2 + 0.01), 0.5, 0.1, coral); });
-      bx(W * 0.9, 0.08, 0.3, 0, 0.3, frontZ + 0.05, dark);
+      tag = 'front'; bx(W * 0.9, 0.08, 0.3, 0, 0.3, frontZ + 0.05, dark); tag = null;
     } else if (f === 'caddy') {
       const canopy = C('canopy', 0xf3ead7), bag = C('golfbag', 0xd8452f), turf = C('turf', 0x5faa5a);
       bx(W * 0.98, 0.08, 1.75, 0, 1.9, 0.05, canopy); bx(W * 1.02, 0.12, 0.08, 0, 1.86, 0.92, canopy); bx(W * 1.02, 0.12, 0.08, 0, 1.86, -0.82, canopy);
@@ -590,7 +592,7 @@
       const rd = C('lightR', 0xff3b30, 0xff2a1a, 0.9), wt = C('lightW', 0xffffff, 0xfff6e0, 0.8), reel = C('hose', 0xf2d14e);
       both(s => bx(0.06, 0.06, 3.7, s * 0.38, 2.25, -0.65, chrome)); for (let k = 0; k < 12; k++) bx(0.76, 0.04, 0.05, 0, 2.25, -2.45 + k * 0.32, chrome);
       both(s => bx(0.08, 0.15, 0.08, s * 0.38, 2.15, 1.0, dark)); both(s => bx(0.08, 0.15, 0.08, s * 0.38, 2.15, -2.3, dark));
-      for (let k = 0; k < 4; k++) bx(0.32, 0.14, 0.26, (k - 1.5) * 0.36, roofY + 0.1, 1.85, k % 2 ? wt : rd);
+      tag = 'roof'; for (let k = 0; k < 4; k++) bx(0.32, 0.14, 0.26, (k - 1.5) * 0.36, roofY + 0.1, 1.85, k % 2 ? wt : rd); tag = null;
       both(s => { for (let k = 0; k < 3; k++) { bx(0.03, 0.75, 0.03, s * (W / 2 + 0.01), 1.5, 0.7 - k * 1.15, dark); bx(0.03, 0.03, 1.05, s * (W / 2 + 0.01), 1.95, 0.15 - k * 1.15, dark); } });
       cy(0.42, 0.5, 0, 1.25, rearZ - 0.25, reel, 'x', 12); cy(0.18, 0.55, 0, 1.25, rearZ - 0.25, dark, 'x', 10);
       bx(W * 1.02, 0.16, 0.18, 0, 0.5, frontZ + 0.1, chrome);
@@ -600,20 +602,20 @@
       both(s => { bx(0.04, 0.45, 0.8, s * (W / 2 + 0.01), 1.85, -0.3, glassSolid); bx(0.04, 0.45, 0.6, s * (W / 2 + 0.01), 1.85, -1.6, glassSolid); });
       for (let k = 0; k < 9; k++) bx(0.6, 0.05, 0.4, W / 2 + 0.3, 2.45, -2.2 + k * 0.4, k % 2 ? aw : ac, 0, -0.3);
       bx(0.05, 1.3, 0.75, -(W / 2 + 0.01), 1.5, 0.6, dark);
-      bx(0.9, 0.3, 0.8, 0, 2.75, -0.9, C('acunit', 0xf3ead7));
+      tag = 'roof'; bx(0.9, 0.3, 0.8, 0, 2.75, -0.9, C('acunit', 0xf3ead7)); tag = null;
       both(s => bx(0.05, 1.8, 0.05, s * 0.3, 1.6, rearZ - 0.04, dark)); for (let k = 0; k < 6; k++) bx(0.6, 0.04, 0.04, 0, 0.9 + k * 0.3, rearZ - 0.04, dark);
       [-0.45, 0.45].forEach(x => { const t = new THREE.Mesh(new THREE.TorusGeometry(0.3, 0.05, 5, 12), tyre); t.position.set(x, 1.15, rearZ - 0.35); t.castShadow = !ghost; body.add(t); });
       bx(0.95, 0.05, 0.05, 0, 1.3, rearZ - 0.35, coral, 0, 0.3); bx(0.05, 0.5, 0.05, 0.1, 1.35, rearZ - 0.35, coral);
     } else if (f === 'dune') {
       const board = C('board', 0xf3ead7), stripe = C('boardS', 0x2f9a8a);
-      const sb = bx(0.55, 0.07, 2.7, 0, roofY + 0.1, -0.25, board); bx(0.12, 0.08, 2.5, 0, roofY + 0.12, -0.25, stripe);
+      tag = 'roof'; const sb = bx(0.55, 0.07, 2.7, 0, roofY + 0.1, -0.25, board); bx(0.12, 0.08, 2.5, 0, roofY + 0.12, -0.25, stripe); tag = null;
       bx(0.8, 0.45, 0.6, 0, 1.15, rearZ + 0.2, chrome); for (let k = 0; k < 3; k++) bx(0.85, 0.05, 0.62, 0, 1.4 + k * 0.08, rearZ + 0.2, dark);
       cy(0.06, 0.6, 0.3, 1.45, rearZ - 0.05, chrome, 'y', 8);
       both(s => cy(0.14, 0.12, s * 0.35, roofY + 0.0, 0.5, headMat, 'z', 8));
       wheelFlares(0.12, 0.05);
     } else if (f === 'toasty') {
       const bread = C('bread', 0xe9c48a), crust = C('crust2', 0xa86a32), knob = dark;
-      both(s => { bx(0.36, 0.03, 2.4, s * 0.42, 2.07, 0, dark); bx(0.24, 0.72, 2.0, s * 0.42, 2.36, 0, bread); bx(0.26, 0.1, 2.04, s * 0.42, 2.75, 0, crust); });
+      tag = 'roof'; both(s => { bx(0.36, 0.03, 2.4, s * 0.42, 2.07, 0, dark); bx(0.24, 0.72, 2.0, s * 0.42, 2.36, 0, bread); bx(0.26, 0.1, 2.04, s * 0.42, 2.75, 0, crust); }); tag = null;
       bx(0.04, 1.1, 0.16, W / 2 + 0.01, 1.35, -0.9, dark); bx(0.3, 0.14, 0.3, W / 2 + 0.15, 1.75, -0.9, knob);
       cy(0.14, 0.08, W / 2 + 0.03, 1.2, 0.6, chrome, 'x', 12); bx(0.02, 0.14, 0.03, W / 2 + 0.08, 1.24, 0.6, dark);
       both(s => bx(0.03, 0.03, 3.4, s * (W / 2 + 0.01), 0.9, 0, chrome));
@@ -621,7 +623,7 @@
     } else if (f === 'booster') {
       const glow = C('glow', 0xffb347, 0xff8a1e, 1.2), flame = M('flame25', () => new THREE.MeshBasicMaterial({ color: 0xffc66b, transparent: true, opacity: 0.55, depthWrite: false }));
       both(s => { cy(0.3, 1.1, s * 0.5, 0.82, rearZ + 0.25, chrome, 'z', 12); cy(0.24, 0.05, s * 0.5, 0.82, rearZ - 0.31, glow, 'z', 12); cone(0.22, 0.9, s * 0.5, 0.82, rearZ - 0.8, flame, -Math.PI / 2, 10); });
-      fin([[-1.7, 1.0], [-2.3, 0.95], [-2.45, 1.75], [-2.15, 1.75]], 0.08, 0, paint);
+      tag = 'wing'; fin([[-1.7, 1.0], [-2.3, 0.95], [-2.45, 1.75], [-2.15, 1.75]], 0.08, 0, paint); tag = null;
       both(s => fin([[-0.9, 0.55], [-2.0, 0.55], [-2.2, 0.35], [-1.3, 0.35]], 0.06, s * (W / 2 + 0.05), dark));
       cone(0.22, 0.5, 0, 0.42, frontZ + 0.2, chrome, Math.PI / 2, 8);
     } else if (f === 'chomp') {
@@ -647,30 +649,30 @@
       both(s => spec.wz.forEach(z => bx(0.03, spec.wr * 1.4, spec.wr * 1.4, s * (W / 2 - 0.05) * spec.wx / 0.9 + s * 0.16, spec.wr, z, C('aero', 0x9aa4b2))));
     } else if (f === 'slice') {
       const dough = C('dough', 0xf2c96b), crust = C('crust3', 0xb8742f), pep = C('pep', 0xc8243a), box = C('pbox', 0xd8c08f);
-      fin([[0.75, 0], [-0.75, 0], [0, 1.15]], 0.07, 0, dough).position.y = roofY + 0.12;
-      bx(0.1, 0.18, 1.55, 0, roofY + 0.12, 0, crust);
-      both(s => [[0, 0.55], [0.28, 0.32], [-0.25, 0.3], [0.05, 0.85]].forEach(([z, y]) => cy(0.09, 0.02, s * 0.045, roofY + 0.12 + y, z, pep, 'x', 8)));
+      tag = 'roof'; fin([[0.75, 0], [-0.75, 0], [0, 1.15]], 0.07, 0, dough).position.y = roofY + 0.12; tag = null;
+      tag = 'roof'; bx(0.1, 0.18, 1.55, 0, roofY + 0.12, 0, crust); tag = null;
+      tag = 'roof'; both(s => [[0, 0.55], [0.28, 0.32], [-0.25, 0.3], [0.05, 0.85]].forEach(([z, y]) => cy(0.09, 0.02, s * 0.045, roofY + 0.12 + y, z, pep, 'x', 8))); tag = null;
       bx(0.06, 0.12, 0.06, 0, roofY + 0.06, 0, dark);
       for (let k = 0; k < 3; k++) bx(0.7, 0.07, 0.7, 0, 1.06 + k * 0.08, -1.45, box);
     } else if (f === 'nocturne') {
       const carbon = C('carbon', 0x15181e), led = C('led', 0xffffff, 0xfff6e0, 1.1), ledR = C('ledR', 0xff3b30, 0xff2a1a, 1.0);
-      fin([[-0.5, 1.2], [-2.55, 0.88], [-2.6, 1.7], [-2.1, 1.72]], 0.05, 0, paint);                                    // shark fin running into the wing
-      bx(0.36, 0.2, 0.75, 0, roofY + 0.09, -0.45, carbon); bx(0.3, 0.1, 0.04, 0, roofY + 0.08, -0.08, dark);           // roof scoop
+      tag = 'wing'; fin([[-0.5, 1.2], [-2.55, 0.88], [-2.6, 1.7], [-2.1, 1.72]], 0.05, 0, paint); tag = null;                                    // shark fin running into the wing
+      tag = 'roof'; bx(0.36, 0.2, 0.75, 0, roofY + 0.09, -0.45, carbon); bx(0.3, 0.1, 0.04, 0, roofY + 0.08, -0.08, dark); tag = null;           // roof scoop
       both(s2 => spec.wz.forEach(z => { for (let k = 0; k < 4; k++) bx(0.42, 0.03, 0.06, s2 * (W / 2 - 0.3), 1.0, z - 0.25 + k * 0.15, dark); }));  // fender louvres
-      both(s2 => { bx(0.3, 0.04, 0.24, s2 * (W / 2 - 0.05), 0.42, frontZ - 0.3, carbon, 0, s2 * 0.25); bx(0.26, 0.04, 0.2, s2 * (W / 2 - 0.05), 0.52, frontZ - 0.45, carbon, 0, s2 * 0.25); });  // canards
-      bx(W * 1.02, 0.05, 0.7, 0, 0.21, frontZ - 0.2, carbon); bx(W * 0.6, 0.12, 0.05, 0, 0.3, frontZ + 0.05, carbon);   // splitter
+      tag = 'front'; both(s2 => { bx(0.3, 0.04, 0.24, s2 * (W / 2 - 0.05), 0.42, frontZ - 0.3, carbon, 0, s2 * 0.25); bx(0.26, 0.04, 0.2, s2 * (W / 2 - 0.05), 0.52, frontZ - 0.45, carbon, 0, s2 * 0.25); }); tag = null;  // canards
+      tag = 'front'; bx(W * 1.02, 0.05, 0.7, 0, 0.21, frontZ - 0.2, carbon); bx(W * 0.6, 0.12, 0.05, 0, 0.3, frontZ + 0.05, carbon); tag = null;   // splitter
       both(s2 => { bx(0.06, 0.32, 1.2, s2 * (W / 2 + 0.01), 0.5, -0.25, carbon); bx(0.04, 0.22, 0.4, s2 * (W / 2 + 0.03), 0.52, 0.25, dark); });   // sidepod blades + intakes
       both(s2 => { bx(0.05, 0.05, 0.38, s2 * 0.5, 0.98, 0.95, dark, 0, 0, s2 * 0.5); bx(0.24, 0.12, 0.08, s2 * 0.68, 1.0, 0.82, paint); });       // mirrors on stalks
-      both(s2 => bx(0.06, 0.62, 0.14, s2 * 0.3, 1.22, rearZ + 0.45, carbon, -0.4));                                    // swan-neck mounts
-      bx(W * 1.04, 0.07, 0.55, 0, 1.6, rearZ + 0.28, carbon); bx(W * 1.04, 0.05, 0.3, 0, 1.48, rearZ + 0.36, carbon, -0.25);   // two-element wing
-      both(s2 => bx(0.05, 0.6, 0.85, s2 * W * 0.52, 1.38, rearZ + 0.32, paint));                                        // endplates
+      tag = 'wing'; both(s2 => bx(0.06, 0.62, 0.14, s2 * 0.3, 1.22, rearZ + 0.45, carbon, -0.4)); tag = null;                                    // swan-neck mounts
+      tag = 'wing'; bx(W * 1.04, 0.07, 0.55, 0, 1.6, rearZ + 0.28, carbon); bx(W * 1.04, 0.05, 0.3, 0, 1.48, rearZ + 0.36, carbon, -0.25); tag = null;   // two-element wing
+      tag = 'wing'; both(s2 => bx(0.05, 0.6, 0.85, s2 * W * 0.52, 1.38, rearZ + 0.32, paint)); tag = null;                                        // endplates
       bx(W * 0.9, 0.06, 0.6, 0, 0.26, rearZ + 0.25, carbon, 0.3); for (let k = 0; k < 5; k++) bx(0.04, 0.2, 0.55, (k - 2) * 0.35, 0.3, rearZ + 0.25, carbon, 0.3);  // diffuser + strakes
       both(s2 => { for (let k = 0; k < 3; k++) bx(0.3, 0.035, 0.05, s2 * W * 0.34, lightY + 0.05 - k * 0.06, frontZ - 0.02 + 0.14, led); });   // LED strips
       bx(W * 0.86, 0.04, 0.05, 0, 0.8, rearZ - 0.05, ledR);                                                               // light bar
       cy(0.012, 0.35, 0.1, roofY + 0.2, -0.95, dark, 'y', 4);
     } else if (f === 'dodgem') {
       const rub = C('rubber', 0x1b1e24), spark = C('spark', 0xfff2a8, 0xffe066, 1.4), bulb = C('bulb', 0xfff1cc, 0xffd27a, 0.9);
-      bx(W + 0.3, 0.3, 0.25, 0, 0.45, frontZ + 0.12, rub); bx(W + 0.3, 0.3, 0.25, 0, 0.45, rearZ - 0.12, rub);
+      tag = 'front'; bx(W + 0.3, 0.3, 0.25, 0, 0.45, frontZ + 0.12, rub); tag = null; bx(W + 0.3, 0.3, 0.25, 0, 0.45, rearZ - 0.12, rub);
       both(s => bx(0.25, 0.3, 3.5, s * (W / 2 + 0.12), 0.45, 0, rub));
       cy(0.04, 2.6, 0, 2.3, rearZ + 0.1, chrome, 'y', 6); bx(0.3, 0.06, 0.1, 0, 3.6, rearZ + 0.1, dark); sp(0.1, 0, 3.68, rearZ + 0.1, spark);
       const wh = new THREE.Mesh(new THREE.TorusGeometry(0.2, 0.04, 5, 10), dark); wh.position.set(0, 1.25, 0.1); wh.rotation.x = -0.9; body.add(wh); cy(0.03, 0.4, 0, 1.08, 0.2, dark, 'z', 5);
@@ -769,10 +771,25 @@
     const tintDef = DL.TINTS[equip.tint];
     const glassUse = tintDef && opts.ghost ? sharedMat('gtint_' + equip.tint, () => new THREE.MeshBasicMaterial({ color: tintDef[0], transparent: true, opacity: 0.5, depthWrite: false })) : tintDef ? sharedMat('tint_' + equip.tint, () => new THREE.MeshStandardMaterial({ color: tintDef[0], roughness: 0.08, metalness: 0.45, flatShading: true, transparent: true, opacity: tintDef[1], depthWrite: false })) : glassMat;
     const glass = new THREE.Mesh(split.glass, glassUse); glass.castShadow = false; glass.renderOrder = 3; body.add(glass);
-    let modelHead = null, modelTail = null;
+    let modelHead = null, modelTail = null, modelPaint = null; const modelSlots = {};
     if (MD) {
       const gm = (k, mat, shadow) => { const m = new THREE.Mesh(MD(k), mat); m.castShadow = shadow && !opts.ghost; body.add(m); return m; };
-      gm('dark', opts.ghost ? glassSolid : sharedMat('gtDark', () => new THREE.MeshLambertMaterial({ vertexColors: true, flatShading: true })), true);
+      const darkMat = opts.ghost ? glassSolid : sharedMat('gtDark', () => new THREE.MeshLambertMaterial({ vertexColors: true, flatShading: true }));
+      // split a model part into groups by slot (wing / roof / front) so fitted accessories can replace them
+      const slotted = (key, mat, rules) => {
+        const g = MD(key), n = g.attributes.position.count / 3, a = g.attributes.position.array, buckets = {};
+        for (let t = 0; t < n; t++) {
+          const cy = (a[t * 9 + 1] + a[t * 9 + 4] + a[t * 9 + 7]) / 3, cz = (a[t * 9 + 2] + a[t * 9 + 5] + a[t * 9 + 8]) / 3;
+          const r = rules.find(q => q[1](cy, cz)); (buckets[r ? r[0] : ''] || (buckets[r ? r[0] : ''] = [])).push(t);
+        }
+        return Object.keys(buckets).map(k => {
+          const out = new THREE.BufferGeometry();
+          for (const name of ['position', 'color', 'normal']) { const src = g.attributes[name]; if (!src) continue; const arr = new Float32Array(buckets[k].length * 9); buckets[k].forEach((t, i) => arr.set(src.array.subarray(t * 9, t * 9 + 9), i * 9)); out.setAttribute(name, new THREE.BufferAttribute(arr, 3)); }
+          const m = new THREE.Mesh(out, mat); m.castShadow = !opts.ghost; body.add(m); if (k) (modelSlots[k] || (modelSlots[k] = [])).push(m);
+        });
+      };
+      slotted('dark', darkMat, [['wing', (y, z) => y > 0.83 && z < -2.1], ['roof', (y, z) => y > 1.38], ['front', (y, z) => z > 2.05 && y < 0.4]]);
+      modelPaint = (mat) => slotted('paint', mat, [['wing', (y, z) => z < 0]]);
       modelHead = true; modelTail = true;
     }
     const extraMat = opts.ghost ? glassMat : sharedMat('trim', () => new THREE.MeshLambertMaterial({ color: 0x1f2a3d, flatShading: true }));
@@ -814,7 +831,7 @@
     const glowTex = sharedMat('glowTex', () => { const c = document.createElement('canvas'); c.width = c.height = 64; const g = c.getContext('2d'), gr = g.createRadialGradient(32, 32, 2, 32, 32, 32); gr.addColorStop(0, 'rgba(255,255,255,1)'); gr.addColorStop(0.45, 'rgba(255,255,255,0.55)'); gr.addColorStop(1, 'rgba(255,255,255,0)'); g.fillStyle = gr; g.fillRect(0, 0, 64, 64); return new THREE.CanvasTexture(c); });
     const brakeGlow = [], brakeGlowMat = new THREE.MeshBasicMaterial({ map: glowTex, color: tc || 0xff2a1a, transparent: true, opacity: 0.9, blending: THREE.AdditiveBlending, depthWrite: false, fog: false });
     if (MD) {
-      const pm = new THREE.Mesh(MD('paint'), paintMat); pm.castShadow = !opts.ghost; body.add(pm);
+      modelPaint(paintMat);
       body.add(new THREE.Mesh(MD('head'), headMat)); body.add(new THREE.Mesh(MD('tail'), tailMat));
     }
     [-1, 1].forEach(s => {
@@ -835,6 +852,7 @@
       if (spec.feat === 'vintage' && z > rearZ + 0.1 && z < rearZ + 0.6) top = Math.max(top, deckY + 0.58);        // tail-light bars
       if (spec.feat === 'ridge' && z > -2.12 && z < -1.88) top = Math.max(top, 2.28);                           // roll bar
       if (spec.feat === 'ridge' && z > -2.06 && z < -1.04) top = Math.max(top, 2.3);                            // spare wheel
+      if (spec.feat === 'bubble' && z > -0.9 && z < 0.8) top = Math.max(top, 1.75);                                // glass dome
       if (spec.feat === 'bubble' && z > rearZ + 0.02 && z < rearZ + 0.58) top = Math.max(top, 1.17);            // engine hump
       return top;
     };
@@ -843,6 +861,8 @@
     // accessories (a colour variant paints the part instead of using the body colour)
     const partMat = c => opts.ghost ? glassMat : c && DL.ITEM_COLORS[c] ? sharedMat('pc_' + c, () => new THREE.MeshStandardMaterial({ color: DL.ITEM_COLORS[c][1], flatShading: true, roughness: DL.isMetalColor(c) ? 0.28 : 0.5, metalness: DL.isMetalColor(c) ? 0.75 : 0.05 })) : paintMat;
     const spMat = partMat(spC);
+    // where the hull outline sits at a given height (ends are sloped on most cars): front edge z, so add-ons sit on the nose instead of floating or sinking in
+    const frontEdge = y => { let best = -1e9; const L = spec.lower; for (let k = 0; k < L.length; k++) { const a = L[k], b = L[(k + 1) % L.length]; if ((a[1] - y) * (b[1] - y) <= 0 && a[1] !== b[1]) best = Math.max(best, a[0] + (b[0] - a[0]) * (y - a[1]) / (b[1] - a[1])); } return best < -1e8 ? frontZ : best; };
     const topRear = spec.cabin.reduce((a, p) => p[0] < a[0] ? p : a, [9, 0]);
     const roofY = Math.max(...spec.cabin.map(p => p[1]));
     const deckY = spec.lower.reduce((m, p) => p[0] < rearZ + 0.6 ? Math.max(m, p[1]) : m, 0);
@@ -862,20 +882,21 @@
     } else if (spB === 'rack') {
       // flat part of the roof: where the cabin is within a few cm of its highest point
       let z0 = 1e9, z1 = -1e9; for (let z = -3; z <= 3; z += 0.05) if (hullTopCabin(z) >= roofY - 0.06) { z0 = Math.min(z0, z); z1 = Math.max(z1, z); }
-      const span = Math.max(0.6, z1 - z0 - 0.3), len = Math.min(1.5, span), zc = (z0 + z1) / 2;
-      [-1, 1].forEach(sd => { const r = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.1, len), extraMat); r.position.set(sd * spec.W * spec.cw * 0.4, roofY + 0.08, zc); r.castShadow = !opts.ghost; body.add(r); });
+      const span = Math.max(0.6, z1 - z0 - 0.3), len = Math.min(1.5, span), zc = (z0 + z1) / 2, rY = Math.max(roofY, hullTop(zc));
+      [-1, 1].forEach(sd => { const r = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.1, len), extraMat); r.position.set(sd * spec.W * spec.cw * 0.4, rY + 0.08, zc); r.castShadow = !opts.ghost; body.add(r); });
       const box = new THREE.Mesh(new THREE.BoxGeometry(spec.W * spec.cw * 0.66, 0.3, len * 0.8), spC ? spMat : sharedMat('cargo', () => new THREE.MeshLambertMaterial({ color: 0xc9ad7f, flatShading: true })));
-      box.position.set(0, roofY + 0.28, zc); box.castShadow = !opts.ghost; body.add(box);
+      box.position.set(0, rY + 0.28, zc); box.castShadow = !opts.ghost; body.add(box);
     }
     if (buB === 'bullbar') {
-      const bm = buC ? partMat(buC) : extraMat;
-      [-1, 1].forEach(s => { const p = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.6, 0.1), bm); p.position.set(s * spec.W * 0.3, spec.lower[0][1] + 0.35, frontZ + 0.3); body.add(p); });
-      const t = new THREE.Mesh(new THREE.BoxGeometry(spec.W * 0.8, 0.1, 0.1), bm); t.position.set(0, spec.lower[0][1] + 0.65, frontZ + 0.3); body.add(t);
-      const b = t.clone(); b.position.y -= 0.35; body.add(b);
+      const bm = buC ? partMat(buC) : extraMat, y0 = Math.max(0.28, lightY - 0.26), y1 = lightY + 0.32, zb = frontEdge(y0 + 0.1) + 0.2, hx = Math.min(spec.W * 0.3, spec.W / 2 - 0.12);
+      [-1, 1].forEach(s => { const p = new THREE.Mesh(new THREE.BoxGeometry(0.1, y1 - y0, 0.1), bm); p.position.set(s * hx, (y0 + y1) / 2, zb); body.add(p); const arm = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.08, 0.2 + 0.0), bm); arm.position.set(s * hx, y0 + 0.1, zb - 0.1); body.add(arm); });
+      for (const yy of [y1, (y0 + y1) / 2]) { const t = new THREE.Mesh(new THREE.BoxGeometry(hx * 2 + 0.1, 0.1, 0.1), bm); t.position.set(0, yy, zb); body.add(t); }
+      const t2 = new THREE.Mesh(new THREE.BoxGeometry(hx * 2 + 0.1, 0.1, 0.1), bm); t2.position.set(0, y0 + 0.06, zb); body.add(t2);
     } else if (buB === 'pods') {
+      const pr = Math.min(0.13, spec.W * 0.075), pyy = lightY + 0.08, pzz = frontEdge(pyy) + 0.03;
       for (let k = 0; k < 4; k++) {
-        const p = new THREE.Mesh(new THREE.CylinderGeometry(0.13, 0.13, 0.12, 8), buC && !opts.ghost ? sharedMat('pod_' + buC, () => new THREE.MeshStandardMaterial({ color: DL.ITEM_COLORS[buC][1], emissive: DL.ITEM_COLORS[buC][1], emissiveIntensity: 0.7 })) : headMat);
-        p.rotation.x = Math.PI / 2; p.position.set((k - 1.5) * spec.W * 0.2, lightY + 0.06, frontZ + 0.2); body.add(p);
+        const p = new THREE.Mesh(new THREE.CylinderGeometry(pr, pr, 0.12, 8), buC && !opts.ghost ? sharedMat('pod_' + buC, () => new THREE.MeshStandardMaterial({ color: DL.ITEM_COLORS[buC][1], emissive: DL.ITEM_COLORS[buC][1], emissiveIntensity: 0.7 })) : headMat);
+        p.rotation.x = Math.PI / 2; p.position.set((k - 1.5) * spec.W * 0.2, pyy, pzz); body.add(p);
       }
     }
 
@@ -889,7 +910,14 @@
       if (fz > -1e8) { const front = new THREE.Mesh(new THREE.PlaneGeometry(pw, ph), pm); front.position.set(0, py, fz + 0.06); body.add(front); }
     }
 
-    addFeatures({ body, spec, bodyMat, extraMat, headMat, tailMat, glassMat, glassSolid, frontZ, rearZ, roofY, lightY, deckY, paintMat, ghost: !!opts.ghost });
+    const featArgs = { body, spec, bodyMat, extraMat, headMat, tailMat, glassMat, glassSolid, frontZ, rearZ, roofY, lightY, deckY, paintMat, ghost: !!opts.ghost };
+    addFeatures(featArgs);
+    // a fitted accessory replaces whatever the car already has in that slot (built-in wings, roof gear, front bumper gear)
+    const replaced = [];
+    if (spB !== 'none' && spB !== 'rack') replaced.push('wing');
+    if (spB === 'rack') replaced.push('roof');
+    if (buB !== 'std') replaced.push('front');
+    for (const k of replaced) for (const m of (featArgs.tags[k] || []).concat(modelSlots[k] || [])) m.visible = false;
 
     // wheels
     const wheels = [];
