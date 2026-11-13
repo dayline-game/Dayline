@@ -1419,6 +1419,10 @@
         <div id="orRow">${sel('sOr', 'Screen direction in full screen', '<option value="any">Follow the phone</option><option value="landscape">Always sideways</option>')}</div>
         <p class="hint" id="iosHint" hidden>On iPhone, full screen works from the home screen: tap Share, then Add to Home Screen.</p>
       </div>
+      <div class="set-sec"><div class="set-h">Redeem a code</div>
+        <div class="soc-row"><input id="codeIn" type="text" placeholder="Enter a code" maxlength="24" autocomplete="off" autocapitalize="characters" spellcheck="false" style="flex:1;min-width:140px;text-transform:uppercase"><button class="btn btn-navy" id="codeGo" type="button">Redeem</button></div>
+        <p class="hint" id="codeMsg">Codes appear in our videos and posts. Each one works once per account.</p>
+      </div>
       <div id="acctBox"></div>
       <div class="field" id="invBox"></div>
       <p class="hint">${esc(Net.status)}. Gamepads work too: right trigger accelerates, left trigger brakes, X or RB handbrake, Y recovers.</p>
@@ -1426,6 +1430,12 @@
     m.classList.add('settings');
     m.querySelectorAll('output[data-for]').forEach(o => { const inp = m.querySelector('#' + o.dataset.for), f = () => { o.textContent = o.dataset.fmt === 'pct' ? Math.round(inp.value * 100) + '%' : (+inp.value).toFixed(2).replace(/0$/, '') + '×'; }; f(); inp.addEventListener('input', f); });
     m.querySelectorAll('.chk.sw').forEach(b => new MutationObserver(() => b.setAttribute('aria-checked', b.classList.contains('on'))).observe(b, { attributes: true, attributeFilter: ['class'] }));
+    { const ci = m.querySelector('#codeIn'), cg = m.querySelector('#codeGo'), cm = m.querySelector('#codeMsg');
+      const go = async () => { cg.disabled = true; let r; try { r = await DL.redeemCode(ci.value); } catch (e) { r = { ok: false, msg: 'Something went wrong, try again' }; }
+        cg.disabled = false; cm.style.color = r.ok ? '#3f8d4e' : '#d12f3a';
+        cm.innerHTML = r.ok ? '<b>' + esc(r.msg) + '!</b> You got ' + r.gained.map(esc).join(', ') : esc(r.msg);
+        if (r.ok) { ci.value = ''; toast('<b>Code redeemed</b> ' + r.gained.map(esc).join(', ')); } };
+      cg.onclick = go; ci.onkeydown = e => { if (e.key === 'Enter') go(); }; }
     renderAccount(m.querySelector('#acctBox'));
     if (Net.mode === 'online' && Net.uid) {
       const ib = m.querySelector('#invBox'); ib.innerHTML = `<span class="lbl">Invite friends</span><p class="hint">You both get coins: ${REF_WELCOME} for them, ${REF_BONUS} for you once they set a time.</p><button class="btn btn-line btn-sm" id="invCopy">Copy invite link</button> <span class="hint" id="invStat"></span>`;
