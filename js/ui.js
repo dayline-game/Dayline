@@ -28,6 +28,7 @@
     Game.setMode(name === 'hud' ? 'race' : name);
     if (name !== 'replay') $('hGap').hidden = true;
     DL.Audio.click();
+    { const cb = $('cornerBar'); if (cb) cb.hidden = name !== 'menu'; }
     if (name === 'menu') renderMenu();
     if (name === 'garage') renderGarage();
     if (name === 'shop') renderShop();
@@ -875,6 +876,13 @@
       ab.querySelector('button').onclick = e => { e.target.disabled = true; DL.Ads.watch().then(got => { if (got) renderCoins(); renderShop(); }); };
       body.appendChild(ab);
     }
+    { const cb = h('<div class="is-code"><span class="coin"></span><div><b>Have a code?</b><br><small id="icMsg">Codes are hidden in our videos and posts</small></div><input id="icIn" type="text" placeholder="CODE" maxlength="24" autocomplete="off" autocapitalize="characters" spellcheck="false"><button class="btn btn-navy" id="icGo" type="button">Redeem</button></div>');
+      const ci = cb.querySelector('#icIn'), cg = cb.querySelector('#icGo'), cm = cb.querySelector('#icMsg');
+      const go = async () => { cg.disabled = true; let r; try { r = await DL.redeemCode(ci.value); } catch (e) { r = { ok: false, msg: 'Something went wrong, try again' }; }
+        cg.disabled = false; cm.style.color = r.ok ? '#3f8d4e' : '#d12f3a'; cm.textContent = r.ok ? 'You got ' + r.gained.join(', ') : r.msg;
+        if (r.ok) { ci.value = ''; toast('<b>Code redeemed</b> ' + r.gained.map(esc).join(', ')); renderCoins(); setTimeout(() => { if (screen === 'shop' && !shop.item) { renderShop(); const m2 = $('icMsg'); if (m2) { m2.style.color = '#3f8d4e'; m2.textContent = 'You got ' + r.gained.join(', '); } } }, 50); } };
+      cg.onclick = go; ci.onkeydown = e => { if (e.key === 'Enter') go(); };
+      body.appendChild(cb); }
     const f = h('<section class="is-sec"><h3>Featured <small>Today only</small></h3><div class="is-feat"></div></section>');
     rot.feat.forEach(it => f.lastElementChild.appendChild(shopTile(it, true)));
     body.appendChild(f);
@@ -1368,6 +1376,7 @@
     m.querySelector('#pnX').onclick = closeModal;
   }
   $('bPatch').onclick = openPatchNotes; patchPip();
+  { const vn = $('cbVn'); if (vn) vn.textContent = DL.PATCH_VER; const vb = $('cbVer'); if (vb) vb.onclick = openPatchNotes; }
 
   // ---------------- confetti ----------------
   UI.confetti = function () {

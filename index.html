@@ -798,6 +798,8 @@ body.cine #vig{opacity:1}
 .devb svg{width:11px;height:11px}
 .who .soc{display:inline-flex;flex:none;width:20px;height:20px;margin-left:5px;border-radius:5px;cursor:pointer;opacity:.92;transition:transform .12s,opacity .12s}
 .who .soc:hover,.who .soc:focus-visible{transform:scale(1.18);opacity:1;outline:none}.who .soc svg{width:100%;height:100%}
+.is-code{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin:0 0 14px;padding:12px 14px;border-radius:14px;background:var(--cream,#f3ead7);border:2px solid var(--navy,#1c2536);color:var(--navy,#1c2536)}.is-code>div{flex:1;min-width:150px}.is-code input{width:130px;min-width:0;text-transform:uppercase;padding:9px 10px;border-radius:10px;border:2px solid var(--navy,#1c2536);font:700 15px inherit;background:#fff}.is-code small{opacity:.75}
+.corner-bar{position:fixed;left:14px;bottom:calc(12px + env(safe-area-inset-bottom,0px));z-index:30;display:flex;align-items:center;gap:8px}.corner-bar[hidden]{display:none}.cb-ig,.cb-ver{display:inline-flex;align-items:center;gap:7px;padding:7px 11px;border-radius:999px;background:rgba(28,37,54,.82);color:#f3ead7;border:1.5px solid rgba(243,234,215,.35);font:700 13px/1 inherit;text-decoration:none;cursor:pointer;backdrop-filter:blur(6px)}.cb-ig svg{width:17px;height:17px}.cb-ig:hover,.cb-ver:hover{background:rgba(28,37,54,.95);border-color:#f3ead7}@media(max-width:640px){.cb-ig span{display:none}.cb-ig{padding:8px}}
 .soc-row{display:flex;gap:8px;flex-wrap:wrap;margin:2px 0 8px}
 .soc-btn{display:inline-flex;align-items:center;gap:9px;padding:8px 13px 8px 10px;border-radius:12px;background:var(--cream,#f3ead7);border:2px solid var(--navy,#1c2536);color:var(--navy,#1c2536);text-decoration:none;font-weight:700}
 .soc-btn:hover{transform:translateY(-1px)}.soc-btn svg{width:24px;height:24px;flex:none}.soc-btn span{display:flex;flex-direction:column;line-height:1.1}.soc-btn small{font-weight:500;opacity:.7;font-size:12px;max-width:150px;overflow:hidden;text-overflow:ellipsis}
@@ -845,6 +847,7 @@ body.cine #vig{opacity:1}
 </div>
 
 <!-- MAIN MENU -->
+<div id="cornerBar" class="corner-bar" hidden><a class="cb-ig" id="cbIg" href="https://www.instagram.com/dayline.game/" target="_blank" rel="noopener noreferrer" aria-label="Dayline on Instagram" title="@dayline.game on Instagram"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.4" cy="6.6" r="1" fill="currentColor" stroke="none"/></svg><span>@dayline.game</span></a><button class="cb-ver" id="cbVer" type="button" title="What's new">v<span id="cbVn"></span></button></div>
 <section id="menu" class="screen lobby" hidden>
   <div class="lb-left">
     <div class="lb-card" id="lbToday">
@@ -1037,22 +1040,22 @@ body.cine #vig{opacity:1}
 <script src="https://cdn.jsdelivr.net/npm/three@0.158.0/build/three.min.js"></script>
 <script src="config.js?v=20261110dr"></script>
 <div id="vig"></div>
-<script src="js/core.js?v=20261113c1"></script>
+<script src="js/core.js?v=20261113c3"></script>
 <script src="js/models_data.js?v=20261111dr3"></script>
-<script src="js/models_tyres.js?v=20261113c1"></script>
-<script src="js/models_gt3.js?v=20261113c1"></script>
-<script src="js/models.js?v=20261113c1"></script>
+<script src="js/models_tyres.js?v=20261113c3"></script>
+<script src="js/models_gt3.js?v=20261113c3"></script>
+<script src="js/models.js?v=20261113c3"></script>
 <script src="js/track.js?v=20261111dr3"></script>
 <script src="js/physics.js?v=20261110dr"></script>
-<script src="js/vehicles.js?v=20261113c1"></script>
-<script src="js/decals.js?v=20261113c1"></script>
-<script src="js/items.js?v=20261113c1"></script>
-<script src="js/codes.js?v=20261113c1"></script>
-<script src="js/net.js?v=20261113c1"></script>
-<script src="js/thumbs.js?v=20261113c1"></script>
+<script src="js/vehicles.js?v=20261113c3"></script>
+<script src="js/decals.js?v=20261113c3"></script>
+<script src="js/items.js?v=20261113c3"></script>
+<script src="js/codes.js?v=20261113c3"></script>
+<script src="js/net.js?v=20261113c3"></script>
+<script src="js/thumbs.js?v=20261113c3"></script>
 <script src="js/auth.js?v=20261110dr"></script>
-<script src="js/game.js?v=20261113c1"></script>
-<script src="js/ui.js?v=20261113c1"></script>
+<script src="js/game.js?v=20261113c3"></script>
+<script src="js/ui.js?v=20261113c3"></script>
 <script src="js/community.js?v=20261110dr"></script>
 <script src="js/rooms.js?v=20261110dr"></script>
 <script src="js/share.js?v=20261110dr"></script>
