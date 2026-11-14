@@ -829,7 +829,7 @@
     const pads = navigator.getGamepads ? navigator.getGamepads() : [];
     const p = pads && Array.from(pads).find(x => x && x.connected);
     if (p) {
-      const ax = p.axes[0] || 0; if (Math.abs(ax) > 0.12) target = ax;
+      const ax = p.axes[0] || 0, dz = 0.22; if (Math.abs(ax) > dz) target = Math.sign(ax) * (Math.abs(ax) - dz) / (1 - dz); // wider deadzone so a drifting stick doesn't steer on its own
       const rt = p.buttons[7] ? p.buttons[7].value : 0, lt = p.buttons[6] ? p.buttons[6].value : 0;
       thr = Math.max(thr, rt, p.buttons[0] && p.buttons[0].pressed ? 1 : 0); brk = Math.max(brk, lt);
       hb = hb || !!(p.buttons[2] && p.buttons[2].pressed) || !!(p.buttons[5] && p.buttons[5].pressed);
