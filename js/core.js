@@ -48,8 +48,21 @@ window.DL = window.DL || {};
 
   // ---------- dates: every player shares one day, which rolls over at 12am Gulf time (Dubai, UTC+4) ----------
   DL.RESET_OFFSET_H = 4;
+  // The device clock can't be trusted (changing the date or time zone to open tomorrow's track early). The game keeps its own clock:
+  // device time corrected by how far it is from the server's, measured from the Date header of a same-origin request (headers are readable there).
+  DL.clockSkew = 0; try { DL.clockSkew = +sessionStorage.getItem('dayline:skew') || 0; } catch (e) { }   // remembered for this session so a reload starts on the right day
+  DL.now = () => Date.now() + DL.clockSkew;
+  DL.syncClock = async function () {
+    try {
+      const t0 = Date.now(), r = await fetch(location.pathname + '?clock=' + t0, { method: 'HEAD', cache: 'no-store' });
+      const h = r.headers.get('date'), t1 = Date.now(); if (!h) return false;
+      const srv = Date.parse(h); if (!isFinite(srv)) return false;
+      DL.clockSkew = srv + 500 - (t0 + t1) / 2; try { sessionStorage.setItem('dayline:skew', String(Math.round(DL.clockSkew))); } catch (e) { }          // the Date header only has whole-second precision, so aim for the middle of that second
+      return true;
+    } catch (e) { return false; }
+  };
   DL.dayKey = function (d) {
-    d = d || new Date(Date.now() + DL.RESET_OFFSET_H * 3600000);   // no argument = "today" for the game; a Date = plain UTC calendar date
+    d = d || new Date(DL.now() + DL.RESET_OFFSET_H * 3600000);   // no argument = "today" for the game; a Date = plain UTC calendar date
     return d.getUTCFullYear() + String(d.getUTCMonth() + 1).padStart(2, '0') + String(d.getUTCDate()).padStart(2, '0');
   };
   // Days listed here were regenerated into a brand new track after they went live: times posted before `at` belong to the old layout and are wiped.
@@ -58,6 +71,11 @@ window.DL = window.DL || {};
   DL.seedFor = day => DL.hashStr('dayline:' + day + (DL.REGEN[day] ? ':r' + DL.REGEN[day].r : ''));
   DL.keyToDate = k => new Date(Date.UTC(+k.slice(0, 4), +k.slice(4, 6) - 1, +k.slice(6, 8)));
   DL.addDays = (k, n) => DL.dayKey(new Date(DL.keyToDate(k).getTime() + n * 86400000));
+  (function () {
+    const k0 = DL.dayKey();
+    const run = () => DL.syncClock().then(ok => { if (ok && DL.dayKey() !== k0) location.reload(); });
+    run(); addEventListener('focus', () => DL.syncClock()); setInterval(() => DL.syncClock(), 300000);
+  })();
   DL.EPOCH = '20260101';
   DL.dayNumber = k => Math.round((DL.keyToDate(k) - DL.keyToDate(DL.EPOCH)) / 86400000) + 1;
   DL.prettyDay = function (k) {
@@ -65,7 +83,7 @@ window.DL = window.DL || {};
     return d.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', timeZone: 'UTC' }).toUpperCase();
   };
   DL.msToNextDay = function () {
-    const n = Date.now() + DL.RESET_OFFSET_H * 3600000, d = new Date(n);
+    const n = DL.now() + DL.RESET_OFFSET_H * 3600000, d = new Date(n);
     return Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate() + 1) - n;
   };
   DL.fmtTime = function (t) {
