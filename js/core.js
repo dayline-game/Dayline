@@ -361,6 +361,7 @@ window.DL = window.DL || {};
     },
     // exhaust bang: low thump + distorted noise crack, each randomised. kind 'crack' = sharp/high, 'burble' = low/wet/rapid, 'soft' = mellow
     bang(kind, v) {
+      if (this.onBang) { try { this.onBang(kind, v); } catch (e) { } }   // the game spawns a matching backfire flame
       if (!this.ctx) return;
       const ctx = this.ctx, t = ctx.currentTime, r = Math.random;
       if (!this.shaper) { const c = new Float32Array(256); for (let i = 0; i < 256; i++) { const x = i / 128 - 1; c[i] = Math.tanh(x * 5); } this.shaper = ctx.createWaveShaper(); this.shaper.curve = c; this.shaper.connect(this.master); }

@@ -990,6 +990,21 @@
     if (xd.k !== 'flame') return;
     for (let k = 0; k < 9; k++) fxSpawn(S, p.x, p.y, p.z, bx * (4 + Math.random() * 4) + (Math.random() - .5) * 1.2, Math.random() * 1.2, bz * (4 + Math.random() * 4) + (Math.random() - .5) * 1.2, 0.22 + Math.random() * 0.15, 0.4, xd.c[k % 2], 1.4);
   }
+
+  // backfire flame in time with each audio pop: glows orange from the heat, or takes the colour of the equipped exhaust (flame-/smoke- colours)
+  const popQ = [];
+  DL.Audio.onBang = (kind, v) => { if (popQ.length < 14) popQ.push({ kind, v }); };
+  function backfire(S, eqId, p, bx, bz, kind, v) {
+    const xd = eqId && eqId !== 'none' ? DL.EXHAUST[eqId] : null;
+    const hot = [0xfff1b0, 0xff8a1f, 0xe8431a];                    // white-yellow core, orange, red-orange edge
+    const cols = xd ? [new THREE.Color(xd.c[0]).lerp(new THREE.Color(0xffffff), 0.35).getHex(), xd.c[0], xd.c[1]] : hot;
+    const k = Math.min(1.4, 0.5 + v * 1.6), n = kind === 'crack' ? 9 : kind === 'burble' ? 6 : 4;
+    fxSpawn(S, p.x, p.y, p.z, bx * 1.5, 0.2, bz * 1.5, 0.07, 0.85 * k, cols[0], 0.6);                 // muzzle flash
+    for (let i = 0; i < n; i++) {
+      const sp = (kind === 'burble' ? 2.5 : 5) + Math.random() * (kind === 'crack' ? 5 : 3);
+      fxSpawn(S, p.x, p.y, p.z, bx * sp + (Math.random() - .5) * 1.4, Math.random() * 1.3, bz * sp + (Math.random() - .5) * 1.4, (kind === 'burble' ? 0.28 : 0.17) + Math.random() * 0.13, (0.3 + Math.random() * 0.25) * k, cols[i % 3], 1.5);
+    }
+  }
   function spawn(x, y, z, vx, vy, vz, life, size, color, grow) {
     if (parts.length >= PMAX) parts.shift();
     parts.push({ x, y, z, vx, vy, vz, life, max: life, size, color: new THREE.Color(color), grow: grow == null ? 1 : grow, rot: Math.random() * 6 });
@@ -1075,8 +1090,16 @@
       tmpV.copy(side).applyMatrix4(m.matrixWorld);
       const sp = Math.min(1, (c.speed || 0) / 40);
       exhaustFx(raceFx, xd, tmpV, -fx, -fz, input.throttle, sp * 3);
-      if (r.lastThr && !input.throttle && (c.speed || 0) > 8) exhaustPop(raceFx, xd, tmpV, -fx, -fz);
       r.lastThr = input.throttle;
+    }
+    // backfire flames synced to the audio pops (any car that pops; colour follows the equipped exhaust, default orange)
+    if (popQ.length) {
+      if (r.running && !r.finished) {
+        const ud = m.userData, side = ud.exhaust2 && Math.random() < 0.5 ? ud.exhaust2 : ud.exhaust;
+        tmpV.copy(side).applyMatrix4(m.matrixWorld);
+        for (const q of popQ) backfire(raceFx, eq.exhaust, tmpV, -fx, -fz, q.kind, q.v);
+      }
+      popQ.length = 0;
     }
     // trail ribbon
     if (eq.trail !== 'none' && r.running) {
