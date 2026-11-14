@@ -10,7 +10,7 @@
   const orbit = { theta: 2.4, phi: 0.3, dist: 9, auto: true, drag: null };
   let mode = 'loading';
   let race = null, menuT = 0;
-  const settings = Game.settings = Object.assign({ vol: 0.6, shadows: true, hq: true, cam: 0, units: 'kmh', touch: 'auto', pbGhost: true, shake: 1, cb: false, light: false }, DL.store.get('settings', {}));
+  const settings = Game.settings = Object.assign({ vol: 0.6, shadows: true, hq: true, cam: 0, units: 'kmh', touch: 'auto', pbGhost: true, shake: 1, cb: false, light: false, theme: 'auto' }, DL.store.get('settings', {}));
   let fill; const SO = [60, 110, 40];
   const keys = {};
   const touch = { left: 0, right: 0, gas: 0, brake: 0, drift: 0 };
@@ -56,7 +56,15 @@
     requestAnimationFrame(loop);
   };
 
+  Game.applyTheme = function () {
+    const t = settings.theme || 'auto', mq = window.matchMedia ? matchMedia('(prefers-color-scheme: dark)') : null;
+    const dark = t === 'dark' || (t === 'auto' && !!(mq && mq.matches));
+    document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light');
+    const m = document.querySelector('meta[name=theme-color]'); if (m) m.content = dark ? '#0f1420' : '#1c2536';
+  };
+  if (window.matchMedia) { const mq = matchMedia('(prefers-color-scheme: dark)'), f = () => { if ((settings.theme || 'auto') === 'auto') Game.applyTheme(); }; if (mq.addEventListener) mq.addEventListener('change', f); else if (mq.addListener) mq.addListener(f); }
   Game.applySettings = function () {
+    Game.applyTheme();
     const mob = DL.isTouch && DL.isTouch(), cap = mob ? (settings.hq ? 1.5 : 1) : (settings.hq ? 2 : 1);
     Game.baseRatio = Math.min(window.devicePixelRatio || 1, cap);
     renderer.setPixelRatio(Game.baseRatio * (Game.resScale || 1));

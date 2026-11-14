@@ -1401,6 +1401,7 @@
     const m = modal(`<div class="lbl">Your game</div><h2>Settings</h2>
       <div class="set-sec"><div class="set-h">Sound and display</div>
         ${rng('sVol', 'Volume', 0, 1, 0.05, s.vol, 'pct')}
+        ${sel('sTheme', 'Theme', '<option value="auto">Auto (device)</option><option value="light">Light</option><option value="dark">Dark</option>', 'Auto follows your device. Dark is easier on the eyes at night')}
         ${sel('sUnits', 'Speed units', '<option value="kmh">km/h</option><option value="mph">mph</option>')}
         ${tgl('sCb', 'cb', 'Colour-blind friendly splits', 'Blue and orange instead of green and red')}
       </div>
@@ -1451,7 +1452,7 @@
       ib.querySelector('#invCopy').onclick = async () => { const u = UI.inviteLink(); try { await navigator.clipboard.writeText(u); toast('<b>Invite link copied</b>'); } catch (e) { window.prompt('Copy this link', u); } };
       Net.referral().then(r => { if (r && ib.isConnected) ib.querySelector('#invStat').textContent = r.total ? r.total + ' friend' + (r.total > 1 ? 's' : '') + ' joined' : ''; });
     }
-    m.querySelector('#sCam').value = s.cam; m.querySelector('#sUnits').value = s.units; m.querySelector('#sTouch').value = s.touch;
+    m.querySelector('#sCam').value = s.cam; m.querySelector('#sUnits').value = s.units; m.querySelector('#sTheme').value = s.theme || 'auto'; m.querySelector('#sTouch').value = s.touch;
     m.querySelector('#sVol').oninput = e => { s.vol = +e.target.value; Game.applySettings(); };
     const tog = (id, k, after) => { const b = m.querySelector(id); b.onclick = () => { s[k] = !s[k]; b.classList.toggle('on', s[k]); b.textContent = s[k] ? 'On' : 'Off'; Game.applySettings(); if (after) after(); }; };
     m.querySelector('#sShake').oninput = e => { s.shake = +e.target.value; Game.applySettings(); };
@@ -1459,6 +1460,7 @@
     tog('#sLight', 'light');
     tog('#sHq', 'hq', () => toast('Scenery density changes on the next track load'));
     m.querySelector('#sCam').onchange = e => { s.cam = +e.target.value; Game.applySettings(); };
+    m.querySelector('#sTheme').onchange = e => { s.theme = e.target.value; Game.applySettings(); };
     m.querySelector('#sUnits').onchange = e => { s.units = e.target.value; Game.applySettings(); $('hUnit').textContent = s.units === 'mph' ? 'mph' : 'km/h'; };
     m.querySelector('#sTouch').onchange = e => { s.touch = e.target.value; Game.applySettings(); if (DL.Mobile) DL.Mobile.refresh(); };
     { const Mo = DL.Mobile, q = x => m.querySelector(x), after = () => { if (Mo) Mo.refresh(); };

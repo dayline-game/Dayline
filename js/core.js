@@ -267,7 +267,22 @@ window.DL = window.DL || {};
       const rn = ctx.createBufferSource(); rn.buffer = this.noise; rn.loop = true;
       const rf = ctx.createBiquadFilter(); rf.type = 'lowpass'; rf.frequency.value = 260;
       const rg = ctx.createGain(); rg.gain.value = 0; rn.connect(rf); rf.connect(rg); rg.connect(this.master); rn.start();
-      this.engine = { o1, o2, f, g, sg, wg, qo, qf, qg, rg, nodes: [o1, o2, o3, sk, wn, qo, ql, rn] };
+      // surface texture: its own noise layer with a band-pass colour and an amplitude LFO, retuned per surface (crunch, slosh, hiss, buzz)
+      const tn = ctx.createBufferSource(); tn.buffer = this.noise; tn.loop = true;
+      const tf = ctx.createBiquadFilter(); tf.type = 'bandpass'; tf.frequency.value = 1500; tf.Q.value = 0.7;
+      const tam = ctx.createGain(); tam.gain.value = 0.6;
+      const tl = ctx.createOscillator(); tl.type = 'square'; tl.frequency.value = 12; const td = ctx.createGain(); td.gain.value = 0; tl.connect(td); td.connect(tam.gain);
+      const tg = ctx.createGain(); tg.gain.value = 0; tn.connect(tf); tf.connect(tam); tam.connect(tg); tg.connect(this.master); tn.start(); tl.start();
+      this.engine = { o1, o2, f, g, sg, wg, qo, qf, qg, rg, rf, tf, tg, tl, td, surf: 0, nodes: [o1, o2, o3, sk, wn, qo, ql, rn, tn, tl] };
+    },
+    // per-surface sound: [rumble Hz, rumble gain, texture Hz, texture Q, texture gain, LFO Hz, LFO depth 0..1]
+    SURF_SND: {
+      1: [110, 0.10, 900, 2.0, 0.05, 30, 0.9],   // kerb: rattly buzz
+      2: [300, 0.07, 2700, 0.7, 0.16, 18, 0.7],  // gravel: sharp crunch
+      3: [220, 0.14, 1500, 0.6, 0.11, 9, 0.5],   // dirt / grass: dull scrub
+      4: [130, 0.20, 420, 1.0, 0.13, 5, 0.8],    // mud: heavy slosh
+      5: [180, 0.04, 5200, 0.5, 0.09, 3, 0.15],  // snow: soft airy hiss
+      6: [240, 0.06, 3300, 0.5, 0.13, 2.5, 0.3]  // sand: smooth rushing hiss
     },
     updateEngine(speed, throttle, slip, onGround, slideK, surf) {
       const e = this.engine; if (!e) return;
@@ -287,7 +302,16 @@ window.DL = window.DL || {};
       const sq = onGround ? DL.clamp(Math.max(slip - 0.5, (slideK || 0) * 0.9) , 0, 1) * (Math.abs(speed) > 6 ? 1 : 0) : 0;
       e.qg.gain.setTargetAtTime(sq * 0.07, t, 0.06);
       e.qo.frequency.setTargetAtTime(760 + Math.abs(speed) * 7 + (slideK || 0) * 160, t, 0.1); e.qf.frequency.setTargetAtTime(1000 + Math.abs(speed) * 9, t, 0.1);
-      e.rg.gain.setTargetAtTime(onGround && surf > 0 ? DL.clamp(Math.abs(speed) / 30, 0, 1) * 0.16 : 0, t, 0.1);
+      const sp = this.SURF_SND[surf], sk2 = onGround && sp ? DL.clamp(Math.abs(speed) / 30, 0, 1) : 0;
+      if (sp) {
+        e.rf.frequency.setTargetAtTime(sp[0], t, 0.05); e.tf.frequency.setTargetAtTime(sp[2], t, 0.05); e.tf.Q.setTargetAtTime(sp[3], t, 0.05);
+        e.tl.frequency.setTargetAtTime(sp[5] * (0.6 + 0.4 * sk2), t, 0.1); e.td.gain.setTargetAtTime(sp[6] * 0.55, t, 0.05);
+      }
+      e.rg.gain.setTargetAtTime(sp ? sk2 * sp[1] : 0, t, 0.06);
+      e.tg.gain.setTargetAtTime(sp ? sk2 * sp[4] : 0, t, 0.06);
+      // leaving the tarmac: a short thud so the moment you drop a wheel is unmistakable
+      if (onGround && surf > 0 && e.surf === 0 && Math.abs(speed) > 8) this.thump(0.12 + Math.min(0.2, Math.abs(speed) / 200));
+      e.surf = onGround ? surf : e.surf;
     },
     stopEngine() {
       const e = this.engine; if (!e) return;
