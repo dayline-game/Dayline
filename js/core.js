@@ -280,12 +280,12 @@ window.DL = window.DL || {};
     },
     // engine character per car class: p pitch multiplier, tb turbo (0..1), pp exhaust-pop strength, br brightness, ev electric whine
     ENGINE_PROFILES: {
-      'Hatch': { p: 1.0, tb: 0.0, pp: 0.6, br: 1.0 }, 'Micro': { p: 1.45, tb: 0, pp: 0, br: 1.1 }, 'Golf cart': { p: 1.3, tb: 0, pp: 0, br: 0.6, ev: 1 },
-      'Bumper car': { p: 1.3, tb: 0, pp: 0, br: 0.7, ev: 1 }, 'Sports': { p: 1.1, tb: 0.55, pp: 1.2, br: 1.1 }, 'Rally': { p: 1.0, tb: 1.0, pp: 1.6, br: 1.15 },
-      'GT3': { p: 1.35, tb: 0, pp: 1.0, br: 1.4 }, 'Supercar': { p: 1.25, tb: 0.35, pp: 1.7, br: 1.3 }, 'Hypercar': { p: 1.5, tb: 0.5, pp: 1.5, br: 1.5 },
-      'Open-wheeler': { p: 1.7, tb: 0, pp: 0.8, br: 1.6 }, 'Muscle': { p: 0.62, tb: 0, pp: 1.8, br: 0.8 }, 'Classic': { p: 0.85, tb: 0, pp: 0.7, br: 0.7 },
-      'Monster truck': { p: 0.6, tb: 0, pp: 1.2, br: 0.7 }, 'Off-road': { p: 0.8, tb: 0.4, pp: 1.0, br: 0.9 }, 'Electric pickup': { p: 1.6, tb: 0, pp: 0, br: 0.9, ev: 1 },
-      'Rocket car': { p: 0.9, tb: 0, pp: 2.0, br: 1.2 }, 'Van': { p: 0.8, tb: 0.2, pp: 0.3, br: 0.7 }, 'Taxi': { p: 0.9, tb: 0, pp: 0.3, br: 0.8 }, 'Limousine': { p: 0.75, tb: 0, pp: 0.2, br: 0.6 }
+      'Hatch': { ps: 'soft', p: 1.0, tb: 0.0, pp: 0.6, br: 1.0 }, 'Micro': { p: 1.45, tb: 0, pp: 0, br: 1.1 }, 'Golf cart': { p: 1.3, tb: 0, pp: 0, br: 0.6, ev: 1 },
+      'Bumper car': { p: 1.3, tb: 0, pp: 0, br: 0.7, ev: 1 }, 'Sports': { ps: 'crack', p: 1.1, tb: 0.55, pp: 1.2, br: 1.1 }, 'Rally': { ps: 'crack', p: 1.0, tb: 1.0, pp: 1.6, br: 1.15 },
+      'GT3': { ps: 'crack', p: 1.35, tb: 0, pp: 1.0, br: 1.4 }, 'Supercar': { ps: 'crack', p: 1.25, tb: 0.35, pp: 1.7, br: 1.3 }, 'Hypercar': { ps: 'crack', p: 1.5, tb: 0.5, pp: 1.5, br: 1.5 },
+      'Open-wheeler': { ps: 'crack', p: 1.7, tb: 0, pp: 0.8, br: 1.6 }, 'Muscle': { ps: 'burble', p: 0.62, tb: 0, pp: 1.8, br: 0.8 }, 'Classic': { ps: 'soft', p: 0.85, tb: 0, pp: 0.7, br: 0.7 },
+      'Monster truck': { ps: 'burble', p: 0.6, tb: 0, pp: 1.2, br: 0.7 }, 'Off-road': { ps: 'burble', p: 0.8, tb: 0.4, pp: 1.0, br: 0.9 }, 'Electric pickup': { p: 1.6, tb: 0, pp: 0, br: 0.9, ev: 1 },
+      'Rocket car': { ps: 'burble', p: 0.9, tb: 0, pp: 2.0, br: 1.2 }, 'Van': { ps: 'soft', p: 0.8, tb: 0.2, pp: 0.3, br: 0.7 }, 'Taxi': { ps: 'soft', p: 0.9, tb: 0, pp: 0.3, br: 0.8 }, 'Limousine': { ps: 'soft', p: 0.75, tb: 0, pp: 0.2, br: 0.6 }
     },
     setCar(cls) { this.prof = this.ENGINE_PROFILES[cls] || { p: 1, tb: 0, pp: 0.8, br: 1 }; },
     // per-surface sound: [rumble Hz, rumble gain, texture Hz, texture Q, texture gain, LFO Hz, LFO depth 0..1]
@@ -305,8 +305,11 @@ window.DL = window.DL || {};
       const pr = this.prof || { p: 1, tb: 0, pp: 0.8, br: 1 }, dt = Math.min(0.1, Math.max(0.005, t - (e.lt || t))); e.lt = t;
       const fq = (55 + rpm * 130) * pr.p;
       // gear change: brief power dip; throttle lift at speed: exhaust pops
-      if (e.gear != null && gear !== e.gear && speed > 5) { e.g.gain.cancelScheduledValues(t); e.g.gain.setValueAtTime(0.01, t); this.pop(0.05, 900); }
-      if (pr.pp > 0 && e.thr > 0.6 && throttle < 0.2 && Math.abs(speed) > 22 && t - (e.popT || 0) > 0.5) { e.popT = t; const n = Math.round((2 + (Math.random() * 3 | 0)) * pr.pp); for (let i = 0; i < n; i++) setTimeout(() => this.pop(Math.min(0.2, (0.07 + Math.random() * 0.05) * (0.8 + pr.pp * 0.5)), 400 + Math.random() * 700), i * (50 + Math.random() * 80)); }
+      if (e.gear != null && gear !== e.gear && speed > 5) { e.g.gain.cancelScheduledValues(t); e.g.gain.setValueAtTime(0.01, t); const pg = this.prof || { pp: 0.8 }; if (pg.pp > 1) this.bang(pg.ps || 'crack', 0.25); else this.pop(0.05, 900); }
+      if (pr.pp > 0 && e.thr > 0.5 && throttle < 0.25 && Math.abs(speed) > 16 && t - (e.popT || 0) > 0.45) {
+        e.popT = t; const st = pr.ps || 'soft', rapid = st === 'burble', n = Math.max(1, Math.round((st === 'crack' ? 3 + Math.random() * 4 : rapid ? 4 + Math.random() * 4 : 1 + Math.random() * 2) * Math.min(1.5, pr.pp)));
+        let at = 0; for (let i = 0; i < n; i++) { const vv = Math.min(0.7, (0.28 + Math.random() * 0.3) * (0.6 + pr.pp * 0.45) * (i === 0 ? 1.25 : 1) * (1 - i / (n + 2) * 0.5)); setTimeout(() => this.bang(st, vv), at); at += (rapid ? 55 + Math.random() * 60 : st === 'crack' ? 28 + Math.random() * 75 : 90 + Math.random() * 120); }
+      }
       // turbo spool: builds slowly under load, drops quickly on lift; the blow-off hiss fires when boost is dropped
       const want = pr.tb * throttle * DL.clamp(Math.abs(speed) / 40, 0, 1);
       const lifted = e.boost > 0.45 && want < e.boost * 0.4 && t - (e.bofT || 0) > 0.6;
@@ -355,6 +358,23 @@ window.DL = window.DL || {};
       g.gain.setValueAtTime(Math.min(0.6, v), ctx.currentTime);
       g.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.25);
       s.connect(f); f.connect(g); g.connect(this.master); s.start(); s.stop(ctx.currentTime + 0.3);
+    },
+    // exhaust bang: low thump + distorted noise crack, each randomised. kind 'crack' = sharp/high, 'burble' = low/wet/rapid, 'soft' = mellow
+    bang(kind, v) {
+      if (!this.ctx) return;
+      const ctx = this.ctx, t = ctx.currentTime, r = Math.random;
+      if (!this.shaper) { const c = new Float32Array(256); for (let i = 0; i < 256; i++) { const x = i / 128 - 1; c[i] = Math.tanh(x * 5); } this.shaper = ctx.createWaveShaper(); this.shaper.curve = c; this.shaper.connect(this.master); }
+      const P = kind === 'burble' ? { f: 260 + r() * 260, q: 0.9, d: 0.11 + r() * 0.07, th: 95 + r() * 30, k: 0.7 }
+        : kind === 'soft' ? { f: 600 + r() * 500, q: 1.0, d: 0.07 + r() * 0.04, th: 130, k: 0.85 }
+        : { f: 1600 + r() * 2200, q: 1.4, d: 0.05 + r() * 0.05, th: 150 + r() * 40, k: 1 };
+      const nz = ctx.createBufferSource(), nf = ctx.createBiquadFilter(), ng = ctx.createGain();
+      nz.buffer = this.noise; nf.type = 'bandpass'; nf.frequency.value = P.f; nf.Q.value = P.q;
+      ng.gain.setValueAtTime(v * P.k, t); ng.gain.exponentialRampToValueAtTime(0.0001, t + P.d);
+      nz.connect(nf); nf.connect(ng); ng.connect(this.shaper); nz.start(t, r()); nz.stop(t + P.d + 0.02);
+      const o = ctx.createOscillator(), og = ctx.createGain(); o.type = 'sine';
+      o.frequency.setValueAtTime(P.th * 1.8, t); o.frequency.exponentialRampToValueAtTime(P.th * 0.45, t + P.d);
+      og.gain.setValueAtTime(v * 0.9, t); og.gain.exponentialRampToValueAtTime(0.0001, t + P.d + 0.04);
+      o.connect(og); og.connect(this.master); o.start(t); o.stop(t + P.d + 0.06);
     },
     pop(v, fq) {
       if (!this.ctx) return;
