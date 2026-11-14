@@ -81,6 +81,8 @@ window.DL = window.DL || {};
   // ---------- patch notes (major releases only, newest first) ----------
   DL.DAILY_REWARDS = [100, 150, 200, 250, 300, 400, 'car'];
   DL.PATCHES = [
+    { v: '2.8', date: 'November 2026', title: 'Night Mode & Engine Sounds', art: 'drift',
+      items: ['New: dark theme. Settings > Theme: Auto follows your device, or pick Light / Dark', 'Every surface now sounds different: gravel crunches, mud sloshes, snow hisses, sand rushes, and kerbs buzz, so you can hear the moment you leave the road', 'Cars have their own engine voices: deep muscle, screaming open-wheelers, an electric whine, and a turbo whistle with blow-off on Rally, Sports and supercars', 'Louder, sharper exhaust pops on throttle lift, with backfire flames that glow orange (or match your exhaust colour)', 'Wider controller deadzone so drifting sticks no longer steer on their own'] },
     { v: '2.7', date: 'November 2026', title: 'Redeem Codes', art: 'daily',
       items: ['New: Redeem a code in Settings for coins, cars and cosmetics', 'Keep an eye on our videos and posts, codes are hidden in them', 'Each code works once per account']},
     { v: '2.6', date: 'November 2026', title: 'Daily Rewards', art: 'daily',
