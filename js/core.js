@@ -273,8 +273,21 @@ window.DL = window.DL || {};
       const tam = ctx.createGain(); tam.gain.value = 0.6;
       const tl = ctx.createOscillator(); tl.type = 'square'; tl.frequency.value = 12; const td = ctx.createGain(); td.gain.value = 0; tl.connect(td); td.connect(tam.gain);
       const tg = ctx.createGain(); tg.gain.value = 0; tn.connect(tf); tf.connect(tam); tam.connect(tg); tg.connect(this.master); tn.start(); tl.start();
-      this.engine = { o1, o2, f, g, sg, wg, qo, qf, qg, rg, rf, tf, tg, tl, td, surf: 0, nodes: [o1, o2, o3, sk, wn, qo, ql, rn, tn, tl] };
+      // turbo: a thin sine whistle that spools with boost, plus a noise burst for the blow-off on throttle lift
+      const bo = ctx.createOscillator(); bo.type = 'sine'; bo.frequency.value = 2400; const bg = ctx.createGain(); bg.gain.value = 0; bo.connect(bg); bg.connect(this.master); bo.start();
+      const o4 = ctx.createOscillator(); o4.type = 'sine'; o4.frequency.value = 60; const g4 = ctx.createGain(); g4.gain.value = 0; o4.connect(g4); g4.connect(this.master); o4.start();
+      this.engine = { bo, bg, o4, g4, boost: 0, lt: 0, o1, o2, f, g, sg, wg, qo, qf, qg, rg, rf, tf, tg, tl, td, surf: 0, nodes: [o1, o2, o3, sk, wn, qo, ql, rn, tn, tl, bo, o4] };
     },
+    // engine character per car class: p pitch multiplier, tb turbo (0..1), pp exhaust-pop strength, br brightness, ev electric whine
+    ENGINE_PROFILES: {
+      'Hatch': { p: 1.0, tb: 0.0, pp: 0.6, br: 1.0 }, 'Micro': { p: 1.45, tb: 0, pp: 0, br: 1.1 }, 'Golf cart': { p: 1.3, tb: 0, pp: 0, br: 0.6, ev: 1 },
+      'Bumper car': { p: 1.3, tb: 0, pp: 0, br: 0.7, ev: 1 }, 'Sports': { p: 1.1, tb: 0.55, pp: 1.2, br: 1.1 }, 'Rally': { p: 1.0, tb: 1.0, pp: 1.6, br: 1.15 },
+      'GT3': { p: 1.35, tb: 0, pp: 1.0, br: 1.4 }, 'Supercar': { p: 1.25, tb: 0.35, pp: 1.7, br: 1.3 }, 'Hypercar': { p: 1.5, tb: 0.5, pp: 1.5, br: 1.5 },
+      'Open-wheeler': { p: 1.7, tb: 0, pp: 0.8, br: 1.6 }, 'Muscle': { p: 0.62, tb: 0, pp: 1.8, br: 0.8 }, 'Classic': { p: 0.85, tb: 0, pp: 0.7, br: 0.7 },
+      'Monster truck': { p: 0.6, tb: 0, pp: 1.2, br: 0.7 }, 'Off-road': { p: 0.8, tb: 0.4, pp: 1.0, br: 0.9 }, 'Electric pickup': { p: 1.6, tb: 0, pp: 0, br: 0.9, ev: 1 },
+      'Rocket car': { p: 0.9, tb: 0, pp: 2.0, br: 1.2 }, 'Van': { p: 0.8, tb: 0.2, pp: 0.3, br: 0.7 }, 'Taxi': { p: 0.9, tb: 0, pp: 0.3, br: 0.8 }, 'Limousine': { p: 0.75, tb: 0, pp: 0.2, br: 0.6 }
+    },
+    setCar(cls) { this.prof = this.ENGINE_PROFILES[cls] || { p: 1, tb: 0, pp: 0.8, br: 1 }; },
     // per-surface sound: [rumble Hz, rumble gain, texture Hz, texture Q, texture gain, LFO Hz, LFO depth 0..1]
     SURF_SND: {
       1: [110, 0.10, 900, 2.0, 0.05, 30, 0.9],   // kerb: rattly buzz
@@ -289,14 +302,23 @@ window.DL = window.DL || {};
       const t = this.ctx.currentTime;
       const gear = Math.min(5, Math.floor(Math.abs(speed) / 11));
       const rpm = 0.25 + (Math.abs(speed) - gear * 11) / 11 * 0.6 + gear * 0.03 + throttle * 0.1;
-      const fq = 55 + rpm * 130;
+      const pr = this.prof || { p: 1, tb: 0, pp: 0.8, br: 1 }, dt = Math.min(0.1, Math.max(0.005, t - (e.lt || t))); e.lt = t;
+      const fq = (55 + rpm * 130) * pr.p;
       // gear change: brief power dip; throttle lift at speed: exhaust pops
       if (e.gear != null && gear !== e.gear && speed > 5) { e.g.gain.cancelScheduledValues(t); e.g.gain.setValueAtTime(0.01, t); this.pop(0.05, 900); }
-      if (e.thr > 0.6 && throttle < 0.2 && Math.abs(speed) > 22 && t - (e.popT || 0) > 0.5) { e.popT = t; const n = 2 + (Math.random() * 3 | 0); for (let i = 0; i < n; i++) setTimeout(() => this.pop(0.07 + Math.random() * 0.05, 500 + Math.random() * 500), i * (60 + Math.random() * 70)); }
+      if (pr.pp > 0 && e.thr > 0.6 && throttle < 0.2 && Math.abs(speed) > 22 && t - (e.popT || 0) > 0.5) { e.popT = t; const n = Math.round((2 + (Math.random() * 3 | 0)) * pr.pp); for (let i = 0; i < n; i++) setTimeout(() => this.pop(Math.min(0.2, (0.07 + Math.random() * 0.05) * (0.8 + pr.pp * 0.5)), 400 + Math.random() * 700), i * (50 + Math.random() * 80)); }
+      // turbo spool: builds slowly under load, drops quickly on lift; the blow-off hiss fires when boost is dropped
+      const want = pr.tb * throttle * DL.clamp(Math.abs(speed) / 40, 0, 1);
+      const lifted = e.boost > 0.45 && want < e.boost * 0.4 && t - (e.bofT || 0) > 0.6;
+      if (lifted && pr.tb > 0) { e.bofT = t; this.whoosh(0.05 + 0.1 * pr.tb); }
+      e.boost += (want - e.boost) * Math.min(1, dt * (want > e.boost ? 2.2 : 7));
       e.gear = gear; e.thr = throttle;
+      e.bo.frequency.setTargetAtTime(1800 + e.boost * 4200, t, 0.05); e.bg.gain.setTargetAtTime(pr.tb > 0 ? e.boost * 0.035 * (0.5 + pr.tb * 0.5) : 0, t, 0.06);
+      // electric cars: a clean rising whine instead of a combustion note
+      e.o4.frequency.setTargetAtTime(220 + Math.abs(speed) * 22, t, 0.06); e.g4.gain.setTargetAtTime(pr.ev ? 0.05 + throttle * 0.03 : 0, t, 0.08);
       e.o1.frequency.setTargetAtTime(fq, t, 0.05); e.o2.frequency.setTargetAtTime(fq, t, 0.05);
-      e.f.frequency.setTargetAtTime(400 + throttle * 1400 + rpm * 600, t, 0.08);
-      e.g.gain.setTargetAtTime(0.05 + throttle * 0.07, t, 0.08);
+      e.f.frequency.setTargetAtTime((400 + throttle * 1400 + rpm * 600) * pr.br, t, 0.08);
+      e.g.gain.setTargetAtTime((0.05 + throttle * 0.07) * (pr.ev ? 0.35 : 1), t, 0.08);
       e.sg.gain.setTargetAtTime(onGround ? DL.clamp(slip - 0.25, 0, 1) * 0.18 : 0, t, 0.05);
       e.wg.gain.setTargetAtTime(DL.clamp(Math.abs(speed) / 50, 0, 1) * 0.12, t, 0.2);
       const sq = onGround ? DL.clamp(Math.max(slip - 0.5, (slideK || 0) * 0.9) , 0, 1) * (Math.abs(speed) > 6 ? 1 : 0) : 0;

@@ -431,7 +431,7 @@
     trail.points.length = 0; clearSkids();
     resetCarToStart();
     DL.UI.raceStarted(race);
-    DL.Audio.startEngine();
+    DL.Audio.setCar((DL.CARS[DL.Net.save.car] || {}).cls); DL.Audio.startEngine();
     warmUp();
     loadGhosts(race);
   };
