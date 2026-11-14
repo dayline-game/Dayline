@@ -67,6 +67,12 @@
 
   // ---------------- top nav ----------------
   function renderCoins() { $('coinCount').textContent = Net.save.coins.toLocaleString('en-GB'); }
+  // one-tap light / dark switch in the top bar (icon shows what you will get)
+  const SUN = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>';
+  const MOON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 14.5A8.5 8.5 0 0 1 9.5 4 8.5 8.5 0 1 0 20 14.5z"/></svg>';
+  const themeIcon = () => { const dark = document.documentElement.getAttribute('data-theme') === 'dark', b = $('navTheme'); if (!b) return; b.innerHTML = dark ? SUN : MOON; b.title = dark ? 'Switch to light' : 'Switch to dark'; b.setAttribute('aria-label', b.title); };
+  $('navTheme').onclick = () => { const dark = document.documentElement.getAttribute('data-theme') === 'dark'; Game.settings.theme = dark ? 'light' : 'dark'; Game.applySettings(); themeIcon(); const sel = document.getElementById('sTheme'); if (sel) sel.value = Game.settings.theme; };
+  themeIcon(); new MutationObserver(themeIcon).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
   $('navSettings').onclick = openSettings;
   $('navProfile').onclick = () => openProfile(null);
   $('navShare').onclick = openShare;

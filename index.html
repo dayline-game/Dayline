@@ -48,6 +48,7 @@
   color-scheme:dark;
 }
 :root[data-theme=dark] .field input[type=text],:root[data-theme=dark] .field input[type=password],:root[data-theme=dark] .field select,:root[data-theme=dark] select,:root[data-theme=dark] input[type=text]{background:#151c2b;color:var(--ink);border-color:var(--line);}
+:root[data-theme=dark] .pn-art{color:#11151d;}
 :root[data-theme=dark] .panel{box-shadow:0 18px 50px -24px rgba(0,0,0,.8);}
 
 [hidden]{display:none!important;}
@@ -851,6 +852,17 @@ body.cine #vig{opacity:1}
 :root[data-theme=dark] .dr-tile:not(.big):not(.now){background:var(--cream-2);}
 :root[data-theme=dark] .dr-tile.now{background:#f2c14e;color:#1c2536;}
 :root[data-theme=dark] .is-code,:root[data-theme=dark] .soc-btn{background:var(--cream-2);}
+
+/* dark: light text that sits on fixed dark chrome must stay light (it used var(--cream), which flips) */
+:root[data-theme=dark] .tn-brand,:root[data-theme=dark] .tn-tabs button:hover,:root[data-theme=dark] #topnav .icon-btn,:root[data-theme=dark] #topnav .coins,:root[data-theme=dark] .lb-name,:root[data-theme=dark] .lb-quick button,:root[data-theme=dark] .ii-btn,:root[data-theme=dark] .slot,:root[data-theme=dark] #rmHud{color:#f3ead7;}
+:root[data-theme=dark] .coins .num,:root[data-theme=dark] #coinCount{color:#f3ead7;}
+@media (min-width:761px){:root[data-theme=dark] .tn-tabs button.on{background:#2f3b57;color:#f3ead7;}}
+:root[data-theme=dark] .is-chips button.on,:root[data-theme=dark] .ii-btn.on{color:#f3ead7;}
+:root[data-theme=dark] .ii-buy{color:#11151d;}
+:root[data-theme=dark] .chk.sw{background:#47516a;color:#f3ead7;}
+:root[data-theme=dark] .chk.sw.on{background:var(--coral);}
+:root[data-theme=dark] .is-timer,:root[data-theme=dark] .is-search,:root[data-theme=dark] .is-search input,:root[data-theme=dark] .is-chips button{color:#f3ead7;}
+:root[data-theme=dark] .is-search input::placeholder{color:rgba(243,234,215,.6);}
 </style>
 
 <canvas id="gl"></canvas>
@@ -869,7 +881,8 @@ body.cine #vig{opacity:1}
   <div class="tn-right">
   <div class="coins" title="Coins"><span class="coin"></span><span id="coinCount" class="num">0</span></div>
 </div>
-  <button class="icon-btn" id="navFull" aria-label="Full screen" title="Full screen" hidden><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9V4h5M15 4h5v5M20 15v5h-5M9 20H4v-5"/></svg></button><button class="icon-btn" id="navSettings" aria-label="Settings" title="Settings"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.3 2.6h3.4l.5 2.5a7.4 7.4 0 0 1 1.9 1.1l2.4-.8 1.7 2.9-1.9 1.7a7.4 7.4 0 0 1 0 2.2l1.9 1.7-1.7 2.9-2.4-.8a7.4 7.4 0 0 1-1.9 1.1l-.5 2.5h-3.4l-.5-2.5a7.4 7.4 0 0 1-1.9-1.1l-2.4.8-1.7-2.9 1.9-1.7a7.4 7.4 0 0 1 0-2.2L3.8 8.3l1.7-2.9 2.4.8a7.4 7.4 0 0 1 1.9-1.1z"/><circle cx="12" cy="12" r="2.8"/></svg></button>
+  <button class="icon-btn" id="navFull" aria-label="Full screen" title="Full screen" hidden><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9V4h5M15 4h5v5M20 15v5h-5M9 20H4v-5"/></svg></button><button class="icon-btn" id="navTheme" aria-label="Switch light or dark theme" title="Light / dark"></button>
+  <button class="icon-btn" id="navSettings" aria-label="Settings" title="Settings"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.3 2.6h3.4l.5 2.5a7.4 7.4 0 0 1 1.9 1.1l2.4-.8 1.7 2.9-1.9 1.7a7.4 7.4 0 0 1 0 2.2l1.9 1.7-1.7 2.9-2.4-.8a7.4 7.4 0 0 1-1.9 1.1l-.5 2.5h-3.4l-.5-2.5a7.4 7.4 0 0 1-1.9-1.1l-2.4.8-1.7-2.9 1.9-1.7a7.4 7.4 0 0 1 0-2.2L3.8 8.3l1.7-2.9 2.4.8a7.4 7.4 0 0 1 1.9-1.1z"/><circle cx="12" cy="12" r="2.8"/></svg></button>
   <button class="icon-btn" id="navProfile" aria-label="Profile"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6"/></svg></button>
   <button class="icon-btn" id="navShare" aria-label="Community and sharing"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 5h16v11H9l-5 4z"/><circle cx="9" cy="10.5" r="1" fill="currentColor"/><circle cx="15" cy="10.5" r="1" fill="currentColor"/></svg></button>
 </div>
@@ -1066,27 +1079,27 @@ body.cine #vig{opacity:1}
 <div id="toasts"></div>
 
 <script src="https://cdn.jsdelivr.net/npm/three@0.158.0/build/three.min.js"></script>
-<script src="config.js?v=20261114dr"></script>
+<script src="config.js?v=20261114dr3"></script>
 <div id="vig"></div>
-<script src="js/core.js?v=20261114dr"></script>
-<script src="js/models_data.js?v=20261114dr"></script>
-<script src="js/models_tyres.js?v=20261114dr"></script>
-<script src="js/models_gt3.js?v=20261114dr"></script>
-<script src="js/models.js?v=20261114dr"></script>
-<script src="js/track.js?v=20261114dr"></script>
-<script src="js/physics.js?v=20261114dr"></script>
-<script src="js/vehicles.js?v=20261114dr"></script>
-<script src="js/decals.js?v=20261114dr"></script>
-<script src="js/items.js?v=20261114dr"></script>
-<script src="js/codes.js?v=20261114dr"></script>
-<script src="js/net.js?v=20261114dr"></script>
-<script src="js/thumbs.js?v=20261114dr"></script>
-<script src="js/auth.js?v=20261114dr"></script>
-<script src="js/game.js?v=20261114dr"></script>
-<script src="js/ui.js?v=20261114dr"></script>
-<script src="js/community.js?v=20261114dr"></script>
-<script src="js/rooms.js?v=20261114dr"></script>
-<script src="js/share.js?v=20261114dr"></script>
+<script src="js/core.js?v=20261114dr3"></script>
+<script src="js/models_data.js?v=20261114dr3"></script>
+<script src="js/models_tyres.js?v=20261114dr3"></script>
+<script src="js/models_gt3.js?v=20261114dr3"></script>
+<script src="js/models.js?v=20261114dr3"></script>
+<script src="js/track.js?v=20261114dr3"></script>
+<script src="js/physics.js?v=20261114dr3"></script>
+<script src="js/vehicles.js?v=20261114dr3"></script>
+<script src="js/decals.js?v=20261114dr3"></script>
+<script src="js/items.js?v=20261114dr3"></script>
+<script src="js/codes.js?v=20261114dr3"></script>
+<script src="js/net.js?v=20261114dr3"></script>
+<script src="js/thumbs.js?v=20261114dr3"></script>
+<script src="js/auth.js?v=20261114dr3"></script>
+<script src="js/game.js?v=20261114dr3"></script>
+<script src="js/ui.js?v=20261114dr3"></script>
+<script src="js/community.js?v=20261114dr3"></script>
+<script src="js/rooms.js?v=20261114dr3"></script>
+<script src="js/share.js?v=20261114dr3"></script>
 <div id="applixir-ad-container" hidden></div>
-<script src="js/ads.js?v=20261114dr"></script>
-<script src="js/mobile.js?v=20261114dr"></script>
+<script src="js/ads.js?v=20261114dr3"></script>
+<script src="js/mobile.js?v=20261114dr3"></script>
